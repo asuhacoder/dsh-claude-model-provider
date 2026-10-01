@@ -9,6 +9,12 @@ dsh plugin --profile web add @asuha/dsh-claude-model-provider@next --ignore-scri
 claude auth login
 ```
 
+npmの公開状況は[リリース状況](RELEASE_STATUS.md)で確認できます。固定バージョンのGitHub配布物からも導入できます。
+
+```sh
+dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/asuha-dsh-claude-model-provider-0.1.0-next.3.tgz --ignore-scripts
+```
+
 DSHを再起動し、設定の「Claude 公式SDK」で既存の公式ログインを接続してください。CLIで登録する場合はDSH停止中に `dsh plugin --profile web exec dsh-claude-model-provider accounts add primary --extra-usage-off` を実行します。
 
 `0.1.0-next.3` では、推論強度を選べないモデルが原因でClaude全体がモデル一覧から消える不具合を修正しました。既存のDSH Web環境で、実際の会話への応答とDSHのファイル読取ツールの往復を確認しています。

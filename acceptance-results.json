@@ -21,7 +21,8 @@
       },
       "result": "PASSED",
       "evidence": [
-        "scripts/verify-install.mjs"
+        "scripts/verify-install.mjs",
+        "evidence/active-web-github-next3.json"
       ],
       "notes": "Final tarball installed into an empty HOME/DSH_HOME with public plugin commands; actual apply and module identity passed."
     },
@@ -37,9 +38,10 @@
       },
       "result": "NOT_RUN",
       "evidence": [
-        "scripts/verify-install.mjs"
+        "scripts/verify-install.mjs",
+        "evidence/active-web-candidate-next3.json"
       ],
-      "notes": "Composition preservation is tested. Codex/Grok network routes and full existing-provider catalog are not exercised."
+      "notes": "Composition preservation is tested. Codex/Grok network routes and full existing-provider catalog are not exercised. Active Web verification also preserved all five existing provider groups and 53 existing sessions. Other-provider network routes remain untested."
     },
     {
       "id": "A-003",
@@ -56,7 +58,8 @@
       "result": "PASSED",
       "evidence": [
         "evidence/live-matrix.json",
-        "tests/tool-bridge.spec.ts"
+        "tests/tool-bridge.spec.ts",
+        "evidence/active-web-github-next3.json"
       ],
       "notes": "Bounded real DSH-owned tool request and permission-denial receipt passed; native SDK tools are disabled."
     },
@@ -135,9 +138,10 @@
       "evidence": [
         "tests/models.spec.ts",
         "src/auth/official.ts",
-        "evidence/live-acceptance.json"
+        "evidence/live-acceptance.json",
+        "evidence/active-web-final-candidate-next3.json"
       ],
-      "notes": "Opus low requested live. Server-effective effort/clamp and all model capabilities not verified. Additional real Opus requests asserted the requested low effort at the SDK boundary and observed claude-opus-5-5; server-effective effort is still unavailable."
+      "notes": "Opus low requested live. Server-effective effort/clamp and all model capabilities not verified. Additional real Opus requests asserted the requested low effort at the SDK boundary and observed claude-opus-5-5; server-effective effort is still unavailable. Actual DSH catalog integration passed with 11 Claude models after fixing empty effort metadata; server-effective effort remains unverified."
     },
     {
       "id": "A-008",
@@ -721,7 +725,8 @@
       },
       "result": "PASSED",
       "evidence": [
-        "scripts/verify-install.mjs"
+        "scripts/verify-install.mjs",
+        "evidence/active-web-github-next3.json"
       ],
       "notes": "Host and plugin dsh-llm resolve identically through official PluginPackages interception."
     },
@@ -759,7 +764,7 @@
         ".github/workflows/watch-upstream.yml",
         ".github/workflows/compatibility.yml"
       ],
-      "notes": "GitHub watcher detected actual SDK 0.3.287 and dispatched pinned compatibility. Scheduled activation on main awaits review/merge."
+      "notes": "GitHub watcher detected actual SDK 0.3.287 and dispatched pinned compatibility. The watcher and compatibility workflows are now merged into main; the configured schedule is enabled by that merge."
     },
     {
       "id": "A-042",
@@ -834,9 +839,12 @@
       "evidence": [
         ".github/workflows/release.yml",
         "ops/pipeline.test.mjs",
-        "evidence/npm-authenticated-rehearsal.json"
+        "evidence/npm-authenticated-rehearsal.json",
+        "evidence/active-web-final-candidate-next3.json",
+        "evidence/github-publication-next3.json",
+        "evidence/active-web-github-next3.json"
       ],
-      "notes": "Exact-artifact npm-next OIDC workflow, SBOM and promotion/rollback policy implemented. npm enrollment/publication and long canary are not complete. npm account asuha is now authenticated and the exact next.2 artifact passed an authenticated dry run, including the corrected workflow command. Actual publication/OIDC enrollment and long canary remain pending."
+      "notes": "The immutable next.3 artifact, SBOM and local maintainer signature are publicly released on GitHub and installed in the actual active DSH; both real response and DSH file tool roundtrip passed. npm publication requires additional maintainer authentication and has not completed. npm OIDC enrollment/provenance and long canary remain unverified."
     },
     {
       "id": "A-046",

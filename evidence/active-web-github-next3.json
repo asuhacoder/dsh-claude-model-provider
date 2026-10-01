@@ -1,0 +1,56 @@
+{
+  "status": "PASSED",
+  "stage": "github-published",
+  "scope": "actual active web profile through authenticated DSH RPC, session agent and DSH tool execution",
+  "dsh": "0.2.0-rc.2",
+  "package": "@asuha/dsh-claude-model-provider",
+  "version": "0.1.0-next.3",
+  "registryInstalled": false,
+  "publishedReleaseInstalled": true,
+  "artifactSha256": "f213f6a5621fad29593ba3885bbd4c2f33403bf1df6c774b487ac41eaf4b62ab",
+  "existingProviderGroupsPreserved": 5,
+  "existingSessionsPreserved": 53,
+  "selected": {
+    "provider": "claude-sdk-local",
+    "model": "opus",
+    "reasoningEffort": "low"
+  },
+  "claudeModels": 11,
+  "checks": [
+    {
+      "name": "real-web-agent-response",
+      "responseVerified": true,
+      "assistantMessages": 1,
+      "tools": [],
+      "toolResults": 0,
+      "turnEnd": "completed"
+    },
+    {
+      "name": "real-web-dsh-file-tool-roundtrip",
+      "responseVerified": true,
+      "assistantMessages": 2,
+      "tools": [
+        "read"
+      ],
+      "toolResults": 1,
+      "turnEnd": "completed"
+    }
+  ],
+  "usage": {
+    "responses": 5,
+    "toolBoundaries": 2,
+    "failed": 0,
+    "usage": {
+      "inputTokens": 38728,
+      "outputTokens": 367,
+      "cacheReadTokens": 664414,
+      "cacheWriteTokens": 154134,
+      "reasoningTokens": 0
+    },
+    "acceptedTasks": null
+  },
+  "realAccounts": 1,
+  "uiVisualVerification": false,
+  "installedFilesVerified": 159,
+  "installationSource": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/asuha-dsh-claude-model-provider-0.1.0-next.3.tgz"
+}

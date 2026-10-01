@@ -1,0 +1,63 @@
+{
+  "status": "PASSED",
+  "sourceCommit": "a3e57eb3ce6ee09c04037a1aaf2903043b05b348",
+  "url": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/tag/v0.1.0-next.3",
+  "prerelease": true,
+  "draft": false,
+  "assets": [
+    {
+      "name": "active-web-candidate-next3.json",
+      "size": 1336,
+      "digest": "sha256:441a5a0422e19e5f61eced9d54147e1ba466b0a90617086ebeb5158ad68d8fb1",
+      "url": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/active-web-candidate-next3.json"
+    },
+    {
+      "name": "active-web-final-candidate-next3.json",
+      "size": 1123,
+      "digest": "sha256:7120ff43a1a293f9c06369a6ea530f52aa5a42539d39b2df54eadb234dd1ace9",
+      "url": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/active-web-final-candidate-next3.json"
+    },
+    {
+      "name": "asuha-dsh-claude-model-provider-0.1.0-next.3.tgz",
+      "size": 157596,
+      "digest": "sha256:f213f6a5621fad29593ba3885bbd4c2f33403bf1df6c774b487ac41eaf4b62ab",
+      "url": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/asuha-dsh-claude-model-provider-0.1.0-next.3.tgz"
+    },
+    {
+      "name": "coexist-next3.json",
+      "size": 571,
+      "digest": "sha256:da4c987afab1bb2fb9126c1eae94a4462f1779b103747866272bacd724abd337",
+      "url": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/coexist-next3.json"
+    },
+    {
+      "name": "next3-manifest.json",
+      "size": 421,
+      "digest": "sha256:4ad1118c373970d64f8067ddab62eb883beb8e7586c70bb4325f0f7d5b16e260",
+      "url": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/next3-manifest.json"
+    },
+    {
+      "name": "next3-manifest.sig",
+      "size": 64,
+      "digest": "sha256:bdf9a678d59391d4afb4d46a3e88f3bf927fb72f67a95b32f27910a3b7c77c60",
+      "url": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/next3-manifest.sig"
+    },
+    {
+      "name": "next3-sbom.cdx.json",
+      "size": 71896,
+      "digest": "sha256:b2aa0f7f4e6f5432747109c1d3626a909889b30c31121809173aa075356273bc",
+      "url": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/next3-sbom.cdx.json"
+    },
+    {
+      "name": "next3-signing-public.pem",
+      "size": 113,
+      "digest": "sha256:730befebfba3d086d7114cbd4f94560ef485b151cecdb50469eff51e4ab380fb",
+      "url": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/next3-signing-public.pem"
+    },
+    {
+      "name": "SHA256SUMS-next3",
+      "size": 115,
+      "digest": "sha256:47fdbd66bc7a03e5fb561daaecda7ebed46eca351baa45f6bf05596f026d3125",
+      "url": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/SHA256SUMS-next3"
+    }
+  ]
+}
