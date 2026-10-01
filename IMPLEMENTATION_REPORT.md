@@ -21,12 +21,16 @@ The new live matrix used nine short model steps on one real account: edited hist
 
 The local repair E2E creates a real Git fixture, introduces an upstream signature break, runs a separate worker process and verifies the candidate against unchanged tests in a separate directory. Fault tests reject test/permission tampering, fake PASS and secret/network payloads. This demonstrates the orchestration and policy; separate local processes are not claimed as an OS isolation boundary. A bounded direct official SDK coding-client probe runs independently of this provider.
 
+An additional three-generation acceptance probe recorded a paired direct-SDK/provider calculation with an independent exact-answer oracle, first-text latency, usage and process-tree memory. It also verified a real image combined with synthetic foreign-provider history, unsupported stop rejection before SDK generation, and a three-second idle interval with unchanged usage. A single fixed-order pair is not a statistically valid performance comparison, an authenticated third-party roundtrip, or a long canary. The server does not expose effective effort in this evidence. See `evidence/live-acceptance.json`.
+
+After npm authentication became available, the exact next.2 artifact passed an authenticated publication rehearsal. This caught and fixed a workflow path bug: npm treats a bare two-segment relative tarball path as a GitHub shorthand, so the publish lane now resolves an absolute path before invoking npm. The workflow's actual publish command was rehearsed with only `--dry-run` added. No npm version or provenance attestation was created. The existing release tarball remains immutable; these later scripts, documentation and evidence are follow-up repository changes.
+
 ## Remaining external and evidence boundaries
 
-- npm scope authentication and trusted-publisher enrollment are not available. Publication remains blocked; the next lane and dry run are implemented.
-- A second real Claude identity is not available. The L4 runner is implemented, requires two profile references and rechecks official identities before/after inference; it returns BLOCKED with zero inference when absent or duplicated.
+- npm account `asuha` is authenticated and the exact-artifact dry run passed. Trusted-publisher enrollment, initial package publication and the protected-main review remain pending. Publication is held under the maintainer's condition that all other tasks be complete; see `RELEASE_STATUS.md`.
+- A second real Claude identity is not available. The L4 runner is implemented, requires two profile references and rechecks official identities before/after inference; it returns BLOCKED with zero inference when absent or duplicated. L4 has been explicitly waived as a publication gate, not marked as verified.
 - Production isolation for untrusted repair candidates, verifier signing-key custody and a restricted publisher GitHub App require deployment. The local fixture/policy tests do not substitute for that deployment.
-- No 24-hour canary, account exhaustion load test, induced real SDK compaction, complete authenticated third-party-provider network matrix, or superior real subscription-efficiency claim is made. These exceed the completed short connectivity checks. Cold replay remains a user-role context envelope, not native multi-role replay.
+- No 24-hour canary, account exhaustion load test, induced real SDK compaction, complete authenticated third-party-provider network matrix, or superior real subscription-efficiency claim is made. These exceed the completed short connectivity checks. Cold replay remains a user-role context envelope, not native multi-role replay. Browser verification remains blocked because the browser's admin policy check could not grant access; component/RPC tests are not visual verification.
 
 ## Reproduction
 

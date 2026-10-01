@@ -1,0 +1,15 @@
+{
+  "status": "PASSED",
+  "registry": "https://registry.npmjs.org/",
+  "account": "asuha",
+  "package": "@asuha/dsh-claude-model-provider",
+  "version": "0.1.0-next.2",
+  "artifactSha256": "2ea519b5c2c19d846cf991ef5a2bac47f73fcc60cf58b227d55f42beca25cb24",
+  "authenticated": true,
+  "dryRun": true,
+  "published": false,
+  "tag": "next",
+  "workflowCommandChecked": true,
+  "provenanceActuallyCreated": false,
+  "reason": "All non-L4 release conditions must be complete before publication"
+}

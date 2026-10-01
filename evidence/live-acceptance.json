@@ -1,0 +1,85 @@
+{
+  "status": "PASSED",
+  "level": "L2",
+  "modelSteps": 3,
+  "model": "opus",
+  "requestedEffort": "low",
+  "effectiveServerEffort": "unavailable",
+  "observedModels": [
+    "claude-opus-5-5"
+  ],
+  "checks": [
+    {
+      "name": "paired-oracle-and-metrics",
+      "status": "PASSED"
+    },
+    {
+      "name": "foreign-provider-history-and-real-image",
+      "status": "PASSED",
+      "sourceProvider": "fixture; not an authenticated third-party service"
+    },
+    {
+      "name": "unsupported-stop-rejected-before-generation",
+      "status": "PASSED"
+    },
+    {
+      "name": "bounded-idle-no-extra-generation",
+      "status": "PASSED",
+      "durationMs": 3000
+    }
+  ],
+  "observations": [
+    {
+      "lane": "direct-official-sdk",
+      "successfulResponses": 1,
+      "oracleAcceptedTasks": 1,
+      "durationMs": 2054,
+      "firstTextMs": 1250,
+      "acceptedTasksPerMinute": 29.211295034079843,
+      "usage": {
+        "claude-opus-5-5": {
+          "inputTokens": 473,
+          "outputTokens": 3,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.001952,
+          "contextWindow": 1000000,
+          "maxOutputTokens": 128000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-opus-5-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        }
+      },
+      "peakParentRssBytes": 110723072,
+      "peakProcessTreeRssBytes": 524812288
+    },
+    {
+      "lane": "subscription-provider",
+      "successfulResponses": 1,
+      "oracleAcceptedTasks": 1,
+      "durationMs": 1644,
+      "firstTextMs": 1551,
+      "acceptedTasksPerMinute": 36.496350364963504,
+      "usage": [
+        {
+          "inputTokens": 1019,
+          "outputTokens": 17,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 623,
+          "reasoningTokens": 0
+        }
+      ],
+      "peakParentRssBytes": 119537664,
+      "peakProcessTreeRssBytes": 415842304
+    }
+  ],
+  "limitations": [
+    "One cold pair with fixed direct-first order; cache and ordering confounds remain. No performance superiority or quota-efficiency claim.",
+    "Memory samples include the measurement process and its subprocesses.",
+    "Three-second idle observation is not a long-duration canary.",
+    "Foreign provider history is a synthetic fixture; no authenticated third-party roundtrip.",
+    "No actual SDK compaction or two-account verification."
+  ]
+}

@@ -52,7 +52,7 @@
     "production_isolation": "BLOCKED: independent runner/verifier/publisher not deployed",
     "upstream_sdk_candidate": "0.3.287 detected; verification results available in GitHub Actions",
     "release_rehearsal": "PASSED",
-    "npm": "BLOCKED: authentication/trusted publishing enrollment unavailable",
+    "npm": "Authenticated as asuha; exact-artifact dry run PASSED; publication held on remaining non-L4 conditions; trusted publisher not enrolled",
     "canary": "NOT_RUN"
   },
   "evidence": [
@@ -61,10 +61,20 @@
     "evidence/live-hybrid.json",
     "evidence/live-independent-repair.json",
     "evidence/forecast-holdout.json",
-    "evidence/repair-fixture-e2e.json"
+    "evidence/repair-fixture-e2e.json",
+    "evidence/live-acceptance.json",
+    "evidence/npm-authenticated-rehearsal.json"
   ],
   "previous_artifact": {
     "version": "0.1.0-next.1",
     "sha256": "79c8be371c6fc839a9f4622429797fe6c310390853d8a2817bfddc3ae22a6b0d"
-  }
+  },
+  "publication": {
+    "publishedToNpm": false,
+    "tag": "next",
+    "multiAccountGateWaived": true,
+    "otherTasksComplete": false,
+    "statusReport": "RELEASE_STATUS.md"
+  },
+  "artifact_source_commit": "f8771053c40b3ec51d814f3605ba48c724f8b6ca"
 }

@@ -134,9 +134,10 @@
       "result": "NOT_RUN",
       "evidence": [
         "tests/models.spec.ts",
-        "src/auth/official.ts"
+        "src/auth/official.ts",
+        "evidence/live-acceptance.json"
       ],
-      "notes": "Opus low requested live. Server-effective effort/clamp and all model capabilities not verified."
+      "notes": "Opus low requested live. Server-effective effort/clamp and all model capabilities not verified. Additional real Opus requests asserted the requested low effort at the SDK boundary and observed claude-opus-5-5; server-effective effort is still unavailable."
     },
     {
       "id": "A-008",
@@ -387,9 +388,10 @@
       "result": "NOT_RUN",
       "evidence": [
         "src/bridge.ts",
-        "evidence/doctor-offline.json"
+        "evidence/doctor-offline.json",
+        "evidence/live-acceptance.json"
       ],
-      "notes": "No timer submits prompts; offline initialization has no queued model input. Long-duration live audit not run."
+      "notes": "No timer submits prompts; offline initialization has no queued model input. Long-duration live audit not run. Additional three-second real idle observation had no new SDK query/result or usage change; this bounded observation does not replace a longer audit."
     },
     {
       "id": "A-022",
@@ -481,9 +483,10 @@
       "result": "NOT_RUN",
       "evidence": [
         "evidence/live-matrix.json",
-        "tests/replay.spec.ts"
+        "tests/replay.spec.ts",
+        "evidence/live-acceptance.json"
       ],
-      "notes": "Explicit real Opus-to-Sonnet change and cancellation recovery passed; full other-provider UI roundtrip is not run."
+      "notes": "Explicit real Opus-to-Sonnet change and cancellation recovery passed; full other-provider UI roundtrip is not run. Real Claude also read synthetic foreign-provider history together with an image correctly; no authenticated third-party roundtrip or UI claim."
     },
     {
       "id": "A-027",
@@ -685,7 +688,8 @@
         "scripts/live-multi.mjs",
         "evidence/live-multi.json"
       ],
-      "notes": "Runnable guarded L4 harness; two distinct real official identities are unavailable. No generation was attempted."
+      "notes": "Runnable guarded L4 harness; two distinct real official identities are unavailable. No generation was attempted. Maintainer explicitly waived this as a publication prerequisite; verification remains BLOCKED.",
+      "releaseGate": "WAIVED_BY_MAINTAINER"
     },
     {
       "id": "A-038",
@@ -702,7 +706,8 @@
         "scripts/live-multi.mjs",
         "evidence/live-multi.json"
       ],
-      "notes": "Runnable guarded L4 harness; two distinct real official identities are unavailable. No generation was attempted."
+      "notes": "Runnable guarded L4 harness; two distinct real official identities are unavailable. No generation was attempted. Maintainer explicitly waived this as a publication prerequisite; verification remains BLOCKED.",
+      "releaseGate": "WAIVED_BY_MAINTAINER"
     },
     {
       "id": "A-039",
@@ -828,9 +833,10 @@
       "result": "NOT_RUN",
       "evidence": [
         ".github/workflows/release.yml",
-        "ops/pipeline.test.mjs"
+        "ops/pipeline.test.mjs",
+        "evidence/npm-authenticated-rehearsal.json"
       ],
-      "notes": "Exact-artifact npm-next OIDC workflow, SBOM and promotion/rollback policy implemented. npm enrollment/publication and long canary are not complete."
+      "notes": "Exact-artifact npm-next OIDC workflow, SBOM and promotion/rollback policy implemented. npm enrollment/publication and long canary are not complete. npm account asuha is now authenticated and the exact next.2 artifact passed an authenticated dry run, including the corrected workflow command. Actual publication/OIDC enrollment and long canary remain pending."
     },
     {
       "id": "A-046",
@@ -851,7 +857,7 @@
     {
       "id": "A-047",
       "scope": "Efficiency comparison",
-      "implementation": "not-implemented",
+      "implementation": "partial",
       "requiredLevels": [
         "L0",
         "L1",
@@ -864,9 +870,10 @@
       },
       "result": "NOT_RUN",
       "evidence": [
-        "evidence/routing-benchmark.json"
+        "evidence/routing-benchmark.json",
+        "evidence/live-acceptance.json"
       ],
-      "notes": "Router-only synthetic p95 measured. No accepted-task throughput, TTFT, memory or live baseline comparison."
+      "notes": "Router-only synthetic p95 measured. No accepted-task throughput, TTFT, memory or live baseline comparison. A three-generation probe now includes one same-model/effort direct-SDK/provider pair with independent exact-answer validation, latency, usage and memory samples. The fixed-order microbenchmark is insufficient for workload efficiency or superiority claims."
     },
     {
       "id": "A-048",
@@ -934,9 +941,10 @@
       "result": "NOT_RUN",
       "evidence": [
         "tests/account-management.spec.ts",
-        "tests/client.spec.ts"
+        "tests/client.spec.ts",
+        "evidence/live-acceptance.json"
       ],
-      "notes": "Model and effort catalog uses official verified capabilities. Explicit unsupported requests stop; management screen uses authenticated DSH RPC. Browser verification is blocked by browser policy availability."
+      "notes": "Model and effort catalog uses official verified capabilities. Explicit unsupported requests stop; management screen uses authenticated DSH RPC. Browser verification is blocked by browser policy availability. Additional real image inference passed; unsupported stop sequences were rejected before an SDK query started."
     },
     {
       "id": "A-052",
