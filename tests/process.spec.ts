@@ -150,7 +150,16 @@ describe('managed Claude process adapter', () => {
       },
       graceMs: 777,
       signal: controller.signal,
-      env: { ...Object.fromEntries(Object.keys(globalThis.process.env).map(key => [key, undefined])), PATH: globalThis.process.env.PATH, CLAUDE_CODE_ENTRYPOINT: 'sdk-ts', NO_PROXY: 'localhost' },
+      env: {
+        ...Object.fromEntries(Object.keys(globalThis.process.env).map((key) => [key, undefined])),
+        ...Object.fromEntries(
+          ['PATH', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'TMPDIR']
+            .filter((key) => globalThis.process.env[key] !== undefined)
+            .map((key) => [key, globalThis.process.env[key]]),
+        ),
+        CLAUDE_CODE_ENTRYPOINT: 'sdk-ts',
+        NO_PROXY: 'localhost',
+      },
     })
     fixture.done.resolve({ exitCode: 0, signal: null })
   })

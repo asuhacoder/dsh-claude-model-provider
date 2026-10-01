@@ -155,7 +155,18 @@ export class ClaudeProcessFactory {
       },
       graceMs: this.config.shutdownGraceMs,
       signal: options.signal,
-      env: { ...Object.fromEntries(Object.keys(globalThis.process.env).map(key => [key, undefined])), PATH: globalThis.process.env.PATH, ...filterClaudeEnvironment(options.env, this.config.passEnv), ...(this.config.profileRef !== 'default' ? { CLAUDE_CONFIG_DIR: this.config.profileRef } : {}) },
+      env: {
+        ...Object.fromEntries(Object.keys(globalThis.process.env).map((key) => [key, undefined])),
+        ...Object.fromEntries(
+          ['PATH', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'TMPDIR']
+            .filter((key) => globalThis.process.env[key] !== undefined)
+            .map((key) => [key, globalThis.process.env[key]]),
+        ),
+        ...filterClaudeEnvironment(options.env, this.config.passEnv),
+        ...(this.config.profileRef !== 'default'
+          ? { CLAUDE_CONFIG_DIR: this.config.profileRef }
+          : {}),
+      },
     })
     const process = new DshSpawnedProcess(handle)
     this.#active.add(process)

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { finished } from 'node:stream/promises'
 import { Context } from '@deepseek-ai/cordis'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import { ClaudeProcessFactory } from '../src/process.js'
@@ -29,11 +30,14 @@ describe('real keyless subprocess fixture', () => {
       stdout += chunk
     })
     spawned.stdin.end('hello fixture')
-    await new Promise<void>((resolve) => {
-      spawned.once('exit', () => resolve())
-    })
-    expect(stdout).toBe('HELLO FIXTURE')
+    await Promise.all([
+      finished(spawned.stdout),
+      new Promise<void>((resolve) => {
+        spawned.once('exit', () => resolve())
+      }),
+    ])
     expect(spawned.exitCode).toBe(0)
+    expect(stdout).toBe('HELLO FIXTURE')
     expect(spawned.killed).toBe(false)
     await factory.dispose()
     await fiber.dispose()

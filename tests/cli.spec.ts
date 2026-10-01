@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { pathToFileURL } from 'node:url'
+import { resolve as resolvePath } from 'node:path'
 import { isCliEntrypoint, runCli, type DoctorCliDependencies } from '../src/cli.js'
 import type {
   DoctorCommandResult,
@@ -113,7 +114,9 @@ const installed = `
 describe('doctor CLI', () => {
   it('recognizes a package-manager symlink as the executable entrypoint', () => {
     const resolve = (path: string) =>
-      path === '/profile/node_modules/.bin/dsh-claude-plugin' ? '/store/package/lib/cli.js' : path
+      resolvePath(path) === resolvePath('/profile/node_modules/.bin/dsh-claude-plugin')
+        ? resolvePath('/store/package/lib/cli.js')
+        : resolvePath(path)
     expect(
       isCliEntrypoint(
         pathToFileURL('/store/package/lib/cli.js').href,

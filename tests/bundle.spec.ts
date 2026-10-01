@@ -21,11 +21,22 @@ describe('installable DSH bundle', () => {
       'AUTHORS.md',
       'README.md',
       'LICENSE',
-      'THIRD_PARTY_NOTICES.md','README.ja.md','COMPLIANCE.md','CAPABILITY_REPORT.json','compatibility.lock.json',
+      'THIRD_PARTY_NOTICES.md',
+      'README.ja.md',
+      'COMPLIANCE.md',
+      'CAPABILITY_REPORT.json',
+      'compatibility.lock.json',
+      'IMPLEMENTATION_REPORT.md',
+      'BOOTSTRAP_CHECKLIST.md',
+      'PRIVACY.md',
+      'SECURITY.md',
+      'docs/',
+      'ops/incident-runbook.md',
+      'ops/repair-runbook.md',
     ])
   })
 
-  it('adds only the adapter row and the default-model patch', async () => {
+  it('adds only the adapter row and preserves the selected model', async () => {
     const source = await readFile(new URL('../cordis.patch.yml', import.meta.url), 'utf8')
     expect(parse(source)).toEqual([
       {
