@@ -1,12 +1,12 @@
 {
-  "name": "@asuhacoder/dsh-session-provider",
-  "version": "0.1.0-next.1",
+  "name": "@asuha/dsh-claude-model-provider",
+  "version": "0.1.0-next.2",
   "description": "Unofficial subscription-only Claude SDK provider for DeepSeek Harness",
   "license": "MIT",
   "author": "asuhacoder",
   "type": "module",
   "bin": {
-    "dsh-session-provider": "./lib/provider-cli.js"
+    "dsh-claude-model-provider": "./lib/provider-cli.js"
   },
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
@@ -16,7 +16,11 @@
       "import": "./lib/index.js",
       "default": "./lib/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./client": {
+      "types": "./lib/client/index.d.ts",
+      "default": "./lib/client.js"
+    }
   },
   "files": [
     "lib/",
@@ -43,12 +47,12 @@
   "packageManager": "pnpm@11.1.2",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/asuhacoder/dsh-session-provider.git"
+    "url": "git+https://github.com/asuhacoder/dsh-claude-model-provider.git"
   },
   "bugs": {
-    "url": "https://github.com/asuhacoder/dsh-session-provider/issues"
+    "url": "https://github.com/asuhacoder/dsh-claude-model-provider/issues"
   },
-  "homepage": "https://github.com/asuhacoder/dsh-session-provider#readme",
+  "homepage": "https://github.com/asuhacoder/dsh-claude-model-provider#readme",
   "publishConfig": {
     "access": "public",
     "provenance": true
@@ -56,10 +60,17 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/build-client.mjs",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "publint": "node scripts/run-publint.mjs",
     "test": "vitest run",
@@ -69,11 +80,14 @@
     "test:install": "pnpm build && node scripts/verify-install.mjs",
     "test:coexist": "pnpm build && node scripts/verify-install.mjs --coexist",
     "test:live:single": "pnpm build && node scripts/live-smoke.mjs",
-    "test:live:multi": "node scripts/live-multi.mjs",
+    "test:live:multi": "pnpm build && node scripts/live-multi.mjs",
     "bench:routing": "pnpm build && node scripts/bench-routing.mjs",
     "compat:probe": "node scripts/probe-upstream.mjs",
     "release:dry-run": "pnpm build && node scripts/release-dry-run.mjs",
-    "test:ops": "node --test ops/policy.test.mjs"
+    "test:ops": "node --test ops/*.test.mjs && node ops/fixture-e2e.mjs",
+    "test:live:matrix": "pnpm build && node scripts/live-matrix.mjs",
+    "test:live:hybrid": "pnpm build && node scripts/live-hybrid.mjs",
+    "bench:forecast": "pnpm build && node scripts/bench-forecast.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.4",
@@ -96,12 +110,17 @@
     "@deepseek-ai/dsh-subprocess-local": "0.2.0-rc.2",
     "@deepseek-ai/dsh-timeout": "0.2.0-rc.2",
     "@types/node": "^22.20.0",
+    "@types/react": "^18.3.31",
+    "@types/react-test-renderer": "^18.3.1",
     "@vitest/coverage-v8": "^4.1.8",
+    "esbuild": "^0.28.2",
     "oxlint": "1.76.0",
     "playwright": "1.61.1",
     "pnpm": "11.1.2",
     "prettier": "3.9.6",
     "publint": "0.3.24",
+    "react": "^18.3.1",
+    "react-test-renderer": "^18.3.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   },

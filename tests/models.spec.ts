@@ -44,7 +44,7 @@ describe('Claude model aliases', () => {
       name: 'Claude Sonnet',
       description: 'Claude Code model sonnet',
       reasoning: {
-        efforts: [{ id: 'low' }, { id: 'medium' }, { id: 'high' }],
+        efforts: [{ id: 'low' }, { id: 'medium' }, { id: 'high' }, { id: 'xhigh' }, { id: 'max' }],
       },
     })
   })
@@ -52,7 +52,8 @@ describe('Claude model aliases', () => {
   it('maps the conservative Claude effort vocabulary and rejects unsupported levels', () => {
     expect(resolveClaudeEffort(undefined)).toBeUndefined()
     expect(resolveClaudeEffort('medium')).toBe('medium')
-    expect(() => resolveClaudeEffort('max')).toThrow(/low, medium, high/)
+    expect(resolveClaudeEffort('max')).toBe('max')
+    expect(() => resolveClaudeEffort('unsupported')).toThrow(/low, medium, high/)
   })
 
   it.each(['', ' sonnet', 'sonnet ', 'line\nbreak', 'x'.repeat(257)])(

@@ -21,7 +21,12 @@ describe('configuration', () => {
       toolRoundTripTimeoutMs: DEFAULT_TOOL_ROUND_TRIP_TIMEOUT_MS,
       shutdownGraceMs: DEFAULT_SHUTDOWN_GRACE_MS,
       passEnv: [],
-      debug: false,profileRef:'default',portableColdStart:false,maxGenerations:12,stateDirectory:'',
+      debug: false,
+      profileRef: 'default',
+      portableColdStart: false,
+      maxGenerations: 12,
+      stateDirectory: '',
+      requestTimeoutMs: 120000,
     })
 
     const resolved = resolveConfig({
@@ -32,7 +37,12 @@ describe('configuration', () => {
       toolRoundTripTimeoutMs: 2,
       shutdownGraceMs: 3,
       passEnv: ['HTTPS_PROXY', 'NO_PROXY'],
-      debug: true,profileRef:'default',portableColdStart:false,maxGenerations:12,stateDirectory:'',
+      debug: true,
+      profileRef: 'default',
+      portableColdStart: false,
+      maxGenerations: 12,
+      stateDirectory: '',
+      requestTimeoutMs: 120000,
     })
     expect(resolved).toEqual({
       claudeCommand: '/opt/claude',
@@ -42,7 +52,12 @@ describe('configuration', () => {
       toolRoundTripTimeoutMs: 2,
       shutdownGraceMs: 3,
       passEnv: ['HTTPS_PROXY', 'NO_PROXY'],
-      debug: true,profileRef:'default',portableColdStart:false,maxGenerations:12,stateDirectory:'',
+      debug: true,
+      profileRef: 'default',
+      portableColdStart: false,
+      maxGenerations: 12,
+      stateDirectory: '',
+      requestTimeoutMs: 120000,
     })
     expect(Object.isFrozen(resolved)).toBe(true)
     expect(Object.isFrozen(resolved.passEnv)).toBe(true)

@@ -64,8 +64,12 @@ function toolResult(message: Message): ToolResultBlock {
   if (String(message.toolCallId) !== String(message.source.callId)) {
     throw unsupportedInput('DSH tool-result message correlation is unsupported')
   }
-  return { type: 'tool-result', toolCallId: message.toolCallId, content: message.content,
-    ...(message.isError === undefined ? {} : { isError: message.isError }) }
+  return {
+    type: 'tool-result',
+    toolCallId: message.toolCallId,
+    content: message.content,
+    ...(message.isError === undefined ? {} : { isError: message.isError }),
+  }
 }
 
 /** Tracks the exact DSH prefix already represented by a live SDK query. */

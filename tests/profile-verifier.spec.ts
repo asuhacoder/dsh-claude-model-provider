@@ -33,7 +33,7 @@ const installed = `# == base
     root: !!js process.env.DSH_HOME
 # == dsh-claude-plugin
 - id: llm-claude-sdk-local
-  name: '@asuhacoder/dsh-session-provider'
+  name: '@asuha/dsh-claude-model-provider'
 `
 
 describe('DSH profile dump verifier', () => {
@@ -74,7 +74,7 @@ describe('DSH profile dump verifier', () => {
 
   it('rejects wrong adapter/model shapes and incomplete removal', () => {
     expect(
-      verifyProfileTransition(before, installed.replace("name: '@asuhacoder/dsh-session-provider'", 'name: other'))
+      verifyProfileTransition(before, installed.replace("name: '@asuha/dsh-claude-model-provider'", 'name: other'))
         .issues,
     ).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: 'PROFILE_CLAUDE_ROW_INVALID' })]),

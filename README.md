@@ -14,7 +14,7 @@ Download the repository's experimental tarball or build it:
 pnpm install --frozen-lockfile --ignore-scripts
 pnpm build
 pnpm release:dry-run
-dsh plugin --profile web add ./dist/asuhacoder-dsh-session-provider-0.1.0-next.1.tgz --ignore-scripts
+dsh plugin --profile web add ./dist/asuha-dsh-claude-model-provider-0.1.0-next.2.tgz --ignore-scripts
 ```
 
 The plugin only adds `claude-sdk-local`; it does not change the selected model or replace the Subscription Plugin. Restart DSH and select **Claude (official SDK) / opus**. The default alias resolves to Opus. The npm package is not published yet; do not use an npm-name-only installation command until a release exists.
@@ -27,7 +27,7 @@ node lib/provider-cli.js accounts add primary --extra-usage-off
 node lib/provider-cli.js doctor --offline
 ```
 
-`--extra-usage-off` records your confirmation that Extra usage is OFF; verify it in Claude settings before using the flag. API keys, alternate gateways/backends and unidentified authentication routes are rejected. No API fallback or account rotation after a policy refusal is supported. After a tarball install, the binary is `dsh-session-provider` in the installed DSH profile; from source use `node lib/provider-cli.js`.
+`--extra-usage-off` records your confirmation that Extra usage is OFF; verify it in Claude settings before using the flag. API keys, alternate gateways/backends and unidentified authentication routes are rejected. No API fallback or account rotation after a policy refusal is supported. After a tarball install, the binary is `dsh-claude-model-provider` in the installed DSH profile; from source use `node lib/provider-cli.js`.
 
 Profiles may be added with `accounts add <alias> --profile <absolute-directory> --login --extra-usage-off`. An official subscription organization identity, hashed with a local salt, deduplicates profiles conservatively; a shared organization does not multiply capacity. Separate Keychain identity isolation must be verified before relying on multiple real accounts.
 
@@ -53,4 +53,4 @@ pnpm release:dry-run
 
 No account is needed for `verify`, install/coexistence or the synthetic benchmark. L4 returns `BLOCKED` without real distinct-account evidence. See [bootstrap](BOOTSTRAP_CHECKLIST.md) and [operations](ops/repair-runbook.md).
 
-Uninstall with `dsh plugin --profile web remove @asuhacoder/dsh-session-provider --config.ignore-scripts=true --config.offline=true --yes`. Keep a copy of the original profile manifest and known-good tarball first. This never intentionally removes official Claude authentication or DSH history. The default private state directory is `$DSH_HOME/claude-sdk-local`, or `~/.dsh/claude-sdk-local`; a stale writer lock after a crash requires verifying the recorded PID is dead before removing only the lock. See the [incident runbook](ops/incident-runbook.md).
+Uninstall with `dsh plugin --profile web remove @asuha/dsh-claude-model-provider --config.ignore-scripts=true --config.offline=true --yes`. Keep a copy of the original profile manifest and known-good tarball first. This never intentionally removes official Claude authentication or DSH history. The default private state directory is `$DSH_HOME/claude-sdk-local`, or `~/.dsh/claude-sdk-local`; a stale writer lock after a crash requires verifying the recorded PID is dead before removing only the lock. See the [incident runbook](ops/incident-runbook.md).

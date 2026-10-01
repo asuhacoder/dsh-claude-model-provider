@@ -8,6 +8,8 @@ const parse = (source) => parseDocument(source).toJS()
 const root = resolve('.'),
   temp = mkdtempSync(join(tmpdir(), 'dsh-provider-install-'))
 const coexist = process.argv.includes('--coexist')
+const tuple=process.env.DSH_CANDIDATE_TUPLE?JSON.parse(readFileSync(process.env.DSH_CANDIDATE_TUPLE,'utf8')):undefined
+const dshVersion=tuple?.packages?.['@deepseek-ai/dsh']?.version??'0.2.0-rc.2',subscriptionsVersion=tuple?.packages?.['dsh-plugin-subscriptions']?.version??'0.9.7'
 const env = {
   PATH: process.env.PATH,
   HOME: join(temp, 'home'),
@@ -51,20 +53,20 @@ try {
   )
   run(
     'npm',
-    ['install', '--ignore-scripts', '--no-audit', '--no-fund', '@deepseek-ai/dsh@0.2.0-rc.2'],
+    ['install', '--ignore-scripts', '--no-audit', '--no-fund', '@deepseek-ai/dsh@'+dshVersion],
     join(temp, 'cli'),
   )
   const bin = join(temp, 'cli/node_modules/.bin', process.platform === 'win32' ? 'dsh.cmd' : 'dsh')
   const dsh = (args) => run(bin, args)
-  if (dsh(['--version']).trim() !== '0.2.0-rc.2') throw new Error('WRONG_DSH_VERSION')
+  if (dsh(['--version']).trim() !== dshVersion) throw new Error('WRONG_DSH_VERSION')
   dsh(['--profile', 'web', '--dump-config'])
   if (coexist)
-    dsh(['plugin', '--profile', 'web', 'add', 'dsh-plugin-subscriptions@0.9.7', '--ignore-scripts'])
+    dsh(['plugin', '--profile', 'web', 'add', 'dsh-plugin-subscriptions@'+subscriptionsVersion, '--ignore-scripts'])
   const before = parse(dsh(['--profile', 'web', '--dump-config']))
   dsh(['plugin', '--profile', 'web', 'add', tarball, '--ignore-scripts'])
   const after = parse(dsh(['--profile', 'web', '--dump-config']))
   const inserted = after.filter((x) => !before.some((b) => b.id === x.id))
-  if (inserted.length !== 1 || inserted[0].name !== '@asuhacoder/dsh-session-provider')
+  if (inserted.length !== 1 || inserted[0].name !== '@asuha/dsh-claude-model-provider')
     throw new Error('BAD_COMPOSITION')
   if (JSON.stringify(after.filter((x) => x.id !== inserted[0].id)) !== JSON.stringify(before))
     throw new Error('EXISTING_CONFIG_CHANGED')
@@ -74,7 +76,7 @@ try {
   const anchor = join(temp, 'cli/node_modules/@deepseek-ai/dsh/package.json')
   writeFileSync(
     probe,
-    `import {createRequire} from 'node:module';import assert from 'node:assert/strict';const host=createRequire(${JSON.stringify(anchor)});const {Context}=await import(host.resolve('@deepseek-ai/cordis'));const {PluginPackages,loadProfile,createRuntimeResolution}=await import(host.resolve('@deepseek-ai/dsh-app-boot'));const profile=loadProfile('dsh','web',${JSON.stringify(anchor)});const ctx=new Context();const resolver=await ctx.plugin(PluginPackages,{resolution:await createRuntimeResolution({installAnchor:${JSON.stringify(anchor)},profile})});const r=createRequire(import.meta.url);const pluginPath=r.resolve('@asuhacoder/dsh-session-provider');const pr=createRequire(pluginPath);assert.equal(host.resolve('@deepseek-ai/dsh-llm'),pr.resolve('@deepseek-ai/dsh-llm'));const p=await import(pluginPath);const L=(await import(host.resolve('@deepseek-ai/dsh-llm'))).default;const S=(await import(host.resolve('@deepseek-ai/dsh-subprocess-local'))).default;const a=await ctx.plugin(L);const b=await ctx.plugin(S);p.apply(ctx);assert(ctx.llm.listProviders().some(x=>x.id==='claude-sdk-local'));assert((await ctx.llm.listModels('claude-sdk-local')).length>0);await b.dispose();await a.dispose();await resolver.dispose();console.log('PASSED');`,
+    `import {createRequire} from 'node:module';import assert from 'node:assert/strict';const host=createRequire(${JSON.stringify(anchor)});const {Context}=await import(host.resolve('@deepseek-ai/cordis'));const {PluginPackages,loadProfile,createRuntimeResolution}=await import(host.resolve('@deepseek-ai/dsh-app-boot'));const profile=loadProfile('dsh','web',${JSON.stringify(anchor)});const ctx=new Context();const resolver=await ctx.plugin(PluginPackages,{resolution:await createRuntimeResolution({installAnchor:${JSON.stringify(anchor)},profile})});const r=createRequire(import.meta.url);const pluginPath=r.resolve('@asuha/dsh-claude-model-provider');const pr=createRequire(pluginPath);assert.equal(host.resolve('@deepseek-ai/dsh-llm'),pr.resolve('@deepseek-ai/dsh-llm'));const p=await import(pluginPath);const L=(await import(host.resolve('@deepseek-ai/dsh-llm'))).default;const S=(await import(host.resolve('@deepseek-ai/dsh-subprocess-local'))).default;const a=await ctx.plugin(L);const b=await ctx.plugin(S);p.apply(ctx);assert(ctx.llm.listProviders().some(x=>x.id==='claude-sdk-local'));assert.equal((await ctx.llm.listModels('claude-sdk-local')).length,0);await b.dispose();await a.dispose();await resolver.dispose();console.log('PASSED');`,
   )
 
   const probeResult = run('node', [probe], profile)
@@ -84,7 +86,7 @@ try {
     '--profile',
     'web',
     'remove',
-    '@asuhacoder/dsh-session-provider',
+    '@asuha/dsh-claude-model-provider',
     '--config.ignore-scripts=true',
     '--config.offline=true',
     '--yes',
@@ -94,19 +96,19 @@ try {
   const report = {
     status: 'PASSED',
     level: 'L1',
-    dsh: '0.2.0-rc.2',
+    dsh: dshVersion,
     platform: process.platform,
     arch: process.arch,
     node: process.version,
     artifact_sha256: digest,
     coexist,
-    subscriptionVersion: coexist ? '0.9.7' : null,
+    subscriptionVersion: coexist ? subscriptionsVersion : null,
     checks: [
       'empty-HOME-public-install-command',
       'composition-unchanged',
       'runtime-module-identity',
       'actual-LLM-registration',
-      'model-catalog',
+      'unverified-accounts-not-advertised',
       'uninstall-restores-baseline',
     ],
     generationVerified: false,

@@ -87,7 +87,9 @@ function equal(left: unknown, right: unknown): boolean {
   }
 }
 
-function expectedInstalledDefault(before: ConfigRow): ConfigRow { return before }
+function expectedInstalledDefault(before: ConfigRow): ConfigRow {
+  return before
+}
 
 function verifyInstalled(
   before: readonly ConfigRow[],
@@ -107,7 +109,7 @@ function verifyInstalled(
   const adapter = current.get(CLAUDE_ADAPTER_ROW_ID)
   if (
     adapter === undefined ||
-    !equal(adapter, { id: CLAUDE_ADAPTER_ROW_ID, name: '@asuhacoder/dsh-session-provider' })
+    !equal(adapter, { id: CLAUDE_ADAPTER_ROW_ID, name: '@asuha/dsh-claude-model-provider' })
   ) {
     issues.push(
       issue(

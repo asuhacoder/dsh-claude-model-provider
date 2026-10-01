@@ -108,7 +108,7 @@ const installed = `
   name: selector
   config: { provider: deepseek, model: default }
 - id: llm-claude-sdk-local
-  name: '@asuhacoder/dsh-session-provider'
+  name: '@asuha/dsh-claude-model-provider'
 `
 
 describe('doctor CLI', () => {
@@ -281,7 +281,7 @@ describe('doctor CLI', () => {
     await expect(runCli(['-h'], shortHelp.dependencies)).resolves.toBe(0)
     const version = harness()
     await expect(runCli(['-V'], version.dependencies)).resolves.toBe(0)
-    expect(version.stdout.join('')).toBe('0.1.0-next.1\n')
+    expect(version.stdout.join('')).toBe('0.1.0-next.2\n')
   })
 
   it('fails closed when entrypoint realpath resolution fails', () => {

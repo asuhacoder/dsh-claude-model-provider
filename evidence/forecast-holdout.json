@@ -1,0 +1,13 @@
+{
+  "status": "PASSED",
+  "scope": "synthetic holdout seeds 51-100; no live efficiency claim",
+  "mode": "shadow",
+  "automaticActivation": false,
+  "samples": 50,
+  "baselineCompleted": 495,
+  "shadowCompleted": 520,
+  "regressions": 5,
+  "maxCalculationMs": 4.503584,
+  "modelCalls": 0,
+  "reason": "Forecast remains shadow until workload-specific evidence supports activation"
+}

@@ -1,0 +1,9 @@
+{
+  "status": "PASSED",
+  "scope": "one direct official SDK coding response with all tools disabled",
+  "providerImported": false,
+  "providerRequired": false,
+  "modelCalls": 1,
+  "fixtureCorrectionValidated": true,
+  "publisherCredentialsPassed": false
+}

@@ -1,0 +1,17 @@
+{
+  "status": "PASSED",
+  "scope": "local separated-process fixture; no real PR, no production isolation claim",
+  "upstreamBreakDetected": true,
+  "candidateFixed": true,
+  "protectedVerifierPassed": true,
+  "credentialEnvironmentStripped": true,
+  "realGitCandidate": true,
+  "events": [
+    "independent-worker",
+    "protected-verifier",
+    "publisher-dry-run"
+  ],
+  "attempts": 1,
+  "modelCalls": 0,
+  "externalPrerequisite": "Private isolated worker/verifier deployment remains required for untrusted production patches"
+}

@@ -131,7 +131,12 @@ class SessionBridge {
       abortController: this.#abortController,
       allowedTools: [`mcp__${DSH_MCP_SERVER_NAME}__*`],
       cwd: processCwd(),
-      env: { ...sdkEnvironment(this.config.passEnv), ...(this.config.profileRef !== 'default' ? { CLAUDE_CONFIG_DIR: this.config.profileRef } : {}) },
+      env: {
+        ...sdkEnvironment(this.config.passEnv),
+        ...(this.config.profileRef !== 'default'
+          ? { CLAUDE_CONFIG_DIR: this.config.profileRef }
+          : {}),
+      },
       hooks: {},
       includePartialMessages: true,
       managedSettings: { disableAllHooks: true },
@@ -141,7 +146,13 @@ class SessionBridge {
       permissionMode: 'dontAsk',
       persistSession: true,
       plugins: [],
-      settings: { disableAllHooks: true, fastMode: false, autoMemoryEnabled: false, autoCompactEnabled: false, fallbackModel: [] },
+      settings: {
+        disableAllHooks: true,
+        fastMode: false,
+        autoMemoryEnabled: false,
+        autoCompactEnabled: false,
+        fallbackModel: [],
+      },
       promptSuggestions: false,
       maxTurns: this.config.maxGenerations,
       settingSources: [],
@@ -213,7 +224,10 @@ class SessionBridge {
       }
       const toolFingerprint = canonicalToolJson(options.tools ?? [])
       if (this.#toolFingerprint !== undefined && this.#toolFingerprint !== toolFingerprint) {
-        throw new ClaudePluginError('CLAUDE_COLD_REPLAY_UNSUPPORTED', 'DSH tool catalog changed; rebuild required')
+        throw new ClaudePluginError(
+          'CLAUDE_COLD_REPLAY_UNSUPPORTED',
+          'DSH tool catalog changed; rebuild required',
+        )
       }
       const toolGeneration = this.#toolServer.install(options.tools ?? [])
       this.#toolFingerprint = toolFingerprint
@@ -227,7 +241,10 @@ class SessionBridge {
           throw protocolError('a live Claude query received a second cold-start plan')
         }
         if (this.#system !== options.system) {
-          throw new ClaudePluginError('CLAUDE_COLD_REPLAY_UNSUPPORTED', 'DSH system prompt changed inside a live Claude query')
+          throw new ClaudePluginError(
+            'CLAUDE_COLD_REPLAY_UNSUPPORTED',
+            'DSH system prompt changed inside a live Claude query',
+          )
         }
         if (this.#model !== model) {
           await this.#query.setModel(model)
@@ -328,7 +345,10 @@ class SessionBridge {
 }
 
 function retryableBeforeObservation(error: unknown): boolean {
-  return error instanceof ClaudePluginError && ['CLAUDE_TRANSPORT_ERROR','CLAUDE_COLD_REPLAY_UNSUPPORTED'].includes(error.code)
+  return (
+    error instanceof ClaudePluginError &&
+    ['CLAUDE_TRANSPORT_ERROR', 'CLAUDE_COLD_REPLAY_UNSUPPORTED'].includes(error.code)
+  )
 }
 
 function bridgeKey(options: GenerateOptions): string | undefined {
@@ -442,7 +462,14 @@ export class BridgeManager {
           break
         } catch (error: unknown) {
           await this.#remove(key, bridge)
-          if (attempt > 0 || observed || !retryableBeforeObservation(error)) {
+          if (
+            attempt > 0 ||
+            observed ||
+            !retryableBeforeObservation(error) ||
+            (this.config.portableColdStart &&
+              error instanceof ClaudePluginError &&
+              error.code === 'CLAUDE_TRANSPORT_ERROR')
+          ) {
             diagnostic.fail(error)
             diagnosticFinished = true
             throw error
