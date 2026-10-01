@@ -3,7 +3,7 @@
   "date": "2026-10-02",
   "implementation_complete": false,
   "offline_verified": true,
-  "offline_verified_scope": "258 regression tests, typecheck/build, unchanged 90% coverage gates, 9 operations tests and separate-process repair fixture",
+  "offline_verified_scope": "260 regression tests, typecheck/build, unchanged coverage gates; five required CI jobs passed",
   "dsh_install_verified": true,
   "subscription_coexist_verified": true,
   "subscription_coexist_scope": "composition/module identity/removal; other provider network routes NOT_RUN",
@@ -12,7 +12,7 @@
   "live_multi_verified": false,
   "oss_release_ready": false,
   "repository": "https://github.com/asuhacoder/dsh-claude-model-provider",
-  "package": "@asuha/dsh-claude-model-provider@0.1.0-next.2",
+  "package": "@asuha/dsh-claude-model-provider@0.1.0-next.3",
   "tested_tuple": {
     "dsh": "0.2.0-rc.2",
     "sdk": "0.3.286",
@@ -20,18 +20,18 @@
     "bundled_cli": "2.1.286",
     "node": "24.14.0",
     "pnpm": "11.1.2",
-    "subscriptions": "0.9.7",
+    "subscriptions": "0.9.7 (isolated install); 0.6.44 (active Web profile)",
     "os": "macOS arm64"
   },
-  "artifact_sha256": "2ea519b5c2c19d846cf991ef5a2bac47f73fcc60cf58b227d55f42beca25cb24",
-  "artifact": "dist/asuha-dsh-claude-model-provider-0.1.0-next.2.tgz",
-  "install_evidence": "evidence/coexist-next2.json",
-  "live_evidence": "evidence/installed-next2-live.json",
-  "live_execution_target": "installed immutable tarball through official DSH host module resolver",
+  "artifact_sha256": "f213f6a5621fad29593ba3885bbd4c2f33403bf1df6c774b487ac41eaf4b62ab",
+  "artifact": "dist/asuha-dsh-claude-model-provider-0.1.0-next.3.tgz",
+  "install_evidence": "evidence/coexist-next3.json",
+  "live_evidence": "evidence/active-web-github-next3.json",
+  "live_execution_target": "actual active DSH Web profile installed from public GitHub Release; 159 package files match the immutable tarball; authenticated real session response and DSH read tool roundtrip",
   "coverage": {
     "status": "PASSED",
     "statements": 94.76,
-    "branches": 90.16,
+    "branches": 90.33,
     "functions": 94.86,
     "lines": 96.56
   },
@@ -52,7 +52,7 @@
     "production_isolation": "BLOCKED: independent runner/verifier/publisher not deployed",
     "upstream_sdk_candidate": "0.3.287 detected; verification results available in GitHub Actions",
     "release_rehearsal": "PASSED",
-    "npm": "Authenticated as asuha; exact-artifact dry run PASSED; publication held on remaining non-L4 conditions; trusted publisher not enrolled",
+    "npm": "Initial npm publish requires additional maintainer Web authentication. Browser automation is unavailable because its admin policy could not be verified. Official CLI authentication challenge expired without completion; no npm version was published. GitHub public release is installed and verified in the active DSH.",
     "canary": "NOT_RUN"
   },
   "evidence": [
@@ -63,18 +63,35 @@
     "evidence/forecast-holdout.json",
     "evidence/repair-fixture-e2e.json",
     "evidence/live-acceptance.json",
-    "evidence/npm-authenticated-rehearsal.json"
+    "evidence/npm-authenticated-rehearsal.json",
+    "evidence/coexist-next3.json",
+    "evidence/active-web-candidate-next3.json",
+    "evidence/active-web-final-candidate-next3.json",
+    "evidence/active-web-github-next3.json",
+    "evidence/github-publication-next3.json"
   ],
   "previous_artifact": {
-    "version": "0.1.0-next.1",
-    "sha256": "79c8be371c6fc839a9f4622429797fe6c310390853d8a2817bfddc3ae22a6b0d"
+    "version": "0.1.0-next.2",
+    "sha256": "2ea519b5c2c19d846cf991ef5a2bac47f73fcc60cf58b227d55f42beca25cb24"
   },
   "publication": {
     "publishedToNpm": false,
     "tag": "next",
     "multiAccountGateWaived": true,
     "otherTasksComplete": false,
-    "statusReport": "RELEASE_STATUS.md"
+    "experimentalReleaseAuthorized": true,
+    "authorizationScope": "Maintainer authorized release after actual active DSH verification; PR review and second real account not required. Historical unverified acceptance items remain reported.",
+    "activeDshVerified": true,
+    "registryInstalledInActiveDsh": false,
+    "npmProvenance": false,
+    "statusReport": "RELEASE_STATUS.md",
+    "githubRelease": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/tag/v0.1.0-next.3",
+    "publishedToGithub": true,
+    "publishedReleaseInstalledInActiveDsh": true,
+    "installationSource": "https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/asuha-dsh-claude-model-provider-0.1.0-next.3.tgz",
+    "maintainerRequestCompleted": false,
+    "pending": "npm additional maintainer authentication and subsequent npm-registry replacement"
   },
-  "artifact_source_commit": "f8771053c40b3ec51d814f3605ba48c724f8b6ca"
+  "artifact_source_commit": "a3e57eb3ce6ee09c04037a1aaf2903043b05b348",
+  "experimental_release_ready": true
 }
