@@ -21,7 +21,7 @@
   "modelSteps": 3,
   "usage": [
     {
-      "inputTokens": 1010,
+      "inputTokens": 1009,
       "outputTokens": 21,
       "cacheReadTokens": 0,
       "cacheWriteTokens": 1125,

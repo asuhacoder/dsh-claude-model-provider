@@ -16,9 +16,9 @@
     "status": "FAILED",
     "requiredEachPercent": 90,
     "measuredPercent": {
-      "statements": 89.7,
+      "statements": 89.71,
       "branches": 84.55,
-      "functions": 90.94,
+      "functions": 90.98,
       "lines": 91.57
     }
   },
@@ -26,5 +26,6 @@
     "status": "PASSED",
     "fixtureTokenReviewed": true,
     "liveCredentialsIncluded": false
-  }
+  },
+  "testedCodeCommit": "197cb347e11245f0b29067a43e3e39e4bb571686"
 }

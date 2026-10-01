@@ -21,7 +21,7 @@
     "subscriptions": "0.9.7",
     "os": "macOS arm64"
   },
-  "artifact_sha256": "f31ec3d7cfeb39ebf064c87a26ff6904062f4733c8ece579872ad5f67c9a5922",
+  "artifact_sha256": "79c8be371c6fc839a9f4622429797fe6c310390853d8a2817bfddc3ae22a6b0d",
   "artifact": "dist/asuhacoder-dsh-session-provider-0.1.0-next.1.tgz",
   "install_evidence": "evidence/coexist.json",
   "live_evidence": "evidence/live-pooled.json",
@@ -29,9 +29,9 @@
   "coverage": {
     "status": "FAILED",
     "percent": {
-      "statements": 89.7,
+      "statements": 89.71,
       "branches": 84.55,
-      "functions": 90.94,
+      "functions": 90.98,
       "lines": 91.57
     }
   },
@@ -47,12 +47,22 @@
     "Upstream service distribution permission not established"
   ],
   "evidence_digests": {
-    "checks.json": "e01d65bf0bf82f4e1427ed860f1f5247d1effd8f436ba0d706fa5e6b6e9f6f9c",
-    "coexist.json": "af49ab591047e7e0273ff3e8e43cbb6722a0e14ae306bb3c2cdeec638184b65c",
+    "checks.json": "38cdd06d3b163bfac216e5a294cacbee7f2e6d8b9707dad8e9c6847502e6560d",
+    "coexist.json": "137e734059f46ca114d52518146920af7000703280895e42b7d0edf218f46a57",
     "doctor-offline.json": "0fced1c40b3932b96fb0710e7266165f2458c2d5aaa08f16c635fdf14a3cd379",
-    "live-pooled.json": "8fd13fbf3027dd5ed8b2cd00db6c543b98c7cc1b98a43f48729658bf31b88ca8",
+    "live-pooled.json": "1fe1a71c8964b9b1694ddce4938dcde3ccaa3776c8a8bb807dcf698bacf61a55",
     "live-smoke.json": "953c2fd0bde801801519ecc56febb3e852181d18707f4a322a9b37673523f73e",
     "routing-benchmark.json": "a4002f10051050b908e9dea5deaaca5bff755865e268bb3a4551dd28c479acf0",
     "upstream.json": "2c149c740cf989199a61b3a3622a7913e6b538a8202739d5f245cacd37a0dcf5"
+  },
+  "testedCodeCommit": "197cb347e11245f0b29067a43e3e39e4bb571686",
+  "local_setup": {
+    "profile": "claude-sdk",
+    "provider": "claude-sdk-local",
+    "model": "opus",
+    "officialAccountRegistered": true,
+    "existingWebProfileModified": false,
+    "webBoot": "PASSED",
+    "webGeneration": "NOT_RUN"
   }
 }
