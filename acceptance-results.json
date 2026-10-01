@@ -747,14 +747,14 @@
       ],
       "levels": {
         "L0": "PASSED",
-        "L1": "NOT_RUN"
+        "L1": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
         ".github/workflows/watch-upstream.yml",
         ".github/workflows/compatibility.yml"
       ],
-      "notes": "Watcher now calls the disposable pinned-tuple candidate workflow. Scheduled main deployment and candidate CI run are tracked separately."
+      "notes": "GitHub watcher detected actual SDK 0.3.287 and dispatched pinned compatibility. Scheduled activation on main awaits review/merge."
     },
     {
       "id": "A-042",
