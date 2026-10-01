@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "date": "2026-10-02",
+  "implementation_complete": false,
+  "offline_verified": true,
+  "offline_verified_scope": "typecheck + 207 tests + build; coverage gate separately FAILED",
+  "dsh_install_verified": true,
+  "subscription_coexist_verified": true,
+  "subscription_coexist_scope": "configuration/module identity/removal only; other provider network routes NOT_RUN",
+  "live_single_verified": true,
+  "live_multi_verified": false,
+  "oss_release_ready": false,
+  "repository": "https://github.com/asuhacoder/dsh-session-provider",
+  "tested_tuple": {
+    "dsh": "0.2.0-rc.2",
+    "sdk": "0.3.286",
+    "host_cli": "2.1.283",
+    "bundled_cli": "2.1.286",
+    "node": "24.14.0",
+    "pnpm": "11.1.2",
+    "subscriptions": "0.9.7",
+    "os": "macOS arm64"
+  },
+  "artifact_sha256": "f31ec3d7cfeb39ebf064c87a26ff6904062f4733c8ece579872ad5f67c9a5922",
+  "artifact": "dist/asuhacoder-dsh-session-provider-0.1.0-next.1.tgz",
+  "install_evidence": "evidence/coexist.json",
+  "live_evidence": "evidence/live-pooled.json",
+  "live_execution_target": "local source build, not signed immutable tarball",
+  "coverage": {
+    "status": "FAILED",
+    "percent": {
+      "statements": 89.7,
+      "branches": 84.55,
+      "functions": 90.94,
+      "lines": 91.57
+    }
+  },
+  "unverified_reasons": [
+    "Dedicated account WebUI incomplete",
+    "Prediction/holdout and live efficiency baseline not implemented",
+    "Same-request quota continuation, complete concurrency queue/circuit breaker, and usage persistence incomplete",
+    "Live history/cancel/model fault matrix and L3 harness incomplete",
+    "Distinct real identities/Keychain isolation unavailable; L4 harness incomplete",
+    "AI repair PR, independent verifier and publisher services not implemented/deployed",
+    "npm authentication and trusted publisher absent",
+    "Coverage statement/branch thresholds not met",
+    "Upstream service distribution permission not established"
+  ],
+  "evidence_digests": {
+    "checks.json": "e01d65bf0bf82f4e1427ed860f1f5247d1effd8f436ba0d706fa5e6b6e9f6f9c",
+    "coexist.json": "af49ab591047e7e0273ff3e8e43cbb6722a0e14ae306bb3c2cdeec638184b65c",
+    "doctor-offline.json": "0fced1c40b3932b96fb0710e7266165f2458c2d5aaa08f16c635fdf14a3cd379",
+    "live-pooled.json": "8fd13fbf3027dd5ed8b2cd00db6c543b98c7cc1b98a43f48729658bf31b88ca8",
+    "live-smoke.json": "953c2fd0bde801801519ecc56febb3e852181d18707f4a322a9b37673523f73e",
+    "routing-benchmark.json": "a4002f10051050b908e9dea5deaaca5bff755865e268bb3a4551dd28c479acf0",
+    "upstream.json": "2c149c740cf989199a61b3a3622a7913e6b538a8202739d5f245cacd37a0dcf5"
+  }
+}

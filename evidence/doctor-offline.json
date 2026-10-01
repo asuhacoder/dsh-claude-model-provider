@@ -1,0 +1,106 @@
+{
+  "status": "PASSED",
+  "live": false,
+  "report": {
+    "schemaVersion": 1,
+    "generatedAt": "2026-10-01T17:35:50.160Z",
+    "overall": "warn",
+    "config": {
+      "claudeCommand": "claude",
+      "executablePolicy": "host-only",
+      "live": "never",
+      "model": "opus",
+      "timeoutMs": 30000
+    },
+    "versions": {
+      "node": "24.14.0",
+      "plugin": "0.1.0-next.1",
+      "sdk": "0.3.286",
+      "sdkClaudeCode": "2.1.286",
+      "runtimeClaudeCode": "2.1.283"
+    },
+    "checks": [
+      {
+        "id": "runtime.node",
+        "status": "pass",
+        "summary": "Node 24.14.0 satisfies the plugin engine contract",
+        "details": {
+          "version": "24.14.0"
+        }
+      },
+      {
+        "id": "package.sdk",
+        "status": "pass",
+        "summary": "Claude Agent SDK 0.3.286 matches the pinned package contract",
+        "details": {
+          "installed": "0.3.286",
+          "declared": "0.3.286",
+          "claudeCode": "2.1.286"
+        }
+      },
+      {
+        "id": "package.dsh-peers",
+        "status": "pass",
+        "summary": "4 DSH/Cordis peers satisfy their declared ranges",
+        "details": {
+          "checked": 4,
+          "incompatible": 0
+        }
+      },
+      {
+        "id": "executable.resolve",
+        "status": "pass",
+        "summary": "Resolved the configured host Claude executable",
+        "details": {
+          "source": "host"
+        }
+      },
+      {
+        "id": "executable.version",
+        "status": "warn",
+        "summary": "Host Claude Code 2.1.283 differs from SDK parity 2.1.286",
+        "details": {
+          "version": "2.1.283",
+          "sdkParity": "2.1.286"
+        }
+      },
+      {
+        "id": "auth.metadata",
+        "status": "pass",
+        "summary": "Claude Code reports authenticated metadata",
+        "details": {
+          "authMethod": "claude.ai",
+          "apiProvider": "firstParty"
+        }
+      },
+      {
+        "id": "spawn.lifecycle",
+        "status": "pass",
+        "summary": "Bounded CLI metadata subprocesses exited without timeout or signal"
+      },
+      {
+        "id": "sdk.startup",
+        "status": "pass",
+        "summary": "Claude Agent SDK emitted a valid initialization event",
+        "details": {
+          "durationMs": 1261
+        }
+      },
+      {
+        "id": "mcp.handshake",
+        "status": "pass",
+        "summary": "The in-process DSH MCP server connected and no native tool was advertised"
+      },
+      {
+        "id": "generation.live",
+        "status": "skip",
+        "summary": "Authenticated generation was explicitly disabled"
+      },
+      {
+        "id": "process.cleanup",
+        "status": "pass",
+        "summary": "The SDK diagnostic child exited during bounded cleanup"
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-02",
+  "typecheck": "PASSED",
+  "build": "PASSED",
+  "vitest": {
+    "status": "PASSED",
+    "files": 24,
+    "tests": 207
+  },
+  "ops": {
+    "status": "PASSED",
+    "tests": 3
+  },
+  "publint": "PASSED",
+  "coverage": {
+    "status": "FAILED",
+    "requiredEachPercent": 90,
+    "measuredPercent": {
+      "statements": 89.7,
+      "branches": 84.55,
+      "functions": 90.94,
+      "lines": 91.57
+    }
+  },
+  "secretScan": {
+    "status": "PASSED",
+    "fixtureTokenReviewed": true,
+    "liveCredentialsIncluded": false
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "status": "PASSED",
+  "level": "L2",
+  "pooled": true,
+  "scope": "real DSH LlmRuntime + managed subprocess + official SDK, text/warm/tool roundtrip",
+  "dsh": "0.2.0-rc.2",
+  "sdk": "0.3.286",
+  "cli": "2.1.283",
+  "checks": [
+    {
+      "name": "DSH_OK",
+      "pass": true,
+      "toolCalls": 0
+    },
+    {
+      "name": "PING_OK",
+      "pass": true,
+      "toolCalls": 1
+    }
+  ],
+  "modelSteps": 3,
+  "usage": [
+    {
+      "inputTokens": 1010,
+      "outputTokens": 21,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 1125,
+      "reasoningTokens": 0
+    },
+    {
+      "inputTokens": 4,
+      "outputTokens": 71,
+      "cacheReadTokens": 2089,
+      "cacheWriteTokens": 387,
+      "reasoningTokens": 0
+    }
+  ]
+}

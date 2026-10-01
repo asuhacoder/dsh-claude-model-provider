@@ -1,0 +1,987 @@
+{
+  "schema": 1,
+  "date": "2026-10-02",
+  "implementation_complete": false,
+  "statusMeaning": {
+    "PASSED": "Executed for the stated bounded scope",
+    "NOT_RUN": "Required evidence missing; may have partial implementation or tests",
+    "BLOCKED": "External prerequisite missing; does not imply the harness is complete",
+    "FAILED": "Executed check failed"
+  },
+  "tests": [
+    {
+      "id": "A-001",
+      "scope": "Prebuilt installation",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L1"
+      ],
+      "levels": {
+        "L1": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "scripts/verify-install.mjs"
+      ],
+      "notes": "Final tarball installed into an empty HOME/DSH_HOME with public plugin commands; actual apply and module identity passed."
+    },
+    {
+      "id": "A-002",
+      "scope": "Subscription coexistence",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L1"
+      ],
+      "levels": {
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "scripts/verify-install.mjs"
+      ],
+      "notes": "Composition preservation is tested. Codex/Grok network routes and full existing-provider catalog are not exercised."
+    },
+    {
+      "id": "A-003",
+      "scope": "DSH tool ownership",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "PASSED",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/tool-bridge.spec.ts",
+        "evidence/live-pooled.json"
+      ],
+      "notes": "No-op roundtrip passed. Complete DSH permission-denial live matrix pending."
+    },
+    {
+      "id": "A-004",
+      "scope": "External configuration isolation",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "NOT_RUN",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/bridge.spec.ts",
+        "src/bridge.ts"
+      ],
+      "notes": "Restrictions are configured; adversarial external settings canary matrix not run."
+    },
+    {
+      "id": "A-005",
+      "scope": "Official authentication",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0",
+        "L2"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L2": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "src/auth/official.ts",
+        "evidence/live-pooled.json"
+      ],
+      "notes": "Existing official claude.ai first-party login and real generation passed; fresh interactive login not exercised."
+    },
+    {
+      "id": "A-006",
+      "scope": "Billing guard",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "PASSED",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/routing.spec.ts",
+        "src/auth/official.ts"
+      ],
+      "notes": "Environment conflicts blocked; Extra usage OFF is user confirmation, not independent setting inspection."
+    },
+    {
+      "id": "A-007",
+      "scope": "Model and effort",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "PASSED",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/models.spec.ts",
+        "src/auth/official.ts"
+      ],
+      "notes": "Opus low requested live. Server-effective effort/clamp and all model capabilities not verified."
+    },
+    {
+      "id": "A-008",
+      "scope": "Sticky sessions",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/routing.spec.ts",
+        "tests/subscription-provider.spec.ts"
+      ],
+      "notes": "Healthy bindings persist independent of new-account scores."
+    },
+    {
+      "id": "A-009",
+      "scope": "Identity deduplication",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/routing.spec.ts"
+      ],
+      "notes": "Official organization identity is salted locally and deduplicated conservatively."
+    },
+    {
+      "id": "A-010",
+      "scope": "Atomic allocation",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/routing.spec.ts",
+        "src/storage/store.ts"
+      ],
+      "notes": "Single writer plus SQLite transactions; local reservations and session serialization."
+    },
+    {
+      "id": "A-011",
+      "scope": "Quota continuation",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1",
+        "L3"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "PASSED",
+        "L3": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/subscription-provider.spec.ts"
+      ],
+      "notes": "Confirmed prior-request quota block migrates at the next safe request. Immediate same-request retry and L3 not implemented."
+    },
+    {
+      "id": "A-012",
+      "scope": "No automatic failback",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/routing.spec.ts"
+      ],
+      "notes": "New healthy binding stays fixed after migration."
+    },
+    {
+      "id": "A-013",
+      "scope": "Quota scope",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/routing.spec.ts",
+        "src/sessions/provider.ts"
+      ],
+      "notes": "Window intersections and model aliases tested; complete SDK error classification pending."
+    },
+    {
+      "id": "A-014",
+      "scope": "Unavailable pool",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/routing.spec.ts"
+      ],
+      "notes": "Blocked reason/reset returned without billing fallback or infinite retries."
+    },
+    {
+      "id": "A-015",
+      "scope": "Intersect quota windows",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0"
+      ],
+      "levels": {
+        "L0": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/routing.spec.ts"
+      ],
+      "notes": "All applicable hard windows gate eligibility."
+    },
+    {
+      "id": "A-016",
+      "scope": "Capacity versus percentages",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0"
+      ],
+      "levels": {
+        "L0": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/routing.spec.ts"
+      ],
+      "notes": "Utilization alone never ranks absolute capacity."
+    },
+    {
+      "id": "A-017",
+      "scope": "Unknown quota",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0"
+      ],
+      "levels": {
+        "L0": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/routing.spec.ts"
+      ],
+      "notes": "Missing capacity remains undefined and does not permanently exclude accounts."
+    },
+    {
+      "id": "A-018",
+      "scope": "No fixed utilization cutoff",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0"
+      ],
+      "levels": {
+        "L0": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/routing.spec.ts"
+      ],
+      "notes": "Healthy binding retained; one estimated-exhaustion probe per free identity."
+    },
+    {
+      "id": "A-019",
+      "scope": "Reset epochs",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/routing.spec.ts"
+      ],
+      "notes": "Old reservation epochs and stale observations covered; external-usage calibration not implemented."
+    },
+    {
+      "id": "A-020",
+      "scope": "Prediction validation",
+      "implementation": "not-implemented",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "NOT_RUN",
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "scripts/bench-routing.mjs"
+      ],
+      "notes": "Baseline only; no demand/reset/cache predictor, holdout or improvement claim."
+    },
+    {
+      "id": "A-021",
+      "scope": "No background generations",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "PASSED",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "src/bridge.ts",
+        "evidence/doctor-offline.json"
+      ],
+      "notes": "No timer submits prompts; offline initialization has no queued model input. Long-duration live audit not run."
+    },
+    {
+      "id": "A-022",
+      "scope": "Warm query retention",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "PASSED",
+        "L2": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/bridge.spec.ts",
+        "evidence/live-smoke.json"
+      ],
+      "notes": "One real query served text and tool continuation."
+    },
+    {
+      "id": "A-023",
+      "scope": "Usage counters",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "PASSED",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/usage.spec.ts",
+        "evidence/live-pooled.json"
+      ],
+      "notes": "Input/output/cache counters separated. Full persisted usage/restart matrix pending."
+    },
+    {
+      "id": "A-024",
+      "scope": "Stable prefix",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/replay.spec.ts",
+        "tests/bridge.spec.ts"
+      ],
+      "notes": "Canonical projection and invalidation have no clock or quota prefix."
+    },
+    {
+      "id": "A-025",
+      "scope": "History edits",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "PASSED",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/bridge.spec.ts",
+        "tests/replay.spec.ts"
+      ],
+      "notes": "Offline history/system rebuild verified; live edit/compaction semantics not run."
+    },
+    {
+      "id": "A-026",
+      "scope": "Provider and model changes",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "PASSED",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/replay.spec.ts"
+      ],
+      "notes": "Canonical cold replay omits nonportable reasoning; live switch matrix pending."
+    },
+    {
+      "id": "A-027",
+      "scope": "Changed system prompt",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "PASSED",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/bridge.spec.ts"
+      ],
+      "notes": "Offline query rebuild tested; live semantic assertion pending."
+    },
+    {
+      "id": "A-028",
+      "scope": "SDK compaction",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "NOT_RUN",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "src/bridge.ts"
+      ],
+      "notes": "Official setting disables compaction; unexpected boundaries stop. Live injected compaction pending."
+    },
+    {
+      "id": "A-029",
+      "scope": "Session namespaces",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "NOT_RUN",
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "src/sessions/provider.ts"
+      ],
+      "notes": "Workspace/session/purpose key exists; full fork/subsession isolation matrix pending."
+    },
+    {
+      "id": "A-030",
+      "scope": "Parallel tool IDs",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/pending-tools.spec.ts",
+        "tests/tool-server.spec.ts"
+      ],
+      "notes": "ID correlation, duplicate rejection and raw schema forwarding tested."
+    },
+    {
+      "id": "A-031",
+      "scope": "Side-effect ledger",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1",
+        "L3"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "PASSED",
+        "L3": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/subscription-provider.spec.ts",
+        "tests/routing.spec.ts"
+      ],
+      "notes": "Committed DSH receipt resolves proposal; uncertain outcome blocks. External exactly-once and L3 not claimed."
+    },
+    {
+      "id": "A-032",
+      "scope": "Stale generation fence",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/routing.spec.ts",
+        "tests/bridge.spec.ts"
+      ],
+      "notes": "Generation fence and cancellation tested separately; full race matrix pending."
+    },
+    {
+      "id": "A-033",
+      "scope": "Cancellation cleanup",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "PASSED",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/process.spec.ts",
+        "tests/subscription-provider.spec.ts"
+      ],
+      "notes": "Mock process/MCP cleanup and reservation release tested. Live mid-stream cancel pending."
+    },
+    {
+      "id": "A-034",
+      "scope": "Policy refusal",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/subscription-provider.spec.ts",
+        "src/bridge.ts"
+      ],
+      "notes": "Suspended identity never migrates; SDK refusal fallback stops."
+    },
+    {
+      "id": "A-035",
+      "scope": "Retry amplification",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "NOT_RUN",
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "src/bridge.ts",
+        "src/index.ts"
+      ],
+      "notes": "Generation bound exists; cross-layer retry storm/circuit-breaker matrix incomplete."
+    },
+    {
+      "id": "A-036",
+      "scope": "Live account plus injected peer",
+      "implementation": "not-implemented",
+      "requiredLevels": [
+        "L3"
+      ],
+      "levels": {
+        "L3": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "scripts/live-smoke.mjs"
+      ],
+      "notes": "Real A and mock pool separately tested; combined injected-fault L3 harness not implemented."
+    },
+    {
+      "id": "A-037",
+      "scope": "Two-account identity isolation",
+      "implementation": "external-blocked",
+      "requiredLevels": [
+        "L4"
+      ],
+      "levels": {
+        "L4": "BLOCKED"
+      },
+      "result": "BLOCKED",
+      "evidence": [
+        "scripts/live-multi.mjs"
+      ],
+      "notes": "Second real identity and Keychain isolation unavailable; current L4 command is a guard, not a test runner."
+    },
+    {
+      "id": "A-038",
+      "scope": "Two-account continuation",
+      "implementation": "external-blocked",
+      "requiredLevels": [
+        "L4"
+      ],
+      "levels": {
+        "L4": "BLOCKED"
+      },
+      "result": "BLOCKED",
+      "evidence": [
+        "scripts/live-multi.mjs"
+      ],
+      "notes": "Real A-to-B continuation harness and distinct-account prerequisites remain incomplete."
+    },
+    {
+      "id": "A-039",
+      "scope": "Runtime identity",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L1"
+      ],
+      "levels": {
+        "L1": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "scripts/verify-install.mjs"
+      ],
+      "notes": "Host and plugin dsh-llm resolve identically through official PluginPackages interception."
+    },
+    {
+      "id": "A-040",
+      "scope": "Removal and recovery",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L1"
+      ],
+      "levels": {
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "scripts/verify-install.mjs",
+        "ops/incident-runbook.md"
+      ],
+      "notes": "Composition restore tested with offline removal; schema rollback and history/auth preservation end-to-end matrix pending."
+    },
+    {
+      "id": "A-041",
+      "scope": "Upstream watcher",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        ".github/workflows/watch-upstream.yml"
+      ],
+      "notes": "Metadata snapshots implemented; changed tuple does not dispatch compatibility automatically."
+    },
+    {
+      "id": "A-042",
+      "scope": "Automated repair",
+      "implementation": "not-implemented",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "NOT_RUN",
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "ops/repair-worker.mjs"
+      ],
+      "notes": "Runner launcher only; breaking upstream to repair PR pipeline not implemented."
+    },
+    {
+      "id": "A-043",
+      "scope": "Independent verification",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "ops/policy.test.mjs"
+      ],
+      "notes": "Signature/digest rejection unit tests pass; independent verifier service not deployed."
+    },
+    {
+      "id": "A-044",
+      "scope": "Credential separation",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        ".github/workflows/ci.yml"
+      ],
+      "notes": "Public CI is keyless with read permissions and no persisted checkout credential; private live/publisher lane not deployed."
+    },
+    {
+      "id": "A-045",
+      "scope": "Artifact and publication",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "compatibility-evidence.json",
+        "scripts/release-dry-run.mjs"
+      ],
+      "notes": "Packed hash and install evidence recorded. No OIDC publication, next/latest promotion or signed live-on-tarball gate."
+    },
+    {
+      "id": "A-046",
+      "scope": "Evidence labels",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0"
+      ],
+      "levels": {
+        "L0": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "acceptance-results.json"
+      ],
+      "notes": "Partial evidence never upgrades an unexecuted required level to PASSED."
+    },
+    {
+      "id": "A-047",
+      "scope": "Efficiency comparison",
+      "implementation": "not-implemented",
+      "requiredLevels": [
+        "L0",
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L0": "NOT_RUN",
+        "L1": "NOT_RUN",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "evidence/routing-benchmark.json"
+      ],
+      "notes": "Router-only synthetic p95 measured. No accepted-task throughput, TTFT, memory or live baseline comparison."
+    },
+    {
+      "id": "A-048",
+      "scope": "Foundation attribution",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0"
+      ],
+      "levels": {
+        "L0": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "docs/adr/0001-foundation.md",
+        "THIRD_PARTY_NOTICES.md"
+      ],
+      "notes": "Source/licenses/contracts compared and MIT attribution retained."
+    },
+    {
+      "id": "A-049",
+      "scope": "Traceability",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0"
+      ],
+      "levels": {
+        "L0": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "acceptance-results.json",
+        "IMPLEMENTATION_REPORT.md"
+      ],
+      "notes": "Implementation maturity, required levels, evidence and gaps recorded independently."
+    },
+    {
+      "id": "A-050",
+      "scope": "Bootstrap and runbook",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0"
+      ],
+      "levels": {
+        "L0": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "BOOTSTRAP_CHECKLIST.md",
+        "ops/repair-runbook.md"
+      ],
+      "notes": "Commands and external setup boundaries documented; ongoing operations explicitly not deployed."
+    },
+    {
+      "id": "A-051",
+      "scope": "Unsupported capabilities",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "PASSED",
+        "L2": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "tests/content.spec.ts",
+        "tests/input.spec.ts"
+      ],
+      "notes": "Offline image/unsupported input handling covered; live capability matrix pending."
+    },
+    {
+      "id": "A-052",
+      "scope": "Independent repair client",
+      "implementation": "partial",
+      "requiredLevels": [
+        "L0",
+        "L1"
+      ],
+      "levels": {
+        "L0": "PASSED",
+        "L1": "NOT_RUN"
+      },
+      "result": "NOT_RUN",
+      "evidence": [
+        "ops/repair-worker.mjs"
+      ],
+      "notes": "Independent runner command and job budget validation exist; durable dedup/notifications not implemented."
+    },
+    {
+      "id": "A-053",
+      "scope": "Distribution claims",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L0"
+      ],
+      "levels": {
+        "L0": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "COMPLIANCE.md"
+      ],
+      "notes": "Technical success, MIT licensing and upstream service authorization distinguished."
+    },
+    {
+      "id": "A-054",
+      "scope": "Explicit live opt-in",
+      "implementation": "implemented",
+      "requiredLevels": [
+        "L1",
+        "L2"
+      ],
+      "levels": {
+        "L1": "PASSED",
+        "L2": "PASSED"
+      },
+      "result": "PASSED",
+      "evidence": [
+        "tests/doctor.spec.ts",
+        "src/provider-cli.ts"
+      ],
+      "notes": "Doctor defaults offline; public CLI gates live with confirmation; probe submits only one prompt."
+    }
+  ]
+}

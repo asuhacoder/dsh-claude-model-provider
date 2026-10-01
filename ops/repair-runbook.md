@@ -1,0 +1,5 @@
+# Compatibility repair
+
+The six-hour metadata workflow saves exact npm dist-tags/integrities and the default-branch SHA. It does not presently dispatch or publish AI repairs automatically. An isolated maintainer runner must consume an allowlisted job, use the pinned base, cap attempts at three, deduplicate the fingerprint for six hours and keep secrets out of the candidate workspace. Run ops/repair-worker.mjs with a maintainer-owned runner config after provisioning that boundary. The broken provider is never the repair client's route.
+
+Candidate patches are untrusted. Run protected-branch checks independently at the exact candidate SHA; reject modified tests/policy, external upload instructions and unsigned or mismatched PASS evidence. No automated merge is enabled while semantic classification or live verification is incomplete. A separate publisher App may commit only bot/compat/* and open a PR; it cannot change rules or publish npm. This deployment remains an explicit bootstrap item, not an already-tested E2E claim.

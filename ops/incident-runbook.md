@@ -1,0 +1,3 @@
+# Incident and rollback
+
+Stop promotion on install failures, new privacy/authentication issues, or severe usage regression. Keep previous tarballs and state backup; uninstall the provider through DSH's plugin manager to restore composition. Do not delete official authentication profiles or user histories. A crashed local writer leaves writer.lock: inspect its PID and stop/confirm the process is gone before removing only that lock; never remove the database. Unknown tool effects require a DSH receipt or human reconciliation before continuation. npm tag rollback requires maintainer publisher authority; never overwrite a published version.

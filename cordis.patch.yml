@@ -1,0 +1,3 @@
+- insert:
+    - id: llm-claude-sdk-local
+      name: "@asuhacoder/dsh-session-provider"

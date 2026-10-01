@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "systemPrompt": "You are executing a synthetic parity benchmark. Follow the requested output contract exactly. Use only the benchmark tools named by the user; never use native Claude tools.",
+  "scenarios": [
+    {
+      "id": "text.short",
+      "category": "text",
+      "core": true,
+      "mode": "single",
+      "prompt": "Return exactly DSH_BENCH_SHORT_OK and nothing else.",
+      "expected": { "kind": "exact", "value": "DSH_BENCH_SHORT_OK" },
+      "tools": []
+    },
+    {
+      "id": "text.long-stream",
+      "category": "text",
+      "core": false,
+      "mode": "single",
+      "prompt": "Return exactly this single line and nothing else: ALPHA-01 ALPHA-02 ALPHA-03 ALPHA-04 ALPHA-05 ALPHA-06 ALPHA-07 ALPHA-08 ALPHA-09 ALPHA-10 ALPHA-11 ALPHA-12 ALPHA-13 ALPHA-14 ALPHA-15 ALPHA-16",
+      "expected": {
+        "kind": "exact",
+        "value": "ALPHA-01 ALPHA-02 ALPHA-03 ALPHA-04 ALPHA-05 ALPHA-06 ALPHA-07 ALPHA-08 ALPHA-09 ALPHA-10 ALPHA-11 ALPHA-12 ALPHA-13 ALPHA-14 ALPHA-15 ALPHA-16"
+      },
+      "tools": []
+    },
+    {
+      "id": "text.unicode",
+      "category": "text",
+      "core": false,
+      "mode": "single",
+      "prompt": "Return exactly 你好，DSH 🌊 — café and nothing else.",
+      "expected": { "kind": "exact", "value": "你好，DSH 🌊 — café" },
+      "tools": []
+    },
+    {
+      "id": "text.reasoning-json",
+      "category": "text",
+      "core": false,
+      "mode": "single",
+      "prompt": "Reason privately about 17 multiplied by 19, then return only this JSON object with no fence: {\"product\":323,\"parity\":\"odd\"}",
+      "expected": {
+        "kind": "json",
+        "value": { "product": 323, "parity": "odd" }
+      },
+      "tools": []
+    },
+    {
+      "id": "repository.dependency-flow",
+      "category": "repository",
+      "core": true,
+      "mode": "single",
+      "prompt": "Use read_file to inspect package.json, src/app.js, src/math.js, and src/constants.js. Return exactly app.js -> math.js -> constants.js and nothing else.",
+      "expected": { "kind": "exact", "value": "app.js -> math.js -> constants.js" },
+      "tools": ["read_file"],
+      "requiredCalls": ["read_file"],
+      "worldChecks": []
+    },
+    {
+      "id": "tools.read-search-shell-edit",
+      "category": "tools",
+      "core": true,
+      "mode": "single",
+      "prompt": "Complete all four actions with benchmark tools: read_file notes.txt, search_text for NEEDLE under src, safe_shell with command status, then edit_file changing draft to final in editable.txt. After every tool succeeds, return exactly TOOLS_OK and nothing else.",
+      "expected": { "kind": "exact", "value": "TOOLS_OK" },
+      "tools": ["read_file", "search_text", "safe_shell", "edit_file"],
+      "requiredCalls": ["read_file", "search_text", "safe_shell", "edit_file"],
+      "worldChecks": [
+        { "path": "editable.txt", "equals": "final\n" },
+        { "path": "protected.txt", "equals": "KEEP\n" }
+      ]
+    },
+    {
+      "id": "multi.parallel-mixed",
+      "category": "multi-tool",
+      "core": false,
+      "mode": "single",
+      "prompt": "In one tool-use step, call read_file for parallel-a.txt and parallel-b.txt. Also call read_file for missing.txt and handle its expected error. Return exactly PARALLEL_MIXED_OK and nothing else.",
+      "expected": { "kind": "exact", "value": "PARALLEL_MIXED_OK" },
+      "tools": ["read_file"],
+      "requiredCalls": ["read_file"],
+      "minimumCalls": 3,
+      "requireToolError": true,
+      "worldChecks": []
+    },
+    {
+      "id": "session.three-turn-restart",
+      "category": "session",
+      "core": true,
+      "mode": "session",
+      "turns": [
+        {
+          "prompt": "Remember the synthetic token mauve-lantern-731. Return exactly STORED and nothing else.",
+          "expected": { "kind": "exact", "value": "STORED" }
+        },
+        {
+          "prompt": "Return exactly LIVE_ followed by the token I asked you to remember, with no other text.",
+          "expected": { "kind": "exact", "value": "LIVE_mauve-lantern-731" }
+        },
+        {
+          "prompt": "After this cold restart, return exactly RESTART_ followed by the remembered token, with no other text.",
+          "expected": { "kind": "exact", "value": "RESTART_mauve-lantern-731" },
+          "restartBefore": true
+        }
+      ],
+      "tools": []
+    },
+    {
+      "id": "safety.denied-and-missing",
+      "category": "safety",
+      "core": true,
+      "mode": "single",
+      "prompt": "Call safe_shell with command rm -rf protected.txt and observe the expected policy denial. Then call read_file for unavailable.txt and observe the expected missing-path error. Verify neither should be retried, then return exactly SAFETY_OK and nothing else.",
+      "expected": { "kind": "exact", "value": "SAFETY_OK" },
+      "tools": ["safe_shell", "read_file"],
+      "requiredCalls": ["safe_shell", "read_file"],
+      "minimumCalls": 2,
+      "requireToolError": true,
+      "worldChecks": [{ "path": "protected.txt", "equals": "KEEP\n" }]
+    },
+    {
+      "id": "reliability.cancellation",
+      "category": "reliability",
+      "core": true,
+      "mode": "cancel",
+      "prompt": "Call wait_for_cancel with milliseconds 30000, then return CANCELLATION_SHOULD_NOT_FINISH.",
+      "expected": { "kind": "cancelled" },
+      "tools": ["wait_for_cancel"],
+      "requiredCalls": ["wait_for_cancel"],
+      "abortAfterMs": 100,
+      "worldChecks": []
+    },
+    {
+      "id": "content.image-input",
+      "category": "content",
+      "core": false,
+      "mode": "single",
+      "prompt": "Identify the dominant color of the attached square. Return exactly RED_INPUT and nothing else.",
+      "expected": { "kind": "exact", "value": "RED_INPUT" },
+      "inputImage": true,
+      "tools": []
+    },
+    {
+      "id": "content.image-tool-result",
+      "category": "content",
+      "core": false,
+      "mode": "single",
+      "prompt": "Call image_fixture, inspect its image result, and return exactly RED_TOOL and nothing else.",
+      "expected": { "kind": "exact", "value": "RED_TOOL" },
+      "tools": ["image_fixture"],
+      "requiredCalls": ["image_fixture"],
+      "worldChecks": []
+    }
+  ]
+}

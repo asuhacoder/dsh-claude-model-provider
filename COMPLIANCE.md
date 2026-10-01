@@ -1,0 +1,7 @@
+# Usage and distribution boundary
+
+This is an unofficial DSH provider, not an Anthropic product. DSH owns user history, tool execution, permissions and sandbox policy. The unmodified official Claude SDK/CLI owns model communication and login. No OAuth tokens, Keychain records, refresh tokens or passwords are extracted or replicated. The application stores profile references and salted hashes of official subscription organization identifiers only; shared organizations are conservatively deduplicated.
+
+Successful individual subscription inference is technical evidence, not blanket permission to redistribute a product offering subscription access to others. Review the current SDK overview and Claude legal/compliance terms for your use and obtain any required authorization before distribution or service deployment. Current-page retrieval was unavailable during this implementation; no legal approval is claimed. Code availability under MIT does not grant rights to an upstream service.
+
+References: https://platform.claude.com/docs/en/agent-sdk/overview and https://code.claude.com/docs/en/legal-and-compliance . The Help Center billing announcement is not a general distribution authorization. API fallback, extra usage enabling, client impersonation, identity rotation after policy refusal, and account creation are unsupported. Extra usage must be confirmed OFF; user confirmation is recorded separately from automatically verified subscription authentication.

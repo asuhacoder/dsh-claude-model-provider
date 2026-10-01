@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "dsh": "0.2.0-rc.2",
+  "sdk": "0.3.286",
+  "cli": "2.1.283",
+  "capabilities": {
+    "realText": "PASSED",
+    "realDshToolRoundtrip": "PASSED",
+    "warmQuery": "PASSED",
+    "controlOnlyModelCatalog": "PASSED",
+    "builtinToolsDisabled": "configured; live tool catalog check pending",
+    "extraUsageOff": "user-confirmed, not independently verified billing setting",
+    "multiAccountLive": "BLOCKED",
+    "historyReplay": "canonical-user-envelope, native roles not equivalent",
+    "coldSameAccountResume": "portable rebuild",
+    "sdkAutoCompaction": "official setting disabled; unexpected boundary fails closed",
+    "images": "offline encoder verified; live pending",
+    "modelEffort": "strict supported levels; applied server effort verification pending"
+  },
+  "limitations": [
+    "macOS Keychain cross-profile isolation not live verified",
+    "quota percentages never interpreted as token or dollar balances",
+    "public distribution authorization not established"
+  ]
+}
