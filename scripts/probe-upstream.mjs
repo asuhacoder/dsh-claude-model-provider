@@ -3,8 +3,11 @@ import { createHash } from 'node:crypto'
 const names=['@deepseek-ai/dsh','@anthropic-ai/claude-agent-sdk','dsh-plugin-subscriptions']
 const packages={}
 for(const name of names){const res=await fetch('https://registry.npmjs.org/'+encodeURIComponent(name));if(!res.ok)throw new Error('REGISTRY_UNAVAILABLE');const p=await res.json();const version=p['dist-tags'].latest;packages[name]={version,distTags:p['dist-tags'],integrity:p.versions[version].dist.integrity}}
-const repo=await (await fetch('https://api.github.com/repos/deepseek-ai/deepseek-harness',{headers:{'User-Agent':'dsh-claude-model-provider-compat'}})).json()
-const ref=await (await fetch(`https://api.github.com/repos/deepseek-ai/deepseek-harness/commits/${encodeURIComponent(repo.default_branch)}`,{headers:{'User-Agent':'dsh-claude-model-provider-compat'}})).json()
+const token=process.env.GH_TOKEN??process.env.GITHUB_TOKEN
+const headers={'User-Agent':'dsh-session-provider-compat',...(token?{Authorization:'Bearer '+token}:{})}
+async function github(path){const response=await fetch('https://api.github.com/'+path,{headers,signal:AbortSignal.timeout(15000)});if(!response.ok)throw new Error('GITHUB_METADATA_HTTP_'+response.status);return response.json()}
+const repo=await github('repos/deepseek-ai/deepseek-harness')
+const ref=await github('repos/deepseek-ai/deepseek-harness/commits/'+encodeURIComponent(repo.default_branch))
 if(!/^[0-9a-f]{40}$/.test(ref.sha??''))throw new Error('UPSTREAM_SHA_UNAVAILABLE')
 const result={schema:1,observedAt:new Date().toISOString(),packages,defaultBranch:repo.default_branch,defaultBranchSha:ref.sha}
 let old;try{old=JSON.parse(readFileSync('compatibility.lock.json','utf8'))}catch{}
