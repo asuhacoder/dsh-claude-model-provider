@@ -180,8 +180,13 @@ export function accountModelInfo(
   const efforts = [...new Set(matching.flatMap((a) => a.models[id]!))].filter((e) =>
     (CLAUDE_REASONING_EFFORTS as readonly string[]).includes(e),
   )
+  // DSH rejects an empty effort list and drops the entire provider catalog.
+  // An absent capability is represented by omitting reasoning metadata.
+  const { reasoning: _fallbackReasoning, ...metadata } = result
   return {
-    ...result,
-    reasoning: { efforts: efforts.map((e) => ({ id: ReasoningEffortId(e), name: e })) },
+    ...metadata,
+    ...(efforts.length
+      ? { reasoning: { efforts: efforts.map((e) => ({ id: ReasoningEffortId(e), name: e })) } }
+      : {}),
   }
 }

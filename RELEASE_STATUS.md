@@ -1,30 +1,13 @@
 # Release status — 2026-10-02
 
-The public GitHub prerelease is available. npm publication is **held**, not completed. The maintainer authorized publication after the remaining work is complete and explicitly waived the need for a second real Claude account. That waiver does not convert unexecuted tests to passes or waive the other remaining tasks.
+The maintainer has authorized an experimental npm release after verification in the actual active DSH, followed by replacement with the published npm plugin. PR approval and real two-account testing are not release prerequisites. This supersedes the previous all-other-tasks hold; remaining limitations are still reported honestly.
 
-## Ready
+Candidate: `@asuha/dsh-claude-model-provider@0.1.0-next.3`, npm tag `next`, personal GitHub `asuhacoder` and npm scope `@asuha`.
 
-- Personal GitHub owner: `asuhacoder`; authenticated npm owner/scope: `asuha` / `@asuha`.
-- Candidate: `@asuha/dsh-claude-model-provider@0.1.0-next.2`, intended dist-tag `next`.
-- Immutable candidate SHA-256: `2ea519b5c2c19d846cf991ef5a2bac47f73fcc60cf58b227d55f42beca25cb24`.
-- This exact tarball passed installation, real single-account generation and an authenticated npm dry run. The corrected workflow command also passed its dry run.
-- The implementation passed 258 regression tests, unchanged coverage gates and three-OS CI. Follow-up evidence adds three short real model steps covering measurements, image input, foreign-provider fixture history, unsupported input and bounded idle behavior.
-- Two-account L4 evidence remains unavailable and is waived as a release condition.
+The actual Web profile exposed a catalog bug for models without effort options. The fix passed 260 tests and the unchanged coverage thresholds. The active DSH successfully completed an Opus response and a DSH file read while preserving existing provider groups and sessions. PR #1 is merged, and GitHub no longer requires an approving review; required CI checks remain.
 
-## Remaining conditions
+The final tarball is being verified for publication. Its SHA-256 is `f213f6a5621fad29593ba3885bbd4c2f33403bf1df6c774b487ac41eaf4b62ab`. Publication and registry installation evidence will be recorded separately so the verified tarball remains immutable.
 
-| Item | Current boundary |
-| --- | --- |
-| Protected main / PR #1 | GitHub requires one approving review. The PR changes authentication/routing boundaries; no administrative override has been performed. The scheduled watcher and publish lane require main. |
-| Independent repair deployment | Worker/verifier OS and network isolation, verifier key custody, a restricted publisher GitHub App and official client login are not provisioned. A local process fixture is not that service. |
-| npm automated publisher | Local login works. The initial package and npm-side trusted publisher enrollment are still absent; OIDC/provenance have not been demonstrated by a real publication. |
-| Browser verification | The browser's admin policy check denied access. Settings components, authenticated RPC and server startup are verified; the actual browser screen is not. |
-| Other evidence | Full authenticated third-party-provider coexistence/roundtrip, server-effective effort, induced SDK compaction, longer idle/canary coverage and representative efficiency comparison remain incomplete. Exact acceptance IDs and scopes remain in `acceptance-results.json`. |
+Initial publication uses the authenticated local maintainer. It does not create npm provenance. A local build signature must not be described as independent verification. npm-side trusted publishing/OIDC enrollment remains a separate follow-up after initial package creation.
 
-The predictor remains in shadow because the synthetic holdout contains regressions. No performance superiority or production-readiness claim is made. `latest` promotion additionally requires independent signed verification and the 24-hour canary; neither follows merely from npm login or elapsed time.
-
-## Next publication action
-
-Resolve the non-waived conditions, then publish the exact verified candidate to `next` and verify the registry's integrity and installed contents. Initial package creation may require npm's interactive authentication; enroll the protected GitHub-hosted publisher afterward. Do not silently disable provenance or weaken branch/environment rules to make the existing automation run. A narrower experimental release before all conditions are met requires an explicit change to the maintainer's publication condition.
-
-Evidence: `evidence/npm-authenticated-rehearsal.json`, `evidence/live-acceptance.json`, `compatibility-evidence.json`.
+The predictor remains shadow-only. Real two-account isolation, independent production repair infrastructure, full third-party network coverage, server-effective effort, forced SDK compaction, visual browser testing, representative efficiency measurements and a 24-hour canary remain unverified. These limitations do not block the specifically authorized experimental release and do not imply stable readiness or superiority. No `latest` promotion is intended.

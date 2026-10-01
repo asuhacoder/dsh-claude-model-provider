@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { Context } from '@deepseek-ai/cordis'
+import LlmRuntime from '@deepseek-ai/dsh-llm'
+import type { Account } from '../src/routing/types.js'
 import {
+  ClaudeCodeAdapter,
+  resolveConfig,
   BUILTIN_MODEL_ALIASES,
   modelCatalog,
   PROVIDER_ID,
@@ -10,6 +15,45 @@ import {
 } from '../src/index.js'
 
 describe('Claude model aliases', () => {
+  it.each([{ efforts: [] }, { efforts: ['future-effort'] }])(
+    'keeps the DSH catalog valid when Haiku has no supported effort: %j',
+    async ({ efforts }) => {
+      const ctx = new Context()
+      const fiber = await ctx.plugin(LlmRuntime)
+      const account: Account = {
+        identity: 'fixture',
+        aliases: ['fixture'],
+        profileRef: 'default',
+        state: 'READY',
+        verifiedAt: 1,
+        models: { opus: ['low', 'high'], haiku: efforts },
+        windows: [],
+        parallelLimit: 1,
+      }
+      const remove = ctx.llm.registerAdapter(
+        [PROVIDER_ID],
+        new ClaudeCodeAdapter(resolveConfig({ defaultModel: 'haiku' }), {
+          accounts: () => [account],
+          async *stream() {
+            throw new Error('catalog validation must not generate')
+          },
+        }),
+      )
+      try {
+        const catalog = await ctx.llm.listModels(PROVIDER_ID)
+        const models = await Promise.all(
+          catalog.map((model) => ctx.llm.resolveModelInfo(PROVIDER_ID, model.id)),
+        )
+        expect(models.map((model) => model.id)).toEqual(['default', 'haiku', 'opus'])
+        expect(models[0]?.reasoning).toBeUndefined()
+        expect(models[1]?.reasoning).toBeUndefined()
+        expect(models[2]?.reasoning?.efforts.map((effort) => effort.id)).toEqual(['low', 'high'])
+      } finally {
+        remove()
+        await fiber.dispose()
+      }
+    },
+  )
   it('advertises the stable aliases in preferred order', () => {
     const models = modelCatalog('opus')
     expect(models.map((model) => model.id)).toEqual(BUILTIN_MODEL_ALIASES)
