@@ -22,6 +22,8 @@ jobs:
         with:
           node-version: '24.14.0'
       - run: node scripts/probe-upstream.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
         id: probe
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

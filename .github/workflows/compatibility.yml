@@ -26,6 +26,8 @@ jobs:
           node-version: '24.14.0'
       - run: npm install --global pnpm@11.1.2
       - run: node scripts/probe-upstream.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
         if: inputs.tuple == ''
       - run: node scripts/prepare-candidate.mjs
         env:
