@@ -14,9 +14,16 @@ export interface RouteRequest {
   effort?: string
   now: number
 }
+export function matchesScope(scope: string, model: string): boolean {
+  return (
+    scope === '*' ||
+    scope === model ||
+    (['opus', 'sonnet', 'haiku'].includes(scope) && model.startsWith('claude-' + scope + '-'))
+  )
+}
 export function blockedUntil(account: Account, model: string, now: number): number | undefined {
   const values = account.windows
-    .filter((w) => (w.scope === '*' || w.scope === model) && (w.hardBlockedUntil ?? 0) > now)
+    .filter((w) => matchesScope(w.scope, model) && (w.hardBlockedUntil ?? 0) > now)
     .map((w) => w.hardBlockedUntil!)
   return values.length ? Math.max(...values) : undefined
 }
@@ -27,7 +34,7 @@ export function availableWork(
   reservations: readonly Reservation[],
 ): number | undefined {
   const windows = account.windows.filter(
-    (w) => (w.scope === '*' || w.scope === model) && (w.resetsAt === undefined || w.resetsAt > now),
+    (w) => matchesScope(w.scope, model) && (w.resetsAt === undefined || w.resetsAt > now),
   )
   if (!windows.length || windows.some((w) => w.remainingWork === undefined)) return undefined
   return Math.max(
@@ -78,6 +85,7 @@ export function choose(
       Number(a.state === 'DRAINING') - Number(b.state === 'DRAINING') ||
       (availableWork(b, req.model, req.now, reservations) ?? 0) -
         (availableWork(a, req.model, req.now, reservations) ?? 0) ||
+      Number(b.isDefault ?? false) - Number(a.isDefault ?? false) ||
       tie(req.session, a.identity).localeCompare(tie(req.session, b.identity)),
   )
   // If all estimates say exhausted, admit at most one real job per identity.

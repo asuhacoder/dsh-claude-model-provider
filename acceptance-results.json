@@ -44,40 +44,40 @@
     {
       "id": "A-003",
       "scope": "DSH tool ownership",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L1",
         "L2"
       ],
       "levels": {
         "L1": "PASSED",
-        "L2": "NOT_RUN"
+        "L2": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "tests/tool-bridge.spec.ts",
-        "evidence/live-pooled.json"
+        "evidence/live-matrix.json",
+        "tests/tool-bridge.spec.ts"
       ],
-      "notes": "No-op roundtrip passed. Complete DSH permission-denial live matrix pending."
+      "notes": "Bounded real DSH-owned tool request and permission-denial receipt passed; native SDK tools are disabled."
     },
     {
       "id": "A-004",
       "scope": "External configuration isolation",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L1",
         "L2"
       ],
       "levels": {
-        "L1": "NOT_RUN",
-        "L2": "NOT_RUN"
+        "L1": "PASSED",
+        "L2": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "tests/bridge.spec.ts",
-        "src/bridge.ts"
+        "evidence/live-matrix.json",
+        "tests/bridge.spec.ts"
       ],
-      "notes": "Restrictions are configured; adversarial external settings canary matrix not run."
+      "notes": "Temporary external project instructions, hook and MCP canaries did not run in the real nine-step matrix."
     },
     {
       "id": "A-005",
@@ -101,7 +101,7 @@
     {
       "id": "A-006",
       "scope": "Billing guard",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L0",
         "L1",
@@ -110,14 +110,14 @@
       "levels": {
         "L0": "PASSED",
         "L1": "PASSED",
-        "L2": "NOT_RUN"
+        "L2": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "tests/routing.spec.ts",
-        "src/auth/official.ts"
+        "evidence/live-matrix.json",
+        "tests/provider-control.spec.ts"
       ],
-      "notes": "Environment conflicts blocked; Extra usage OFF is user confirmation, not independent setting inspection."
+      "notes": "Real subscription-only path passed with user-confirmed Extra usage OFF; typed overage/credits indicators are blocked in injected tests. This does not independently inspect the billing setting."
     },
     {
       "id": "A-007",
@@ -134,9 +134,10 @@
       "result": "NOT_RUN",
       "evidence": [
         "tests/models.spec.ts",
-        "src/auth/official.ts"
+        "src/auth/official.ts",
+        "evidence/live-acceptance.json"
       ],
-      "notes": "Opus low requested live. Server-effective effort/clamp and all model capabilities not verified."
+      "notes": "Opus low requested live. Server-effective effort/clamp and all model capabilities not verified. Additional real Opus requests asserted the requested low effort at the SDK boundary and observed claude-opus-5-5; server-effective effort is still unavailable."
     },
     {
       "id": "A-008",
@@ -197,7 +198,7 @@
     {
       "id": "A-011",
       "scope": "Quota continuation",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L0",
         "L1",
@@ -206,13 +207,14 @@
       "levels": {
         "L0": "PASSED",
         "L1": "PASSED",
-        "L3": "NOT_RUN"
+        "L3": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "tests/subscription-provider.spec.ts"
+        "tests/provider-control.spec.ts",
+        "evidence/live-hybrid.json"
       ],
-      "notes": "Confirmed prior-request quota block migrates at the next safe request. Immediate same-request retry and L3 not implemented."
+      "notes": "Immediate pre-output typed-quota failover tested with terminal and thrown failures. L3 carries a real committed receipt to a fake peer at a quota boundary."
     },
     {
       "id": "A-012",
@@ -235,21 +237,21 @@
     {
       "id": "A-013",
       "scope": "Quota scope",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L0",
         "L1"
       ],
       "levels": {
         "L0": "PASSED",
-        "L1": "NOT_RUN"
+        "L1": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "tests/routing.spec.ts",
-        "src/sessions/provider.ts"
+        "tests/provider-control.spec.ts",
+        "tests/forecast.spec.ts"
       ],
-      "notes": "Window intersections and model aliases tested; complete SDK error classification pending."
+      "notes": "Typed errors, full model-family quota scope, paid-overage, suspension and request failures are distinguished without policy bypass."
     },
     {
       "id": "A-014",
@@ -336,25 +338,26 @@
     {
       "id": "A-019",
       "scope": "Reset epochs",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L0",
         "L1"
       ],
       "levels": {
         "L0": "PASSED",
-        "L1": "NOT_RUN"
+        "L1": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "tests/routing.spec.ts"
+        "tests/routing.spec.ts",
+        "tests/forecast.spec.ts"
       ],
-      "notes": "Old reservation epochs and stale observations covered; external-usage calibration not implemented."
+      "notes": "Expired quota estimates remain unknown; epoch reservations and reset events tested."
     },
     {
       "id": "A-020",
       "scope": "Prediction validation",
-      "implementation": "not-implemented",
+      "implementation": "partial",
       "requiredLevels": [
         "L0",
         "L1"
@@ -365,9 +368,10 @@
       },
       "result": "NOT_RUN",
       "evidence": [
-        "scripts/bench-routing.mjs"
+        "tests/forecast.spec.ts",
+        "evidence/forecast-holdout.json"
       ],
-      "notes": "Baseline only; no demand/reset/cache predictor, holdout or improvement claim."
+      "notes": "Calibration, fixed-seed bounded demand/reset/cold-cost simulator and holdout are implemented. Five holdout regressions keep selection in shadow. Real isolated debit calibration and richer multi-window forecasting remain unverified."
     },
     {
       "id": "A-021",
@@ -384,9 +388,10 @@
       "result": "NOT_RUN",
       "evidence": [
         "src/bridge.ts",
-        "evidence/doctor-offline.json"
+        "evidence/doctor-offline.json",
+        "evidence/live-acceptance.json"
       ],
-      "notes": "No timer submits prompts; offline initialization has no queued model input. Long-duration live audit not run."
+      "notes": "No timer submits prompts; offline initialization has no queued model input. Long-duration live audit not run. Additional three-second real idle observation had no new SDK query/result or usage change; this bounded observation does not replace a longer audit."
     },
     {
       "id": "A-022",
@@ -410,21 +415,21 @@
     {
       "id": "A-023",
       "scope": "Usage counters",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L1",
         "L2"
       ],
       "levels": {
         "L1": "PASSED",
-        "L2": "NOT_RUN"
+        "L2": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "tests/usage.spec.ts",
-        "evidence/live-pooled.json"
+        "tests/provider-control.spec.ts",
+        "evidence/live-matrix.json"
       ],
-      "notes": "Input/output/cache counters separated. Full persisted usage/restart matrix pending."
+      "notes": "SDK delta counters persist per account and attempt, including consumed failed work; acceptedTasks remains null."
     },
     {
       "id": "A-024",
@@ -448,21 +453,20 @@
     {
       "id": "A-025",
       "scope": "History edits",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L1",
         "L2"
       ],
       "levels": {
         "L1": "PASSED",
-        "L2": "NOT_RUN"
+        "L2": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "tests/bridge.spec.ts",
-        "tests/replay.spec.ts"
+        "evidence/live-matrix.json"
       ],
-      "notes": "Offline history/system rebuild verified; live edit/compaction semantics not run."
+      "notes": "Real history edit changed remembered ALPHA to BETA and survived process restart."
     },
     {
       "id": "A-026",
@@ -478,27 +482,29 @@
       },
       "result": "NOT_RUN",
       "evidence": [
-        "tests/replay.spec.ts"
+        "evidence/live-matrix.json",
+        "tests/replay.spec.ts",
+        "evidence/live-acceptance.json"
       ],
-      "notes": "Canonical cold replay omits nonportable reasoning; live switch matrix pending."
+      "notes": "Explicit real Opus-to-Sonnet change and cancellation recovery passed; full other-provider UI roundtrip is not run. Real Claude also read synthetic foreign-provider history together with an image correctly; no authenticated third-party roundtrip or UI claim."
     },
     {
       "id": "A-027",
       "scope": "Changed system prompt",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L1",
         "L2"
       ],
       "levels": {
         "L1": "PASSED",
-        "L2": "NOT_RUN"
+        "L2": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "tests/bridge.spec.ts"
+        "evidence/live-matrix.json"
       ],
-      "notes": "Offline query rebuild tested; live semantic assertion pending."
+      "notes": "Changed system prompt took effect in real generation after cold rebuild."
     },
     {
       "id": "A-028",
@@ -514,27 +520,28 @@
       },
       "result": "NOT_RUN",
       "evidence": [
-        "src/bridge.ts"
+        "tests/output.spec.ts"
       ],
-      "notes": "Official setting disables compaction; unexpected boundaries stop. Live injected compaction pending."
+      "notes": "Compaction handling has injected tests. Deliberately forcing real compaction was not included in the short live budget."
     },
     {
       "id": "A-029",
       "scope": "Session namespaces",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L0",
         "L1"
       ],
       "levels": {
-        "L0": "NOT_RUN",
-        "L1": "NOT_RUN"
+        "L0": "PASSED",
+        "L1": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "src/sessions/provider.ts"
+        "tests/provider-control.spec.ts",
+        "tests/bridge.spec.ts"
       ],
-      "notes": "Workspace/session/purpose key exists; full fork/subsession isolation matrix pending."
+      "notes": "Session key includes working directory, DSH session and purpose; same-session FIFO and independent-session queue behavior are tested."
     },
     {
       "id": "A-030",
@@ -558,7 +565,7 @@
     {
       "id": "A-031",
       "scope": "Side-effect ledger",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L0",
         "L1",
@@ -567,52 +574,51 @@
       "levels": {
         "L0": "PASSED",
         "L1": "PASSED",
-        "L3": "NOT_RUN"
+        "L3": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "tests/subscription-provider.spec.ts",
-        "tests/routing.spec.ts"
+        "evidence/live-hybrid.json",
+        "tests/subscription-provider.spec.ts"
       ],
-      "notes": "Committed DSH receipt resolves proposal; uncertain outcome blocks. External exactly-once and L3 not claimed."
+      "notes": "Unknown side-effect outcomes stop; real committed receipt migrated in L3 without duplicate side effects."
     },
     {
       "id": "A-032",
       "scope": "Stale generation fence",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L0",
         "L1"
       ],
       "levels": {
         "L0": "PASSED",
-        "L1": "NOT_RUN"
+        "L1": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "tests/routing.spec.ts",
-        "tests/bridge.spec.ts"
+        "tests/provider-control.spec.ts"
       ],
-      "notes": "Generation fence and cancellation tested separately; full race matrix pending."
+      "notes": "Late SDK events with stale generation are rejected; queued cancellation leaves the running predecessor intact."
     },
     {
       "id": "A-033",
       "scope": "Cancellation cleanup",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L1",
         "L2"
       ],
       "levels": {
         "L1": "PASSED",
-        "L2": "NOT_RUN"
+        "L2": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "tests/process.spec.ts",
-        "tests/subscription-provider.spec.ts"
+        "evidence/live-matrix.json",
+        "tests/provider-control.spec.ts"
       ],
-      "notes": "Mock process/MCP cleanup and reservation release tested. Live mid-stream cancel pending."
+      "notes": "Live cancellation after output and same-account recovery passed; queue/auth-lock/deadline/disposal cleanup covered by tests."
     },
     {
       "id": "A-034",
@@ -636,42 +642,41 @@
     {
       "id": "A-035",
       "scope": "Retry amplification",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L0",
         "L1"
       ],
       "levels": {
-        "L0": "NOT_RUN",
-        "L1": "NOT_RUN"
+        "L0": "PASSED",
+        "L1": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "src/bridge.ts",
-        "src/index.ts"
+        "tests/provider-control.spec.ts"
       ],
-      "notes": "Generation bound exists; cross-layer retry storm/circuit-breaker matrix incomplete."
+      "notes": "Outer attempt/account-cycle limits, SDK retry budget, request deadline and shared circuit tested."
     },
     {
       "id": "A-036",
       "scope": "Live account plus injected peer",
-      "implementation": "not-implemented",
+      "implementation": "implemented",
       "requiredLevels": [
         "L3"
       ],
       "levels": {
-        "L3": "NOT_RUN"
+        "L3": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "scripts/live-smoke.mjs"
+        "evidence/live-hybrid.json"
       ],
-      "notes": "Real A and mock pool separately tested; combined injected-fault L3 harness not implemented."
+      "notes": "One real account plus one fixture peer completed receipt continuation and no-failback checks in L3."
     },
     {
       "id": "A-037",
       "scope": "Two-account identity isolation",
-      "implementation": "external-blocked",
+      "implementation": "implemented",
       "requiredLevels": [
         "L4"
       ],
@@ -680,14 +685,16 @@
       },
       "result": "BLOCKED",
       "evidence": [
-        "scripts/live-multi.mjs"
+        "scripts/live-multi.mjs",
+        "evidence/live-multi.json"
       ],
-      "notes": "Second real identity and Keychain isolation unavailable; current L4 command is a guard, not a test runner."
+      "notes": "Runnable guarded L4 harness; two distinct real official identities are unavailable. No generation was attempted. Maintainer explicitly waived this as a publication prerequisite; verification remains BLOCKED.",
+      "releaseGate": "WAIVED_BY_MAINTAINER"
     },
     {
       "id": "A-038",
       "scope": "Two-account continuation",
-      "implementation": "external-blocked",
+      "implementation": "implemented",
       "requiredLevels": [
         "L4"
       ],
@@ -696,9 +703,11 @@
       },
       "result": "BLOCKED",
       "evidence": [
-        "scripts/live-multi.mjs"
+        "scripts/live-multi.mjs",
+        "evidence/live-multi.json"
       ],
-      "notes": "Real A-to-B continuation harness and distinct-account prerequisites remain incomplete."
+      "notes": "Runnable guarded L4 harness; two distinct real official identities are unavailable. No generation was attempted. Maintainer explicitly waived this as a publication prerequisite; verification remains BLOCKED.",
+      "releaseGate": "WAIVED_BY_MAINTAINER"
     },
     {
       "id": "A-039",
@@ -719,42 +728,43 @@
     {
       "id": "A-040",
       "scope": "Removal and recovery",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L1"
       ],
       "levels": {
-        "L1": "NOT_RUN"
+        "L1": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
         "scripts/verify-install.mjs",
-        "ops/incident-runbook.md"
+        "tests/account-management.spec.ts"
       ],
-      "notes": "Composition restore tested with offline removal; schema rollback and history/auth preservation end-to-end matrix pending."
+      "notes": "Packed uninstall restored composition; read-only inspection and explicit dead-PID lock recovery tested."
     },
     {
       "id": "A-041",
       "scope": "Upstream watcher",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L0",
         "L1"
       ],
       "levels": {
         "L0": "PASSED",
-        "L1": "NOT_RUN"
+        "L1": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        ".github/workflows/watch-upstream.yml"
+        ".github/workflows/watch-upstream.yml",
+        ".github/workflows/compatibility.yml"
       ],
-      "notes": "Metadata snapshots implemented; changed tuple does not dispatch compatibility automatically."
+      "notes": "GitHub watcher detected actual SDK 0.3.287 and dispatched pinned compatibility. Scheduled activation on main awaits review/merge."
     },
     {
       "id": "A-042",
       "scope": "Automated repair",
-      "implementation": "not-implemented",
+      "implementation": "partial",
       "requiredLevels": [
         "L0",
         "L1"
@@ -765,9 +775,10 @@
       },
       "result": "NOT_RUN",
       "evidence": [
-        "ops/repair-worker.mjs"
+        "ops/run-repair-job.mjs",
+        "evidence/repair-fixture-e2e.json"
       ],
-      "notes": "Runner launcher only; breaking upstream to repair PR pipeline not implemented."
+      "notes": "Bounded repair orchestration and separate-process real-Git fixture E2E completed; production isolated service deployment remains external."
     },
     {
       "id": "A-043",
@@ -783,9 +794,10 @@
       },
       "result": "NOT_RUN",
       "evidence": [
-        "ops/policy.test.mjs"
+        "ops/pipeline.test.mjs",
+        "evidence/repair-fixture-e2e.json"
       ],
-      "notes": "Signature/digest rejection unit tests pass; independent verifier service not deployed."
+      "notes": "Base/candidate/artifact/policy-bound signatures and protected-verifier fault tests completed. Independent production key custody/runner not provisioned."
     },
     {
       "id": "A-044",
@@ -801,9 +813,10 @@
       },
       "result": "NOT_RUN",
       "evidence": [
-        ".github/workflows/ci.yml"
+        "ops/run-repair-job.mjs",
+        "ops/pipeline.test.mjs"
       ],
-      "notes": "Public CI is keyless with read permissions and no persisted checkout credential; private live/publisher lane not deployed."
+      "notes": "Child process environment and service-specific credential allowlists implemented; production OS/network separation requires isolated runner deployment."
     },
     {
       "id": "A-045",
@@ -819,10 +832,11 @@
       },
       "result": "NOT_RUN",
       "evidence": [
-        "compatibility-evidence.json",
-        "scripts/release-dry-run.mjs"
+        ".github/workflows/release.yml",
+        "ops/pipeline.test.mjs",
+        "evidence/npm-authenticated-rehearsal.json"
       ],
-      "notes": "Packed hash and install evidence recorded. No OIDC publication, next/latest promotion or signed live-on-tarball gate."
+      "notes": "Exact-artifact npm-next OIDC workflow, SBOM and promotion/rollback policy implemented. npm enrollment/publication and long canary are not complete. npm account asuha is now authenticated and the exact next.2 artifact passed an authenticated dry run, including the corrected workflow command. Actual publication/OIDC enrollment and long canary remain pending."
     },
     {
       "id": "A-046",
@@ -843,7 +857,7 @@
     {
       "id": "A-047",
       "scope": "Efficiency comparison",
-      "implementation": "not-implemented",
+      "implementation": "partial",
       "requiredLevels": [
         "L0",
         "L1",
@@ -856,9 +870,10 @@
       },
       "result": "NOT_RUN",
       "evidence": [
-        "evidence/routing-benchmark.json"
+        "evidence/routing-benchmark.json",
+        "evidence/live-acceptance.json"
       ],
-      "notes": "Router-only synthetic p95 measured. No accepted-task throughput, TTFT, memory or live baseline comparison."
+      "notes": "Router-only synthetic p95 measured. No accepted-task throughput, TTFT, memory or live baseline comparison. A three-generation probe now includes one same-model/effort direct-SDK/provider pair with independent exact-answer validation, latency, usage and memory samples. The fixed-order microbenchmark is insufficient for workload efficiency or superiority claims."
     },
     {
       "id": "A-048",
@@ -914,7 +929,7 @@
     {
       "id": "A-051",
       "scope": "Unsupported capabilities",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L1",
         "L2"
@@ -925,28 +940,29 @@
       },
       "result": "NOT_RUN",
       "evidence": [
-        "tests/content.spec.ts",
-        "tests/input.spec.ts"
+        "tests/account-management.spec.ts",
+        "tests/client.spec.ts",
+        "evidence/live-acceptance.json"
       ],
-      "notes": "Offline image/unsupported input handling covered; live capability matrix pending."
+      "notes": "Model and effort catalog uses official verified capabilities. Explicit unsupported requests stop; management screen uses authenticated DSH RPC. Browser verification is blocked by browser policy availability. Additional real image inference passed; unsupported stop sequences were rejected before an SDK query started."
     },
     {
       "id": "A-052",
       "scope": "Independent repair client",
-      "implementation": "partial",
+      "implementation": "implemented",
       "requiredLevels": [
         "L0",
         "L1"
       ],
       "levels": {
         "L0": "PASSED",
-        "L1": "NOT_RUN"
+        "L1": "PASSED"
       },
-      "result": "NOT_RUN",
+      "result": "PASSED",
       "evidence": [
-        "ops/repair-worker.mjs"
+        "evidence/live-independent-repair.json"
       ],
-      "notes": "Independent runner command and job budget validation exist; durable dedup/notifications not implemented."
+      "notes": "A direct official SDK coding probe corrected a small breaking signature fixture with no provider import, no tools and no publisher credentials."
     },
     {
       "id": "A-053",

@@ -1,3 +1,5 @@
+import { AccountController } from './ui/controller.js'
+import { registerAccountUi } from './ui/rpc.js'
 import { SubscriptionProvider, prepareDshRequest } from './sessions/provider.js'
 import { isAbsolute } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
@@ -22,6 +24,8 @@ import {
 } from './errors.js'
 import {
   modelCatalog,
+  accountModelCatalog,
+  accountModelInfo,
   PROVIDER_ID,
   PROVIDER_NAME,
   resolvedModelInfo,
@@ -45,7 +49,7 @@ export * from './usage.js'
 export * from './json.js'
 export * from './profile-verifier.js'
 
-export const name = '@asuhacoder/dsh-session-provider'
+export const name = '@asuha/dsh-claude-model-provider'
 export const inject = ['llm', 'subprocess', 'attachments']
 
 export const DEFAULT_CLAUDE_COMMAND = 'claude'
@@ -73,6 +77,7 @@ export interface Config {
   portableColdStart?: boolean
   maxGenerations?: number
   stateDirectory?: string
+  requestTimeoutMs?: number
 }
 
 export const Config: z<Config> = z.object({
@@ -100,6 +105,7 @@ export const Config: z<Config> = z.object({
   portableColdStart: z.boolean().default(false),
   maxGenerations: z.number().min(1).max(100).default(12),
   stateDirectory: z.string().default(''),
+  requestTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(120000),
 })
 
 export interface ResolvedConfig {
@@ -115,6 +121,7 @@ export interface ResolvedConfig {
   readonly portableColdStart: boolean
   readonly maxGenerations: number
   readonly stateDirectory: string
+  readonly requestTimeoutMs: number
 }
 
 const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -183,6 +190,7 @@ export function resolveConfig(input: Config = {}): ResolvedConfig {
     portableColdStart: parsed.portableColdStart,
     maxGenerations: parsed.maxGenerations,
     stateDirectory: parsed.stateDirectory,
+    requestTimeoutMs: parsed.requestTimeoutMs,
   }
   return Object.freeze(resolved)
 }
@@ -197,7 +205,8 @@ function normalizeTransportFailure(error: unknown, signal?: AbortSignal): Claude
 export class ClaudeCodeAdapter extends LlmAdapter {
   constructor(
     readonly config: ResolvedConfig,
-    readonly bridges: Pick<BridgeManager, 'stream'>,
+    readonly bridges: Pick<BridgeManager, 'stream'> &
+      Partial<Pick<SubscriptionProvider, 'accounts' | 'defaultModel'>>,
   ) {
     super()
   }
@@ -208,15 +217,34 @@ export class ClaudeCodeAdapter extends LlmAdapter {
   }
 
   override listModels(_provider: string): Promise<readonly LlmModelInfo[]> {
-    return Promise.resolve(modelCatalog(this.config.defaultModel))
+    return Promise.resolve(
+      this.bridges.accounts
+        ? accountModelCatalog(
+            this.bridges.accounts(),
+            this.bridges.defaultModel?.() ?? this.config.defaultModel,
+          )
+        : modelCatalog(this.config.defaultModel),
+    )
   }
 
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
-    return Promise.resolve(resolvedModelInfo(provider, model, this.config.defaultModel))
+    return Promise.resolve(
+      this.bridges.accounts
+        ? accountModelInfo(
+            this.bridges.accounts(),
+            provider,
+            model,
+            this.bridges.defaultModel?.() ?? this.config.defaultModel,
+          )
+        : resolvedModelInfo(provider, model, this.config.defaultModel),
+    )
   }
 
   override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
-    const model = resolveClaudeModel(options.model, this.config.defaultModel)
+    const model = resolveClaudeModel(
+      options.model,
+      this.bridges.defaultModel?.() ?? this.config.defaultModel,
+    )
     let finished = false
     try {
       for await (const chunk of this.bridges.stream(prepareDshRequest(options), model)) {
@@ -242,5 +270,16 @@ export function apply(ctx: Context, config: Config = {}): void {
   const resolved = resolveConfig(config)
   const bridges = new SubscriptionProvider(ctx.subprocess, resolved, ctx.attachments)
   ctx.effect(() => () => bridges.dispose(), 'dsh-claude-plugin: bridge teardown')
+  registerAccountUi(
+    ctx,
+    new AccountController(
+      () => bridges.store,
+      resolved.claudeCommand,
+      {
+        model: resolved.defaultModel,
+      },
+      { pending: () => bridges.pendingRequests() },
+    ),
+  )
   ctx.llm.registerAdapter([PROVIDER_ID], new ClaudeCodeAdapter(resolved, bridges))
 }

@@ -1,16 +1,18 @@
 {
-  "schema": 1,
+  "schema": 2,
   "date": "2026-10-02",
   "implementation_complete": false,
   "offline_verified": true,
-  "offline_verified_scope": "typecheck + 207 tests + build; coverage gate separately FAILED",
+  "offline_verified_scope": "258 regression tests, typecheck/build, unchanged 90% coverage gates, 9 operations tests and separate-process repair fixture",
   "dsh_install_verified": true,
   "subscription_coexist_verified": true,
-  "subscription_coexist_scope": "configuration/module identity/removal only; other provider network routes NOT_RUN",
+  "subscription_coexist_scope": "composition/module identity/removal; other provider network routes NOT_RUN",
   "live_single_verified": true,
+  "live_hybrid_verified": true,
   "live_multi_verified": false,
   "oss_release_ready": false,
-  "repository": "https://github.com/asuhacoder/dsh-session-provider",
+  "repository": "https://github.com/asuhacoder/dsh-claude-model-provider",
+  "package": "@asuha/dsh-claude-model-provider@0.1.0-next.2",
   "tested_tuple": {
     "dsh": "0.2.0-rc.2",
     "sdk": "0.3.286",
@@ -21,48 +23,58 @@
     "subscriptions": "0.9.7",
     "os": "macOS arm64"
   },
-  "artifact_sha256": "79c8be371c6fc839a9f4622429797fe6c310390853d8a2817bfddc3ae22a6b0d",
-  "artifact": "dist/asuhacoder-dsh-session-provider-0.1.0-next.1.tgz",
-  "install_evidence": "evidence/coexist.json",
-  "live_evidence": "evidence/live-pooled.json",
-  "live_execution_target": "local source build, not signed immutable tarball",
+  "artifact_sha256": "2ea519b5c2c19d846cf991ef5a2bac47f73fcc60cf58b227d55f42beca25cb24",
+  "artifact": "dist/asuha-dsh-claude-model-provider-0.1.0-next.2.tgz",
+  "install_evidence": "evidence/coexist-next2.json",
+  "live_evidence": "evidence/installed-next2-live.json",
+  "live_execution_target": "installed immutable tarball through official DSH host module resolver",
   "coverage": {
-    "status": "FAILED",
-    "percent": {
-      "statements": 89.71,
-      "branches": 84.55,
-      "functions": 90.98,
-      "lines": 91.57
-    }
+    "status": "PASSED",
+    "statements": 94.76,
+    "branches": 90.16,
+    "functions": 94.86,
+    "lines": 96.56
   },
-  "unverified_reasons": [
-    "Dedicated account WebUI incomplete",
-    "Prediction/holdout and live efficiency baseline not implemented",
-    "Same-request quota continuation, complete concurrency queue/circuit breaker, and usage persistence incomplete",
-    "Live history/cancel/model fault matrix and L3 harness incomplete",
-    "Distinct real identities/Keychain isolation unavailable; L4 harness incomplete",
-    "AI repair PR, independent verifier and publisher services not implemented/deployed",
-    "npm authentication and trusted publisher absent",
-    "Coverage statement/branch thresholds not met",
-    "Upstream service distribution permission not established"
+  "levels": {
+    "L0": "PASSED",
+    "L1": "PASSED",
+    "L2": "PASSED (bounded scope)",
+    "L3": "PASSED",
+    "L4": "BLOCKED: no second real identity"
+  },
+  "ui": {
+    "implementation": "DSH authenticated RPC and settings slot",
+    "component_tests": "PASSED",
+    "browser": "BLOCKED: admin policy check unavailable"
+  },
+  "operations": {
+    "fixture_e2e": "PASSED",
+    "production_isolation": "BLOCKED: independent runner/verifier/publisher not deployed",
+    "upstream_sdk_candidate": "0.3.287 detected; verification results available in GitHub Actions",
+    "release_rehearsal": "PASSED",
+    "npm": "Authenticated as asuha; exact-artifact dry run PASSED; publication held on remaining non-L4 conditions; trusted publisher not enrolled",
+    "canary": "NOT_RUN"
+  },
+  "evidence": [
+    "evidence/checks-next2.json",
+    "evidence/live-matrix.json",
+    "evidence/live-hybrid.json",
+    "evidence/live-independent-repair.json",
+    "evidence/forecast-holdout.json",
+    "evidence/repair-fixture-e2e.json",
+    "evidence/live-acceptance.json",
+    "evidence/npm-authenticated-rehearsal.json"
   ],
-  "evidence_digests": {
-    "checks.json": "38cdd06d3b163bfac216e5a294cacbee7f2e6d8b9707dad8e9c6847502e6560d",
-    "coexist.json": "137e734059f46ca114d52518146920af7000703280895e42b7d0edf218f46a57",
-    "doctor-offline.json": "0fced1c40b3932b96fb0710e7266165f2458c2d5aaa08f16c635fdf14a3cd379",
-    "live-pooled.json": "1fe1a71c8964b9b1694ddce4938dcde3ccaa3776c8a8bb807dcf698bacf61a55",
-    "live-smoke.json": "953c2fd0bde801801519ecc56febb3e852181d18707f4a322a9b37673523f73e",
-    "routing-benchmark.json": "a4002f10051050b908e9dea5deaaca5bff755865e268bb3a4551dd28c479acf0",
-    "upstream.json": "2c149c740cf989199a61b3a3622a7913e6b538a8202739d5f245cacd37a0dcf5"
+  "previous_artifact": {
+    "version": "0.1.0-next.1",
+    "sha256": "79c8be371c6fc839a9f4622429797fe6c310390853d8a2817bfddc3ae22a6b0d"
   },
-  "testedCodeCommit": "197cb347e11245f0b29067a43e3e39e4bb571686",
-  "local_setup": {
-    "profile": "claude-sdk",
-    "provider": "claude-sdk-local",
-    "model": "opus",
-    "officialAccountRegistered": true,
-    "existingWebProfileModified": false,
-    "webBoot": "PASSED",
-    "webGeneration": "NOT_RUN"
-  }
+  "publication": {
+    "publishedToNpm": false,
+    "tag": "next",
+    "multiAccountGateWaived": true,
+    "otherTasksComplete": false,
+    "statusReport": "RELEASE_STATUS.md"
+  },
+  "artifact_source_commit": "f8771053c40b3ec51d814f3605ba48c724f8b6ca"
 }

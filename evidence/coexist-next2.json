@@ -1,0 +1,21 @@
+{
+  "status": "PASSED",
+  "level": "L1",
+  "dsh": "0.2.0-rc.2",
+  "platform": "darwin",
+  "arch": "arm64",
+  "node": "v24.14.0",
+  "artifact_sha256": "2ea519b5c2c19d846cf991ef5a2bac47f73fcc60cf58b227d55f42beca25cb24",
+  "coexist": true,
+  "subscriptionVersion": "0.9.7",
+  "checks": [
+    "empty-HOME-public-install-command",
+    "composition-unchanged",
+    "runtime-module-identity",
+    "actual-LLM-registration",
+    "unverified-accounts-not-advertised",
+    "uninstall-restores-baseline"
+  ],
+  "generationVerified": false,
+  "otherProviderNetworkVerified": false
+}

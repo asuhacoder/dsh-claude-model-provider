@@ -361,8 +361,10 @@ export class ClaudeOutputTranslator {
 
   accept(message: SDKMessage): StreamChunk[] {
     if (this.#complete) throw protocolError('Claude emitted output after the terminal result')
-    if (message.type === 'system' && message.subtype === 'compact_boundary') throw protocolError('SDK_COMPACTION_REQUIRES_DSH_RESYNC')
-    if (message.type === 'system' && message.subtype === 'model_refusal_fallback') throw protocolError('UNREQUESTED_MODEL_FALLBACK')
+    if (message.type === 'system' && message.subtype === 'compact_boundary')
+      throw protocolError('SDK_COMPACTION_REQUIRES_DSH_RESYNC')
+    if (message.type === 'system' && message.subtype === 'model_refusal_fallback')
+      throw protocolError('UNREQUESTED_MODEL_FALLBACK')
     this.#observeSession(message)
     if (message.type === 'stream_event') return this.#partial(message)
     if (message.type === 'assistant') return this.#assistant(message)

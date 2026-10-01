@@ -1,145 +1,125 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process'
-import { StateStore } from './storage/store.js'
-import { StickyRouter } from './routing/router.js'
-import { verifyAccount, officialStatus, profileEnvironment } from './auth/official.js'
+import { pathToFileURL } from 'node:url'
+import { StateStore, recoverStateLock } from './storage/store.js'
+import { officialStatus } from './auth/official.js'
 import { defaultStateDirectory } from './sessions/provider.js'
 import { RouteBlocked, type Account, type Binding } from './routing/types.js'
 import { runDoctor } from './doctor.js'
-const args = process.argv.slice(2)
-function flag(name: string, fallback = ''): string {
-  const i = args.indexOf(name)
-  return i >= 0 ? (args[i + 1] ?? fallback) : fallback
+import { AccountController } from './ui/controller.js'
+export interface CliDependencies {
+  output?: (value: unknown) => void
+  store?: (directory: string, readOnly: boolean) => StateStore
+  doctor?: typeof runDoctor
+  status?: typeof officialStatus
+  controller?: (store: StateStore, command: string) => AccountController
+  recover?: typeof recoverStateLock
 }
-const state = flag('--state', defaultStateDirectory())
-const command = flag('--claude', 'claude')
-let store: StateStore | undefined
-const output = (x: unknown) => console.log(JSON.stringify(x, null, 2))
-try {
-  if (args[0] === 'doctor') {
-    if (args.includes('--live')) {
-      const budget = Number(flag('--budget-generations', '1'))
-      if (!Number.isInteger(budget) || budget < 1 || budget > 12)
-        throw new RouteBlocked('INVALID_LIVE_BUDGET')
-      if (!args.includes('--extra-usage-off')) throw new RouteBlocked('EXTRA_USAGE_OFF_UNCONFIRMED')
-      await officialStatus(command, 'default')
-    }
-    const result = await runDoctor({
-      claudeCommand: command,
-      live: args.includes('--live') ? 'always' : 'never',
-      model: flag('--model', 'opus'),
-      timeoutMs: 30000,
-    })
-    output({
-      status: result.overall === 'fail' ? 'FAILED' : 'PASSED',
-      live: args.includes('--live'),
-      report: result,
-    })
-    if (result.overall === 'fail') process.exitCode = 1
-  } else if (args[0] === 'accounts') {
-    store = new StateStore(state)
-    const router = new StickyRouter(store)
-    if (args[1] === 'add' || args[1] === 'verify') {
-      const alias = args[2]
-      if (!alias) throw new RouteBlocked('ALIAS_REQUIRED')
-      const old = store.list<Account>('accounts').find((a) => a.aliases.includes(alias))
-      const profile = flag('--profile', old?.profileRef ?? 'default')
-      if (args.includes('--login'))
-        await new Promise<void>((resolve, reject) => {
-          const child = spawn(command, ['auth', 'login', '--claudeai'], {
-            env: profileEnvironment(profile),
-            stdio: 'inherit',
-            timeout: 180000,
-          })
-          child.once('error', reject)
-          child.once('exit', (code) =>
-            code === 0 ? resolve() : reject(new RouteBlocked('LOGIN_INCOMPLETE')),
-          )
-        })
-      const account = await verifyAccount(
-        store,
-        command,
-        alias,
-        profile,
-        args.includes('--extra-usage-off') || Boolean(old?.extraUsageOffConfirmedAt),
-      )
-      if (old && old.identity !== account.identity) throw new RouteBlocked('ALIAS_IDENTITY_CHANGED')
-      router.register(account)
-      output({
-        status: 'PASSED',
-        alias,
-        identityVerified: true,
-        billingSafety: account.extraUsageOffConfirmedAt ? 'user-confirmed-off' : 'unverified',
-        models: Object.keys(account.models),
-        liveMulti: 'unverified',
-      })
-    } else if (args[1] === 'remove') {
-      const account = store.list<Account>('accounts').find((a) => a.aliases.includes(args[2] ?? ''))
-      if (!account) throw new RouteBlocked('ACCOUNT_NOT_FOUND')
-      account.aliases = account.aliases.filter((a) => a !== args[2])
-      if (account.aliases.length) store.set('accounts', account.identity, account)
-      else {
-        account.state = 'DISABLED'
-        store.set('accounts', account.identity, account)
+export async function runProviderCli(args: string[], deps: CliDependencies = {}): Promise<number> {
+  const flag = (name: string, fallback = '') => {
+    const i = args.indexOf(name)
+    return i < 0 ? fallback : (args[i + 1] ?? fallback)
+  }
+  const state = flag('--state', defaultStateDirectory()),
+    command = flag('--claude', 'claude'),
+    output = deps.output ?? ((x) => console.log(JSON.stringify(x, null, 2)))
+  let store: StateStore | undefined
+  const open = (readOnly = false) =>
+    (store ??= (deps.store ?? ((path, read) => new StateStore(path, { readOnly: read })))(
+      state,
+      readOnly,
+    ))
+  try {
+    if (args[0] === 'doctor') {
+      if (args.includes('--recover')) {
+        output((deps.recover ?? recoverStateLock)(state))
+        return 0
       }
-      output({ status: 'PASSED', officialProfileDeleted: false })
-    } else
+      const live = args.includes('--live')
+      if (live) {
+        const budget = Number(flag('--budget-generations', '1'))
+        if (!Number.isInteger(budget) || budget < 1 || budget > 12)
+          throw new RouteBlocked('INVALID_LIVE_BUDGET')
+        if (!args.includes('--extra-usage-off'))
+          throw new RouteBlocked('EXTRA_USAGE_OFF_UNCONFIRMED')
+        await (deps.status ?? officialStatus)(command, 'default')
+      }
+      const result = await (deps.doctor ?? runDoctor)({
+        claudeCommand: command,
+        live: live ? 'always' : 'never',
+        model: flag('--model', 'opus'),
+        timeoutMs: 30000,
+      })
+      output({ status: result.overall === 'fail' ? 'FAILED' : 'PASSED', live, report: result })
+      return result.overall === 'fail' ? 1 : 0
+    }
+    if (args[0] === 'accounts') {
+      const action = args[1] ?? 'list',
+        s = open(action === 'list'),
+        controller = deps.controller?.(s, command) ?? new AccountController(() => s, command)
+      if (action === 'list') output(controller.status())
+      else {
+        if (!args[2]) throw new RouteBlocked('ALIAS_REQUIRED')
+        output(
+          await controller.execute(args.includes('--login') ? 'login' : action, {
+            alias: args[2],
+            ...(args.includes('--profile') ? { profile: flag('--profile') } : {}),
+            extraUsageOff: args.includes('--extra-usage-off'),
+          }),
+        )
+      }
+    } else if (args[0] === 'explain-route') {
       output(
-        store
+        open(true)
+          .list<Binding>('bindings')
+          .filter((b) => !args[1] || b.key === args[1])
+          .map((b) => ({ ...b, identity: b.identity.slice(0, 12) })),
+      )
+    } else if (args[0] === 'diagnostics' && args[1] === 'export' && args.includes('--redacted')) {
+      const s = open(true)
+      output({
+        schema: 1,
+        accounts: s
           .list<Account>('accounts')
           .map((a) => ({
-            aliases: a.aliases,
+            id: s.hash(a.identity).slice(0, 16),
             state: a.state,
-            identity: a.identity.slice(0, 12),
-            billingSafety: a.extraUsageOffConfirmedAt ? 'user-confirmed-off' : 'unverified',
-            windows: a.windows,
-            models: Object.keys(a.models),
+            quotaKnown: a.windows.length > 0,
           })),
-      )
-  } else if (args[0] === 'explain-route') {
-    store = new StateStore(state)
-    const key = args[1]
-    output(
-      store
-        .list<Binding>('bindings')
-        .filter((b) => !key || b.key === key)
-        .map((b) => ({ ...b, identity: b.identity.slice(0, 12) })),
-    )
-  } else if (args[0] === 'diagnostics' && args[1] === 'export' && args.includes('--redacted')) {
-    store = new StateStore(state)
+        bindings: s.list<Binding>('bindings').length,
+        containsCredentials: false,
+      })
+    } else
+      output({
+        commands: [
+          'doctor --offline',
+          'doctor --recover',
+          'doctor --live --extra-usage-off --budget-generations 1',
+          'accounts add <alias> [--profile <absolute-path>] [--login] --extra-usage-off',
+          'accounts list --json',
+          'accounts verify <alias>',
+          'accounts remove <alias>',
+          'accounts setDefault <alias>',
+          'explain-route [session-key]',
+          'diagnostics export --redacted',
+        ],
+        options: ['--state <private-directory>', '--claude <official-executable>'],
+      })
+    return 0
+  } catch (error) {
+    const code =
+      error instanceof RouteBlocked
+        ? error.code
+        : error instanceof Error && error.message.startsWith('STATE_IN_USE')
+          ? 'STATE_IN_USE'
+          : 'COMMAND_FAILED'
     output({
-      schema: 1,
-      accounts: store
-        .list<Account>('accounts')
-        .map((a) => ({
-          id: store!.hash(a.identity).slice(0, 16),
-          state: a.state,
-          quotaKnown: a.windows.length > 0,
-        })),
-      bindings: store.list<Binding>('bindings').length,
-      containsCredentials: false,
+      status: error instanceof RouteBlocked || code === 'STATE_IN_USE' ? 'BLOCKED' : 'FAILED',
+      code,
     })
-  } else {
-    output({
-      commands: [
-        'doctor --offline',
-        'doctor --live --extra-usage-off --budget-generations 1',
-        'accounts add <alias> [--profile <absolute-path>] [--login] --extra-usage-off',
-        'accounts list --json',
-        'accounts verify <alias>',
-        'accounts remove <alias>',
-        'explain-route [session-key]',
-        'diagnostics export --redacted',
-      ],
-      options: ['--state <private-directory>', '--claude <official-executable>'],
-    })
+    return error instanceof RouteBlocked || code === 'STATE_IN_USE' ? 2 : 1
+  } finally {
+    store?.close()
   }
-} catch (error) {
-  output({
-    status: error instanceof RouteBlocked ? 'BLOCKED' : 'FAILED',
-    code: error instanceof RouteBlocked ? error.code : 'COMMAND_FAILED',
-  })
-  process.exitCode = error instanceof RouteBlocked ? 2 : 1
-} finally {
-  store?.close()
 }
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+  process.exitCode = await runProviderCli(process.argv.slice(2))

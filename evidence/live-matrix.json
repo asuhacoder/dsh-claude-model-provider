@@ -1,0 +1,127 @@
+{
+  "status": "PASSED",
+  "level": "L2",
+  "scope": "one real account, bounded history/system/tools/model/cancel/restart matrix",
+  "modelSteps": 9,
+  "checks": [
+    {
+      "name": "initial-and-external-config-isolation",
+      "status": "PASSED",
+      "usage": [
+        {
+          "inputTokens": 1015,
+          "outputTokens": 16,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 638,
+          "reasoningTokens": 0
+        }
+      ]
+    },
+    {
+      "name": "edited-history-cold-rebuild",
+      "status": "PASSED",
+      "usage": [
+        {
+          "inputTokens": 1142,
+          "outputTokens": 17,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 800,
+          "reasoningTokens": 0
+        }
+      ]
+    },
+    {
+      "name": "system-prompt-change",
+      "status": "PASSED",
+      "usage": [
+        {
+          "inputTokens": 1268,
+          "outputTokens": 21,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 957,
+          "reasoningTokens": 0
+        }
+      ]
+    },
+    {
+      "name": "changed-tool-catalog",
+      "status": "PASSED",
+      "usage": []
+    },
+    {
+      "name": "permission-denial-receipt",
+      "status": "PASSED",
+      "usage": [
+        {
+          "inputTokens": 1396,
+          "outputTokens": 56,
+          "cacheReadTokens": 1581,
+          "cacheWriteTokens": 1682,
+          "reasoningTokens": 0
+        }
+      ]
+    },
+    {
+      "name": "explicit-model-change",
+      "status": "PASSED",
+      "usage": [
+        {
+          "inputTokens": 1749,
+          "outputTokens": 22,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 1663,
+          "reasoningTokens": 0
+        }
+      ]
+    },
+    {
+      "name": "cancel-after-output",
+      "status": "PASSED"
+    },
+    {
+      "name": "same-account-after-cancel",
+      "status": "PASSED",
+      "usage": [
+        {
+          "inputTokens": 1947,
+          "outputTokens": 22,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 1865,
+          "reasoningTokens": 0
+        }
+      ]
+    },
+    {
+      "name": "process-restart-portable-history",
+      "status": "PASSED",
+      "usage": [
+        {
+          "inputTokens": 2073,
+          "outputTokens": 18,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 2032,
+          "reasoningTokens": 0
+        }
+      ]
+    },
+    {
+      "name": "external-hooks-and-mcp-not-executed",
+      "status": "PASSED"
+    }
+  ],
+  "usage": {
+    "responses": 7,
+    "toolBoundaries": 1,
+    "failed": 1,
+    "usage": {
+      "inputTokens": 10590,
+      "outputTokens": 172,
+      "cacheReadTokens": 1581,
+      "cacheWriteTokens": 9637,
+      "reasoningTokens": 0
+    },
+    "acceptedTasks": null
+  },
+  "sameIdentity": true,
+  "externalCanaryFilesAbsent": true
+}

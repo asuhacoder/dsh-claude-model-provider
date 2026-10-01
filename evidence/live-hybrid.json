@@ -1,0 +1,12 @@
+{
+  "status": "PASSED",
+  "level": "L3",
+  "realAccounts": 1,
+  "fakeAccounts": 1,
+  "realModelSteps": 1,
+  "confirmedFixtureQuota": true,
+  "committedReceiptContinued": true,
+  "duplicateSideEffects": 0,
+  "noAutomaticFailback": true,
+  "notL4": true
+}

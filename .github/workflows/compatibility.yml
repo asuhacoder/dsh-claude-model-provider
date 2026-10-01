@@ -1,11 +1,22 @@
 name: Compatibility candidate
 on:
   workflow_dispatch:
+    inputs:
+      tuple:
+        description: Pinned registry tuple JSON (empty probes current upstream)
+        type: string
+        default: ''
+  workflow_call:
+    inputs:
+      tuple:
+        type: string
+        required: true
 permissions:
   contents: read
 jobs:
   candidate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -14,11 +25,22 @@ jobs:
         with:
           node-version: '24.14.0'
       - run: npm install --global pnpm@11.1.2
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm compat:probe
+      - run: node scripts/probe-upstream.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        if: inputs.tuple == ''
+      - run: node scripts/prepare-candidate.mjs
+        env:
+          CANDIDATE_TUPLE: ${{ inputs.tuple }}
+      - run: pnpm install --ignore-scripts --no-frozen-lockfile
       - run: pnpm verify
+      - run: pnpm test:coverage
+      - run: pnpm test:ops
       - run: pnpm test:coexist
+        env:
+          DSH_CANDIDATE_TUPLE: .artifacts/candidate-tuple.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
         with:
           name: compatibility-evidence
           path: .artifacts/

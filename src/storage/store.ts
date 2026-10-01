@@ -17,7 +17,18 @@ export class StateStore {
   readonly owner = randomUUID()
   readonly lock: string | undefined
   #closed = false
-  constructor(readonly directory: string) {
+  constructor(
+    readonly directory: string,
+    readonly options: { readOnly?: boolean } = {},
+  ) {
+    if (options.readOnly) {
+      this.db = new DatabaseSync(join(directory, 'state.sqlite'), { readOnly: true })
+      if (this.get<number>('meta', 'schema') !== 1) {
+        this.db.close()
+        throw new Error('UNSUPPORTED_STATE_SCHEMA')
+      }
+      return
+    }
     if (directory !== ':memory:') {
       mkdirSync(directory, { recursive: true, mode: 0o700 })
       chmodSync(directory, 0o700)
@@ -43,6 +54,12 @@ export class StateStore {
       if (version !== undefined && version !== 1) throw new Error('UNSUPPORTED_STATE_SCHEMA')
       this.set('meta', 'schema', 1)
       if (!this.get('meta', 'salt')) this.set('meta', 'salt', randomBytes(32).toString('hex'))
+      this.delete('meta', 'auth-mutation')
+      const circuit = this.get<Record<string, unknown>>('meta', 'provider-circuit')
+      if (circuit) {
+        delete circuit.probe
+        this.set('meta', 'provider-circuit', circuit)
+      }
       // A crash may consume quota: release local reservations but never infer refunded usage.
       this.db.exec("DELETE FROM state WHERE collection='reservations'")
       if (directory !== ':memory:') chmodSync(join(directory, 'state.sqlite'), 0o600)
@@ -96,4 +113,27 @@ export class StateStore {
       if (row.owner === this.owner) unlinkSync(this.lock)
     }
   }
+}
+
+/** Explicit recovery: a live or inaccessible PID is never considered dead. */
+export function recoverStateLock(directory: string): { status: string } {
+  const lock = join(directory, 'writer.lock')
+  let old: { pid: number; owner: string }
+  try {
+    old = JSON.parse(readFileSync(lock, 'utf8'))
+  } catch {
+    throw new Error('RECOVERY_LOCK_UNREADABLE')
+  }
+  if (!Number.isInteger(old.pid) || old.pid <= 0 || typeof old.owner !== 'string')
+    throw new Error('RECOVERY_LOCK_INVALID')
+  try {
+    process.kill(old.pid, 0)
+    throw new Error('STATE_IN_USE')
+  } catch (error) {
+    if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) throw error
+  }
+  const current = JSON.parse(readFileSync(lock, 'utf8'))
+  if (current.owner !== old.owner) throw new Error('RECOVERY_OWNER_CHANGED')
+  unlinkSync(lock)
+  return { status: 'STALE_LOCK_RECOVERED' }
 }

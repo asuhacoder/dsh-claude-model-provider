@@ -5,9 +5,15 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: false
 jobs:
   metadata:
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.probe.outputs.changed }}
+      tuple: ${{ steps.probe.outputs.tuple }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -16,8 +22,17 @@ jobs:
         with:
           node-version: '24.14.0'
       - run: node scripts/probe-upstream.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        id: probe
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: immutable-upstream-metadata
           path: .artifacts/upstream.json
           include-hidden-files: true
+  compatibility:
+    needs: metadata
+    if: needs.metadata.outputs.changed == 'true'
+    uses: ./.github/workflows/compatibility.yml
+    with:
+      tuple: ${{ needs.metadata.outputs.tuple }}

@@ -1,0 +1,17 @@
+{
+  "status": "PASSED",
+  "level": "L2",
+  "scope": "one real request through installed tarball and host module resolver",
+  "modelCalls": 1,
+  "moduleIdentity": true,
+  "artifactSha256": "2ea519b5c2c19d846cf991ef5a2bac47f73fcc60cf58b227d55f42beca25cb24",
+  "usage": [
+    {
+      "inputTokens": 983,
+      "outputTokens": 25,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 564,
+      "reasoningTokens": 0
+    }
+  ]
+}

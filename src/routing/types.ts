@@ -20,6 +20,7 @@ export interface Account {
   extraUsageOffConfirmedAt?: number
   models: Record<string, string[]>
   windows: QuotaWindow[]
+  isDefault?: boolean
   parallelLimit: number
 }
 export interface Binding {

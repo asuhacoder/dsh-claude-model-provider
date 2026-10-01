@@ -9,7 +9,7 @@ import { CLAUDE_ERROR_CODES, ClaudePluginError } from './errors.js'
 export const PROVIDER_ID = 'claude-sdk-local'
 export const PROVIDER_NAME = 'Claude (official SDK)'
 export const BUILTIN_MODEL_ALIASES = ['default', 'sonnet', 'opus', 'haiku'] as const
-export const CLAUDE_REASONING_EFFORTS = ['low', 'medium', 'high'] as const
+export const CLAUDE_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 
 export type ClaudeReasoningEffort = (typeof CLAUDE_REASONING_EFFORTS)[number]
 
@@ -139,5 +139,49 @@ export function resolvedModelInfo(
         : `Claude Code alias resolving to ${claudeModel}`,
     inputModalities: ['text', 'image'],
     reasoning: reasoningInfo(),
+  }
+}
+
+/** Runtime catalog from official control responses, with each account's effort capabilities. */
+export function accountModelCatalog(
+  accounts: readonly import('./routing/types.js').Account[],
+  defaultModel: string,
+): readonly LlmModelInfo[] {
+  const ids = [
+    ...new Set(
+      accounts
+        .filter((a) => a.state !== 'DISABLED' && a.state !== 'SUSPENDED')
+        .flatMap((a) => Object.keys(a.models)),
+    ),
+  ].sort()
+  return [...(ids.includes(defaultModel) ? ['default'] : []), ...ids].map((id) => ({
+    provider: PROVIDER_ID,
+    id,
+    name: id === 'default' ? `${displayName(defaultModel)} (default)` : displayName(id),
+    inputModalities: ['text', 'image'] as const,
+  }))
+}
+export function accountModelInfo(
+  accounts: readonly import('./routing/types.js').Account[],
+  provider: string,
+  model: string,
+  defaultModel: string,
+): LlmResolvedModelInfo {
+  const result = resolvedModelInfo(provider, model, defaultModel),
+    id = resolveClaudeModel(model, defaultModel)
+  const matching = accounts.filter(
+    (a) => a.state !== 'DISABLED' && a.state !== 'SUSPENDED' && a.models[id] !== undefined,
+  )
+  if (!matching.length)
+    throw new ClaudePluginError(
+      CLAUDE_ERROR_CODES.invalidModel,
+      'Model has not been verified for an active account',
+    )
+  const efforts = [...new Set(matching.flatMap((a) => a.models[id]!))].filter((e) =>
+    (CLAUDE_REASONING_EFFORTS as readonly string[]).includes(e),
+  )
+  return {
+    ...result,
+    reasoning: { efforts: efforts.map((e) => ({ id: ReasoningEffortId(e), name: e })) },
   }
 }

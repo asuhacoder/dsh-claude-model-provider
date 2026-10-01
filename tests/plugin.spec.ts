@@ -18,7 +18,9 @@ import * as claudePlugin from '../src/index.js'
 import type { ClaudeQueryFactory } from '../src/index.js'
 
 class FakeSubprocessRuntime extends SubprocessRuntime {
-  override terminalEnvironment() { return Promise.resolve({ platform: 'posix' as const }) }
+  override terminalEnvironment() {
+    return Promise.resolve({ platform: 'posix' as const })
+  }
   override resolveExecutable(command: string): Promise<string> {
     return Promise.resolve(command)
   }
@@ -65,21 +67,21 @@ async function setup(): Promise<Context> {
 
 describe('DSH plugin registration', () => {
   it('declares all required services', () => {
-    expect(claudePlugin.name).toBe('@asuhacoder/dsh-session-provider')
+    expect(claudePlugin.name).toBe('@asuha/dsh-claude-model-provider')
     expect(claudePlugin.inject).toEqual(['llm', 'subprocess', 'attachments'])
   })
 
   it('registers and disposes the Claude provider with its model catalog', async () => {
     const ctx = await setup()
-    const fiber = await ctx.plugin(claudePlugin, { defaultModel: 'opus' })
+    const fiber = await ctx.plugin(claudePlugin, {
+      defaultModel: 'opus',
+      stateDirectory: ':memory:',
+    })
 
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'claude-sdk-local', name: 'Claude (official SDK)' }])
-    await expect(ctx.llm.listModels('claude-sdk-local')).resolves.toMatchObject([
-      { id: 'default', name: 'Claude Opus (default)' },
-      { id: 'sonnet' },
-      { id: 'opus' },
-      { id: 'haiku' },
+    expect(ctx.llm.listProviders()).toEqual([
+      { id: 'claude-sdk-local', name: 'Claude (official SDK)' },
     ])
+    await expect(ctx.llm.listModels('claude-sdk-local')).resolves.toEqual([])
     const adapter = new claudePlugin.ClaudeCodeAdapter(
       claudePlugin.resolveConfig(),
       new claudePlugin.BridgeManager(ctx.subprocess, claudePlugin.resolveConfig()),
@@ -97,7 +99,10 @@ describe('DSH plugin registration', () => {
     }
     const resolved = claudePlugin.resolveConfig()
     const bridges = new claudePlugin.BridgeManager(ctx.subprocess, resolved, queryFactory)
-    ctx.llm.registerAdapter(['claude-sdk-local'], new claudePlugin.ClaudeCodeAdapter(resolved, bridges))
+    ctx.llm.registerAdapter(
+      ['claude-sdk-local'],
+      new claudePlugin.ClaudeCodeAdapter(resolved, bridges),
+    )
     const chunks = []
     for await (const chunk of ctx.llm.stream({
       provider: 'claude-sdk-local',

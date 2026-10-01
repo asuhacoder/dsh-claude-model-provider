@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import {
   MAX_DOCTOR_OUTPUT_BYTES,
@@ -10,9 +11,11 @@ import {
   satisfiesVersionRange,
 } from '../src/doctor.js'
 
+const pinnedSdkVersion: string = JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).dependencies['@anthropic-ai/claude-agent-sdk']
+
 const facts: DoctorPackageFacts = {
   pluginVersion: '0.1.0',
-  sdkVersion: '0.3.286',
+  sdkVersion: pinnedSdkVersion,
   sdkClaudeCodeVersion: '2.1.241',
   peers: {
     '@deepseek-ai/cordis': { version: '4.0.1', range: '^4.0.1' },
@@ -110,7 +113,7 @@ describe('dsh-claude-plugin doctor', () => {
     })
     expect(report.versions).toMatchObject({
       plugin: '0.1.0',
-      sdk: '0.3.286',
+      sdk: pinnedSdkVersion,
       sdkClaudeCode: '2.1.241',
       runtimeClaudeCode: '2.1.241',
     })

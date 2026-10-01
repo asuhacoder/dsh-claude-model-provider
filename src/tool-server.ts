@@ -1,10 +1,6 @@
 import type { ToolResultBlock } from './tool-result.js'
 import type { McpSdkServerConfigWithInstance } from '@anthropic-ai/claude-agent-sdk'
-import type {
-  ToolCallBlock,
-
-  ToolSchema as DshToolSchema,
-} from '@deepseek-ai/dsh-llm'
+import type { ToolCallBlock, ToolSchema as DshToolSchema } from '@deepseek-ai/dsh-llm'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import {
   CallToolRequestSchema,

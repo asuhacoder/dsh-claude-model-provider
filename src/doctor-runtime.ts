@@ -328,53 +328,57 @@ export async function probeClaudeSdk(options: {
       await stream.initializationResult()
       startup = true
       const statuses = await stream.mcpServerStatus()
-      mcpConnected = statuses.some(entry => entry.name === DSH_MCP_SERVER_NAME && entry.status === 'connected')
+      mcpConnected = statuses.some(
+        (entry) => entry.name === DSH_MCP_SERVER_NAME && entry.status === 'connected',
+      )
       // No input is queued: initialization/control RPCs cannot start a turn.
       dshOnlyTools = true
-    } else input.push({
-      type: 'user',
-      message: {
-        role: 'user',
-        content: [{ type: 'text', text: `Reply with exactly ${DOCTOR_REPLY}.` }],
-      },
-      parent_tool_use_id: null,
-      shouldQuery: true,
-    })
-    if (options.live) for await (const message of stream) {
-      if (message.type === 'system' && message.subtype === 'init') {
-        startup = true
-        claudeCodeVersion = message.claude_code_version
-        mcpConnected = message.mcp_servers.some(
-          (entry) => entry.name === DSH_MCP_SERVER_NAME && entry.status === 'connected',
-        )
-        dshOnlyTools = message.tools.every((name) =>
-          name.startsWith(`mcp__${DSH_MCP_SERVER_NAME}__`),
-        )
-        if (!options.live) break
-      }
-      if (options.live) {
-        text += assistantText(message)
-        if (text.length > 4_096) text = text.slice(0, 4_096)
-      }
-      if (message.type === 'result') {
-        resultSubtype = message.subtype
-        if (options.live) {
-          if (message.subtype === 'success' && text.trim() === DOCTOR_REPLY) {
-            live = 'pass'
-            liveFailure = undefined
-          } else {
-            live = 'fail'
-            liveFailure =
-              message.subtype === 'success'
-                ? 'reply-mismatch'
-                : authLikeResult(message)
-                  ? 'authentication'
-                  : 'result-error'
-          }
+    } else
+      input.push({
+        type: 'user',
+        message: {
+          role: 'user',
+          content: [{ type: 'text', text: `Reply with exactly ${DOCTOR_REPLY}.` }],
+        },
+        parent_tool_use_id: null,
+        shouldQuery: true,
+      })
+    if (options.live)
+      for await (const message of stream) {
+        if (message.type === 'system' && message.subtype === 'init') {
+          startup = true
+          claudeCodeVersion = message.claude_code_version
+          mcpConnected = message.mcp_servers.some(
+            (entry) => entry.name === DSH_MCP_SERVER_NAME && entry.status === 'connected',
+          )
+          dshOnlyTools = message.tools.every((name) =>
+            name.startsWith(`mcp__${DSH_MCP_SERVER_NAME}__`),
+          )
+          if (!options.live) break
         }
-        break
+        if (options.live) {
+          text += assistantText(message)
+          if (text.length > 4_096) text = text.slice(0, 4_096)
+        }
+        if (message.type === 'result') {
+          resultSubtype = message.subtype
+          if (options.live) {
+            if (message.subtype === 'success' && text.trim() === DOCTOR_REPLY) {
+              live = 'pass'
+              liveFailure = undefined
+            } else {
+              live = 'fail'
+              liveFailure =
+                message.subtype === 'success'
+                  ? 'reply-mismatch'
+                  : authLikeResult(message)
+                    ? 'authentication'
+                    : 'result-error'
+            }
+          }
+          break
+        }
       }
-    }
   } catch {
     if (timedOut && !startup) startup = false
   } finally {

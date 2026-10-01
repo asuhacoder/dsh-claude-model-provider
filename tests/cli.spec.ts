@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { pathToFileURL } from 'node:url'
 import { resolve as resolvePath } from 'node:path'
@@ -9,9 +10,11 @@ import type {
   DoctorSdkProbeResult,
 } from '../src/doctor.js'
 
+const pinnedSdkVersion: string = JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).dependencies['@anthropic-ai/claude-agent-sdk']
+
 const packageFacts: DoctorPackageFacts = {
   pluginVersion: '0.1.0',
-  sdkVersion: '0.3.286',
+  sdkVersion: pinnedSdkVersion,
   sdkClaudeCodeVersion: '2.1.241',
   peers: {
     '@deepseek-ai/cordis': { version: '4.0.1', range: '^4.0.1' },
@@ -108,7 +111,7 @@ const installed = `
   name: selector
   config: { provider: deepseek, model: default }
 - id: llm-claude-sdk-local
-  name: '@asuhacoder/dsh-session-provider'
+  name: '@asuha/dsh-claude-model-provider'
 `
 
 describe('doctor CLI', () => {
@@ -281,7 +284,7 @@ describe('doctor CLI', () => {
     await expect(runCli(['-h'], shortHelp.dependencies)).resolves.toBe(0)
     const version = harness()
     await expect(runCli(['-V'], version.dependencies)).resolves.toBe(0)
-    expect(version.stdout.join('')).toBe('0.1.0-next.1\n')
+    expect(version.stdout.join('')).toBe('0.1.0-next.2\n')
   })
 
   it('fails closed when entrypoint realpath resolution fails', () => {

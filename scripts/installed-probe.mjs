@@ -8,7 +8,7 @@ const {PluginPackages,loadProfile,createRuntimeResolution}=await import(host.res
 const profile=loadProfile('dsh','web',anchor)
 const ctx=new Context()
 const resolver=await ctx.plugin(PluginPackages,{resolution:await createRuntimeResolution({installAnchor:anchor,profile})})
-const r=createRequire(profileDirectory+'/probe.mjs'),pluginPath=r.resolve('@asuhacoder/dsh-session-provider'),pr=createRequire(pluginPath)
+const r=createRequire(profileDirectory+'/probe.mjs'),pluginPath=r.resolve('@asuha/dsh-claude-model-provider'),pr=createRequire(pluginPath)
 assert.equal(host.resolve('@deepseek-ai/dsh-llm'),pr.resolve('@deepseek-ai/dsh-llm'))
 const p=await import(pathToFileURL(pluginPath).href)
 const L=(await import(host.resolve('@deepseek-ai/dsh-llm'))).default

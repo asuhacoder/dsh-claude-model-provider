@@ -1,11 +1,17 @@
-name: Release rehearsal
+name: Release rehearsal and npm next
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish verified package to npm next with trusted publishing
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   dry-run:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -15,9 +21,34 @@ jobs:
           node-version: '24.14.0'
       - run: npm install --global pnpm@11.1.2
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm verify
+      - run: pnpm verify && pnpm test:coverage && pnpm test:ops
+      - run: pnpm test:coexist
       - run: pnpm release:dry-run
+      - run: node scripts/sbom.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: release-rehearsal
-          path: dist/*.tgz
+          path: |
+            dist/*.tgz
+            .artifacts/
+          include-hidden-files: true
+  publish-next:
+    needs: dry-run
+    if: inputs.publish && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: npm-next
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.14.0'
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-rehearsal
+          path: verified-release
+      - name: Publish the exact rehearsed tarball
+        run: |
+          node --input-type=module -e 'import{readFileSync}from"node:fs";import{resolve}from"node:path";import{createHash}from"node:crypto";import{execFileSync}from"node:child_process";const r=JSON.parse(readFileSync("verified-release/.artifacts/release-dry-run.json"));const file=resolve("verified-release",r.tarball);if(createHash("sha256").update(readFileSync(file)).digest("hex")!==r.artifactSha256)throw Error("ARTIFACT_MISMATCH");execFileSync("npm",["publish",file,"--provenance","--tag","next","--access","public","--ignore-scripts"],{stdio:"inherit"});'
