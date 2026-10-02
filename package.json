@@ -1,6 +1,6 @@
 {
   "name": "@asuha/dsh-claude-model-provider",
-  "version": "0.1.0-next.4",
+  "version": "0.1.0-next.4.local.2",
   "description": "Unofficial subscription-only Claude SDK provider for DeepSeek Harness",
   "license": "MIT",
   "author": "asuhacoder",
@@ -87,7 +87,8 @@
     "test:ops": "node --test ops/*.test.mjs && node ops/fixture-e2e.mjs",
     "test:live:matrix": "pnpm build && node scripts/live-matrix.mjs",
     "test:live:hybrid": "pnpm build && node scripts/live-hybrid.mjs",
-    "bench:forecast": "pnpm build && node scripts/bench-forecast.mjs"
+    "bench:forecast": "pnpm build && node scripts/bench-forecast.mjs",
+    "test:live:interruption": "pnpm build && node scripts/live-interruption.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.4",

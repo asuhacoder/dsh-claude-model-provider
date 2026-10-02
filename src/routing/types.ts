@@ -14,6 +14,9 @@ export interface QuotaWindow {
 export interface ModelPresentation {
   displayName?: string
   description?: string
+  resolvedModel?: string
+  contextWindow?: number
+  maxOutputTokens?: number
 }
 export interface Account {
   identity: string

@@ -38,6 +38,17 @@ export function filterClaudeEnvironment(
   const filtered: NodeJS.ProcessEnv = {}
   for (const [name, value] of Object.entries(source)) {
     const folded = name.toUpperCase()
+    // The generic TOKEN secret filter also matches this numeric SDK control.
+    // Admit only a validated count; never forward ambient secret-like values.
+    if (
+      folded === 'CLAUDE_CODE_MAX_OUTPUT_TOKENS' &&
+      value !== undefined &&
+      /^[1-9]\d*$/.test(value) &&
+      Number(value) <= 128_000
+    ) {
+      filtered.CLAUDE_CODE_MAX_OUTPUT_TOKENS = value
+      continue
+    }
     if (folded.startsWith('DSH_') || SENSITIVE_ENV_PATTERN.test(name)) continue
     if (!REQUIRED_SDK_ENV.has(folded) && !CLAUDE_RUNTIME_ENV.has(folded) && !optedIn.has(folded)) {
       continue

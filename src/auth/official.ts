@@ -125,7 +125,14 @@ export async function verifyAccount(
     modelMetadata: Object.fromEntries(
       models
         .filter((m) => m.value !== 'default')
-        .map((m) => [m.value, { displayName: m.displayName, description: m.description }]),
+        .map((m) => [
+          m.value,
+          {
+            displayName: m.displayName,
+            description: m.description,
+            ...(m.resolvedModel === undefined ? {} : { resolvedModel: m.resolvedModel }),
+          },
+        ]),
     ),
     windows: [],
     parallelLimit: 4,

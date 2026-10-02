@@ -227,6 +227,35 @@ function harness(
 }
 
 describe('per-session Claude bridge', () => {
+  it('closes a truncated query before exposing its finish and does not promise native resume', async () => {
+    const fixture = harness((q) => {
+      const events = textTurn('partial', 1, 1).slice(0, -1)
+      q.emit([
+        envelope({ type: 'message_start', message: { usage: { input_tokens: 7, output_tokens: 1 } } }),
+        ...events,
+        envelope({ type: 'message_delta', delta: { stop_reason: 'max_tokens' }, usage: { output_tokens: 128 } }),
+      ])
+    })
+    try {
+      const chunks = await collect(fixture.adapter.stream(request([user('u1', 'long answer')], 'bounded', { maxTokens: 128 })))
+      expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'max-tokens' } })
+      expect(fixture.queries[0]?.closed).toBe(true)
+      expect(fixture.manager.activeBridgeCount).toBe(0)
+    } finally { await fixture.manager.dispose() }
+  })
+  it('applies maxTokens at process start and rebuilds when that limit changes', async () => {
+    const fixture = harness((q) => q.emit(textTurn('summary', 1, 1)))
+    const initial = [user('u1', 'summarize')]
+    try {
+      const first = await collect(fixture.adapter.stream(request(initial, 'summary', { purpose: 'compaction', maxTokens: 8192 })))
+      expect(first.at(-1)).toMatchObject({ reason: { kind: 'stop' } })
+      expect(fixture.requests[0]?.options.env).toMatchObject({ CLAUDE_CODE_MAX_OUTPUT_TOKENS: '8192' })
+      const second = await collect(fixture.adapter.stream(request([...initial, assistant('a1', 'summary'), user('u2', 'shorter')], 'summary', { purpose: 'compaction', maxTokens: 1024 })))
+      expect(second.at(-1)).toMatchObject({ reason: { kind: 'stop' } })
+      expect(fixture.requests).toHaveLength(2)
+      expect(fixture.requests[1]?.options.env).toMatchObject({ CLAUDE_CODE_MAX_OUTPUT_TOKENS: '1024' })
+    } finally { await fixture.manager.dispose() }
+  })
   it('starts an isolated SDK query and streams one complete text turn', async () => {
     const fixture = harness((query) => query.emit(textTurn('hello', 7, 5)))
     const chunks = await collect(

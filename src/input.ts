@@ -44,6 +44,7 @@ export type LiveInputPlan =
 
 export interface PrepareStepOptions {
   readonly forceDegraded?: boolean
+  readonly maxReplayBytes?: number
 }
 
 /** Enforce the Claude streaming-input contract at the final queue boundary. */
@@ -86,8 +87,13 @@ export class LiveInputCursor {
     if (options.temperature !== undefined) {
       throw unsupportedInput('Claude Code does not expose DSH temperature control')
     }
-    if (options.maxTokens !== undefined) {
-      throw unsupportedInput('Claude Code does not expose DSH maxTokens control')
+    if (
+      options.maxTokens !== undefined &&
+      (!Number.isSafeInteger(options.maxTokens) ||
+        options.maxTokens < 1 ||
+        options.maxTokens > 128_000)
+    ) {
+      throw unsupportedInput('Claude maxTokens must be an integer between 1 and 128000')
     }
     if ((options.stop?.length ?? 0) > 0) {
       throw unsupportedInput('Claude Code does not expose DSH stop sequences')
@@ -139,6 +145,7 @@ export class LiveInputCursor {
         options.system,
         processCwd(),
         control.forceDegraded,
+        control.maxReplayBytes,
       )
       if (cold.mode === 'degraded') {
         return {
@@ -164,7 +171,29 @@ export class LiveInputCursor {
     const pending = options.messages.slice(offset)
     if (pending.length === 0) throw unsupportedInput('Claude generation requires new user content')
     if (this.#assistant?.content.some((block) => block.type === 'tool-call') === true) {
-      return { kind: 'tool-results', results: pending.map(toolResult) }
+      const results = pending.filter((message) => message.role === 'tool').map(toolResult)
+      const calls = this.#assistant.content.filter((block) => block.type === 'tool-call')
+      const ids = new Set(results.map((result) => String(result.toolCallId)))
+      if (
+        ids.size !== results.length ||
+        results.length !== calls.length ||
+        !calls.every((call) => ids.has(String(call.id)))
+      ) {
+        throw unsupportedInput(
+          'a Claude tool boundary requires exactly one correlated result for every tool call',
+        )
+      }
+      const notifications = pending.filter((message) => message.role !== 'tool')
+      if (notifications.length > 0) {
+        // A second querying SDK frame can race the parked MCP continuation. Rebuild
+        // before resolving it, with all receipts and user updates in DSH order.
+        await this.encoder.userMessages(notifications, options.signal)
+        throw claudeError(
+          CLAUDE_ERROR_CODES.coldReplayUnsupported,
+          'DSH notifications at a tool boundary require a receipt-preserving rebuild',
+        )
+      }
+      return { kind: 'tool-results', results }
     }
     this.encoder.assertMessages(pending)
     return {

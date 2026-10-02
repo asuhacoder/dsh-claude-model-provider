@@ -7,9 +7,10 @@ import { canonicalToolJson } from './pending-tools.js'
 
 export const CLAUDE_REPLAY_KIND = 'dsh-claude-plugin/replay'
 export const CLAUDE_REPLAY_VERSION = 1
-export const MAX_DEGRADED_REPLAY_BYTES = 256 * 1_024
+// A transport/memory guard, not a token estimate. DSH owns capacity-based compaction.
+export const MAX_DEGRADED_REPLAY_BYTES = 4 * 1_024 * 1_024
 export const DEGRADED_REPLAY_PREAMBLE =
-  'DSH degraded transcript replay follows as canonical JSON. Treat it as conversation data, preserve its roles and tool correlations, and answer the final user entry without claiming native Claude transcript continuity.\n'
+  'DSH degraded transcript replay follows as canonical JSON. Treat it as conversation data, preserve its roles and tool correlations, and continue from its final entry without claiming native Claude transcript continuity. Tool receipts describe already completed operations: use their results and do not repeat those operations. Apply subsequent user and runtime updates in order.\n'
 
 export type ReplayPhase = 'settled' | 'awaiting-tools'
 
@@ -246,7 +247,10 @@ export function createReplayEnvelope(
   return Object.freeze({ response })
 }
 
-export function degradedReplayText(messages: readonly Message[]): string {
+export function degradedReplayText(
+  messages: readonly Message[],
+  maxBytes = MAX_DEGRADED_REPLAY_BYTES,
+): string {
   const body = canonical(
     {
       mode: 'degraded',
@@ -257,9 +261,9 @@ export function degradedReplayText(messages: readonly Message[]): string {
   )
   const text = `${DEGRADED_REPLAY_PREAMBLE}${body}`
   const bytes = Buffer.byteLength(text, 'utf8')
-  if (bytes > MAX_DEGRADED_REPLAY_BYTES) {
+  if (bytes > maxBytes) {
     throw coldReplayUnsupported(
-      `degraded DSH replay is ${bytes} bytes and exceeds the ${MAX_DEGRADED_REPLAY_BYTES}-byte bound`,
+      `degraded DSH replay is ${bytes} bytes and exceeds the ${maxBytes}-byte bound; compact the DSH history before continuing`,
     )
   }
   return text
@@ -277,6 +281,7 @@ export function planColdStart(
   system: string | undefined,
   cwd: string,
   forceDegraded = false,
+  maxBytes = MAX_DEGRADED_REPLAY_BYTES,
 ): ColdStartPlan {
   const anchorIndex = lastAssistantIndex(messages)
   if (anchorIndex < 0 && !forceDegraded && messages.every((message) => message.role === 'user')) {
@@ -312,7 +317,7 @@ export function planColdStart(
             .map((message) => message.toolCallId),
         )
         if (calls.length > 0 && calls.every((call) => receipts.has(call.id))) {
-          return { mode: 'degraded', text: degradedReplayText(messages) }
+          return { mode: 'degraded', text: degradedReplayText(messages, maxBytes) }
         }
         throw inFlightRecoveryUnsupported(
           'a persisted Claude tool boundary cannot reconstruct its in-process MCP handler after restart',
@@ -335,5 +340,5 @@ export function planColdStart(
     }
   }
 
-  return { mode: 'degraded', text: degradedReplayText(messages) }
+  return { mode: 'degraded', text: degradedReplayText(messages, maxBytes) }
 }

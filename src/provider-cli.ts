@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-import { pathToFileURL } from 'node:url'
+import { isCliEntrypoint } from './entrypoint.js'
 import { StateStore, recoverStateLock } from './storage/store.js'
 import { officialStatus } from './auth/official.js'
-import { defaultStateDirectory } from './sessions/provider.js'
+import { defaultStateDirectory } from './storage/paths.js'
 import { RouteBlocked, type Account, type Binding } from './routing/types.js'
 import { runDoctor } from './doctor.js'
 import { AccountController } from './ui/controller.js'
+import { resolveCliState } from './cli-state.js'
 export interface CliDependencies {
   output?: (value: unknown) => void
   store?: (directory: string, readOnly: boolean) => StateStore
@@ -13,14 +14,15 @@ export interface CliDependencies {
   status?: typeof officialStatus
   controller?: (store: StateStore, command: string) => AccountController
   recover?: typeof recoverStateLock
+  resolveState?: typeof resolveCliState
 }
 export async function runProviderCli(args: string[], deps: CliDependencies = {}): Promise<number> {
   const flag = (name: string, fallback = '') => {
     const i = args.indexOf(name)
     return i < 0 ? fallback : (args[i + 1] ?? fallback)
   }
-  const state = flag('--state', defaultStateDirectory()),
-    command = flag('--claude', 'claude'),
+  let state = defaultStateDirectory()
+  const command = flag('--claude', 'claude'),
     output = deps.output ?? ((x) => console.log(JSON.stringify(x, null, 2)))
   let store: StateStore | undefined
   const open = (readOnly = false) =>
@@ -29,6 +31,7 @@ export async function runProviderCli(args: string[], deps: CliDependencies = {})
       readOnly,
     ))
   try {
+    state = await (deps.resolveState ?? resolveCliState)(args)
     if (args[0] === 'doctor') {
       if (args.includes('--recover')) {
         output((deps.recover ?? recoverStateLock)(state))
@@ -56,7 +59,7 @@ export async function runProviderCli(args: string[], deps: CliDependencies = {})
       const action = args[1] ?? 'list',
         s = open(action === 'list'),
         controller = deps.controller?.(s, command) ?? new AccountController(() => s, command)
-      if (action === 'list') output(controller.status())
+      if (action === 'list') output({ ...controller.status(), stateDirectory: state })
       else {
         if (!args[2]) throw new RouteBlocked('ALIAS_REQUIRED')
         output(
@@ -78,13 +81,11 @@ export async function runProviderCli(args: string[], deps: CliDependencies = {})
       const s = open(true)
       output({
         schema: 1,
-        accounts: s
-          .list<Account>('accounts')
-          .map((a) => ({
-            id: s.hash(a.identity).slice(0, 16),
-            state: a.state,
-            quotaKnown: a.windows.length > 0,
-          })),
+        accounts: s.list<Account>('accounts').map((a) => ({
+          id: s.hash(a.identity).slice(0, 16),
+          state: a.state,
+          quotaKnown: a.windows.length > 0,
+        })),
         bindings: s.list<Binding>('bindings').length,
         containsCredentials: false,
       })
@@ -102,7 +103,11 @@ export async function runProviderCli(args: string[], deps: CliDependencies = {})
           'explain-route [session-key]',
           'diagnostics export --redacted',
         ],
-        options: ['--state <private-directory>', '--claude <official-executable>'],
+        options: [
+          '--state <private-directory>',
+          '--dsh-profile <profile-name>',
+          '--claude <official-executable>',
+        ],
       })
     return 0
   } catch (error) {
@@ -121,5 +126,5 @@ export async function runProviderCli(args: string[], deps: CliDependencies = {})
     store?.close()
   }
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+if (isCliEntrypoint(import.meta.url, process.argv[1]))
   process.exitCode = await runProviderCli(process.argv.slice(2))

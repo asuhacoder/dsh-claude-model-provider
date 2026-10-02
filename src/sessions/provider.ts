@@ -1,5 +1,5 @@
-import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { defaultStateDirectory } from '../storage/paths.js'
+export { defaultStateDirectory } from '../storage/paths.js'
 import { randomUUID, createHash } from 'node:crypto'
 import type { GenerateOptions, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import type SubprocessRuntime from '@deepseek-ai/dsh-subprocess'
@@ -17,9 +17,7 @@ import { messageFingerprint } from '../replay.js'
 import { CapacitySignal, KeyedQueue, ProviderCircuit, abortable } from '../routing/control.js'
 import { UsageHistory, addUsage, type UsageRecord } from '../metrics/history.js'
 import { shadowForecast } from '../routing/forecast.js'
-export function defaultStateDirectory(): string {
-  return join(process.env.DSH_HOME ?? join(homedir(), '.dsh'), 'claude-sdk-local')
-}
+import { publicFailureMessage } from '../errors.js'
 export function prepareDshRequest(options: GenerateOptions): GenerateOptions {
   const prompts: string[] = [],
     messages = [...options.messages]
@@ -47,12 +45,14 @@ export interface ProviderDependencies {
   ) => ManagedBridge
   now?: () => number
   requestTimeoutMs?: number
+  queueTimeoutMs?: number
   maxAttempts?: number
 }
 export interface AttemptObservation {
   failure?: 'quota' | 'auth' | 'suspended' | 'request' | 'server' | 'temporary' | 'billing'
   retryAt?: number
   sdkRetries: number
+  actualModel?: string
 }
 /** Typed official events, never text-matched account rotation. */
 export function observeSdk(
@@ -64,6 +64,25 @@ export function observeSdk(
   now: number,
 ): void {
   router.fence(binding.key, binding.generation)
+  if (event.type === 'system' && event.subtype === 'init') state.actualModel = event.model
+  if (event.type === 'result') {
+    const account = store.get<Account>('accounts', binding.identity)!
+    const metadata = account.modelMetadata?.[binding.model]
+    const entry = Object.entries(event.modelUsage ?? {}).find(
+      ([id]) => id === binding.model || id === metadata?.resolvedModel || id === state.actualModel,
+    )?.[1]
+    if (entry && Number.isSafeInteger(entry.contextWindow) && entry.contextWindow > 0) {
+      account.modelMetadata ??= {}
+      account.modelMetadata[binding.model] = {
+        ...metadata,
+        contextWindow: entry.contextWindow,
+        ...(Number.isSafeInteger(entry.maxOutputTokens) && entry.maxOutputTokens > 0
+          ? { maxOutputTokens: entry.maxOutputTokens }
+          : {}),
+      }
+      store.set('accounts', account.identity, account)
+    }
+  }
   if (event.type === 'rate_limit_event') {
     const info = event.rate_limit_info,
       account = store.get<Account>('accounts', binding.identity)!
@@ -220,10 +239,15 @@ export class SubscriptionProvider {
     const controller = new AbortController()
     this.#controllers.add(controller)
     const timeoutMs = this.dependencies.requestTimeoutMs ?? this.config.requestTimeoutMs
-    const timeout = AbortSignal.timeout(timeoutMs)
+    const queueTimeoutMs = this.dependencies.queueTimeoutMs ?? this.config.queueTimeoutMs
+    const timeout = new AbortController()
+    let timeoutCode = 'QUEUE_DEADLINE'
+    let timer = setTimeout(() => timeout.abort(), queueTimeoutMs)
+    timer.unref?.()
+    let executionStarted = false
     const signal = AbortSignal.any([
       controller.signal,
-      timeout,
+      timeout.signal,
       ...(options.signal ? [options.signal] : []),
     ])
     const key = store.hash(
@@ -234,8 +258,8 @@ export class SubscriptionProvider {
       ]),
     )
     const requestId = randomUUID(),
-      startedAt = this.now(),
-      deadline = startedAt + timeoutMs
+      startedAt = this.now()
+    let deadline = startedAt + queueTimeoutMs
     const req: RouteRequest = {
       session: key,
       requestId,
@@ -313,8 +337,16 @@ export class SubscriptionProvider {
       }
       const visited = new Set<string>()
       while (attempts < (this.dependencies.maxAttempts ?? 3)) {
-        if (signal.aborted) throw new RouteBlocked(timeout.aborted ? 'REQUEST_DEADLINE' : 'ABORTED')
+        if (signal.aborted) throw new RouteBlocked(timeout.signal.aborted ? timeoutCode : 'ABORTED')
         binding = await this.#route(router, req, deadline, signal)
+        if (!executionStarted) {
+          clearTimeout(timer)
+          timeoutCode = 'REQUEST_DEADLINE'
+          deadline = this.now() + timeoutMs
+          timer = setTimeout(() => timeout.abort(), timeoutMs)
+          timer.unref?.()
+          executionStarted = true
+        }
         attempts++
         usage = { inputTokens: 0, outputTokens: 0 }
         attemptRetries = 0
@@ -391,7 +423,10 @@ export class SubscriptionProvider {
           }
           holder = created
           this.#managers.set(key, created)
-        } else holder.state = state
+        } else {
+          if (holder.state.actualModel !== undefined) state.actualModel = holder.state.actualModel
+          holder.state = state
+        }
         let terminal: Extract<StreamChunk, { type: 'finish' }> | undefined,
           thrown: unknown,
           visible = false
@@ -484,7 +519,7 @@ export class SubscriptionProvider {
       throw new RouteBlocked('ATTEMPT_BUDGET_EXHAUSTED')
     } catch (error) {
       if (signal.aborted) {
-        outcome = 'aborted'
+        outcome = timeout.signal.aborted ? 'error' : 'aborted'
         if (unlock) {
           const old = store.get<Binding>('bindings', key)
           if (old) {
@@ -495,13 +530,15 @@ export class SubscriptionProvider {
         }
       }
       if (unlock) await this.#drop(key)
-      const code = timeout.aborted
-        ? 'REQUEST_DEADLINE'
-        : error instanceof RouteBlocked
-          ? error.code
-          : error instanceof Error && 'code' in error && typeof error.code === 'string'
+      const code =
+        timeout.signal.aborted ||
+        (error instanceof RouteBlocked && error.code === 'REQUEST_DEADLINE')
+          ? timeoutCode
+          : error instanceof RouteBlocked
             ? error.code
-            : 'SUBSCRIPTION_PROVIDER_FAILED'
+            : error instanceof Error && 'code' in error && typeof error.code === 'string'
+              ? error.code
+              : 'SUBSCRIPTION_PROVIDER_FAILED'
       finished = true
       yield {
         type: 'finish',
@@ -509,7 +546,7 @@ export class SubscriptionProvider {
           kind: outcome === 'aborted' ? 'aborted' : 'error',
           failure: {
             code,
-            message: code,
+            message: publicFailureMessage(error, code),
             ...(error instanceof RouteBlocked &&
             error.retryAt !== undefined &&
             error.retryAt < Number.MAX_SAFE_INTEGER
@@ -519,6 +556,7 @@ export class SubscriptionProvider {
         },
       }
     } finally {
+      clearTimeout(timer)
       if (!finished) {
         controller.abort()
         if (unlock) await this.#drop(key)
