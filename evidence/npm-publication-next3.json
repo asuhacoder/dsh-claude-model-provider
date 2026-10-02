@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "status": "PENDING_TAG_CLEANUP",
+  "verifiedAt": "2026-10-02T07:45:58.457Z",
+  "package": "@asuha/dsh-claude-model-provider",
+  "version": "0.1.0-next.3",
+  "publishedToNpm": true,
+  "tag": "next",
+  "distTags": {
+    "latest": "0.1.0-next.3",
+    "next": "0.1.0-next.3"
+  },
+  "registryTarball": "https://registry.npmjs.org/@asuha/dsh-claude-model-provider/-/dsh-claude-model-provider-0.1.0-next.3.tgz",
+  "artifactSha256": "f213f6a5621fad29593ba3885bbd4c2f33403bf1df6c774b487ac41eaf4b62ab",
+  "artifactBytes": 157596,
+  "registryIntegrity": "sha512-s8aEXYG1Z1FanbVSPcE9ZyxV56WmSnyGLDliWv87QV0y1iOmKyvGvMdxwiXP09KM1Lwa8rajRR1qGcPOsXzqdw==",
+  "exactArtifactMatch": true,
+  "sourceCommit": "a3e57eb3ce6ee09c04037a1aaf2903043b05b348",
+  "ciRun": "https://github.com/asuhacoder/dsh-claude-model-provider/actions/runs/36914865274",
+  "npmProvenance": false,
+  "publicationMethod": "authenticated local maintainer; npm additional authentication",
+  "publishedAt": "2026-10-02T07:34:59.942Z",
+  "tagPolicyVerified": false,
+  "unexpectedAutomaticLatestTag": true
+}

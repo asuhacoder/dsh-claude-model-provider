@@ -9,7 +9,7 @@ dsh plugin --profile web add @asuha/dsh-claude-model-provider@next --ignore-scri
 claude auth login
 ```
 
-npmの公開状況は[リリース状況](RELEASE_STATUS.md)で確認できます。固定バージョンのGitHub配布物からも導入できます。
+npmの`next`版を公開し、実際に使用中のDSHへの導入と動作確認を完了しました。検証結果と残る配布設定は[リリース状況](RELEASE_STATUS.md)で確認できます。固定バージョンのGitHub配布物からも導入できます。
 
 ```sh
 dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/asuha-dsh-claude-model-provider-0.1.0-next.3.tgz --ignore-scripts
