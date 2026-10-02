@@ -4,10 +4,11 @@ import {
   type LlmResolvedModelInfo,
 } from '@deepseek-ai/dsh-llm'
 import type { EffortLevel } from '@anthropic-ai/claude-agent-sdk'
+import { modelPresentation, listedAccountModels } from './model-presentation.js'
 import { CLAUDE_ERROR_CODES, ClaudePluginError } from './errors.js'
 
 export const PROVIDER_ID = 'claude-sdk-local'
-export const PROVIDER_NAME = 'Claude (official SDK)'
+export const PROVIDER_NAME = 'Claude Subscription'
 export const BUILTIN_MODEL_ALIASES = ['default', 'sonnet', 'opus', 'haiku'] as const
 export const CLAUDE_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 
@@ -88,32 +89,21 @@ export function resolveClaudeModel(requested: unknown, defaultModel: string): st
   return resolvedDefault
 }
 
-function displayName(model: string): string {
-  switch (model) {
-    case 'sonnet':
-      return 'Claude Sonnet'
-    case 'opus':
-      return 'Claude Opus'
-    case 'haiku':
-      return 'Claude Haiku'
-    default:
-      return model
-  }
-}
-
 export function modelCatalog(defaultModel: string): readonly LlmModelInfo[] {
   const resolvedDefault = resolveClaudeModel('default', defaultModel)
-  const entries: LlmModelInfo[] = BUILTIN_MODEL_ALIASES.map((id) => ({
-    provider: PROVIDER_ID,
-    id,
-    name: id === 'default' ? `${displayName(resolvedDefault)} (default)` : displayName(id),
-    description:
-      id === 'default'
-        ? `Resolves to the configured Claude model ${resolvedDefault}`
-        : `Claude Code ${id} alias`,
-    inputModalities: ['text', 'image'],
-  }))
-  return Object.freeze(entries.map((entry) => Object.freeze(entry)))
+  const ids = [
+    ...new Set([resolvedDefault, ...BUILTIN_MODEL_ALIASES.filter((id) => id !== 'default')]),
+  ]
+  return Object.freeze(
+    ids.map((id) =>
+      Object.freeze({
+        provider: PROVIDER_ID,
+        id,
+        ...modelPresentation(id),
+        inputModalities: ['text', 'image'] as const,
+      }),
+    ),
+  )
 }
 
 export function resolvedModelInfo(
@@ -132,11 +122,7 @@ export function resolvedModelInfo(
   return {
     provider,
     id,
-    name: id === 'default' ? `${displayName(claudeModel)} (default)` : displayName(id),
-    description:
-      id === claudeModel
-        ? `Claude Code model ${claudeModel}`
-        : `Claude Code alias resolving to ${claudeModel}`,
+    ...modelPresentation(claudeModel),
     inputModalities: ['text', 'image'],
     reasoning: reasoningInfo(),
   }
@@ -145,19 +131,11 @@ export function resolvedModelInfo(
 /** Runtime catalog from official control responses, with each account's effort capabilities. */
 export function accountModelCatalog(
   accounts: readonly import('./routing/types.js').Account[],
-  defaultModel: string,
+  _defaultModel: string,
 ): readonly LlmModelInfo[] {
-  const ids = [
-    ...new Set(
-      accounts
-        .filter((a) => a.state !== 'DISABLED' && a.state !== 'SUSPENDED')
-        .flatMap((a) => Object.keys(a.models)),
-    ),
-  ].sort()
-  return [...(ids.includes(defaultModel) ? ['default'] : []), ...ids].map((id) => ({
+  return listedAccountModels(accounts).map((model) => ({
     provider: PROVIDER_ID,
-    id,
-    name: id === 'default' ? `${displayName(defaultModel)} (default)` : displayName(id),
+    ...model,
     inputModalities: ['text', 'image'] as const,
   }))
 }
@@ -182,9 +160,20 @@ export function accountModelInfo(
   )
   // DSH rejects an empty effort list and drops the entire provider catalog.
   // An absent capability is represented by omitting reasoning metadata.
-  const { reasoning: _fallbackReasoning, ...metadata } = result
+  const {
+    reasoning: _fallbackReasoning,
+    name: _fallbackName,
+    description: _fallbackDescription,
+    ...metadata
+  } = result
   return {
     ...metadata,
+    ...modelPresentation(
+      id,
+      [...matching]
+        .sort((a, b) => b.verifiedAt - a.verifiedAt)
+        .find((a) => a.modelMetadata?.[id]?.displayName)?.modelMetadata?.[id],
+    ),
     ...(efforts.length
       ? { reasoning: { efforts: efforts.map((e) => ({ id: ReasoningEffortId(e), name: e })) } }
       : {}),

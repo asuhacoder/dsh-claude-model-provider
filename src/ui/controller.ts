@@ -47,6 +47,7 @@ export class AccountController {
         isDefault: a.isDefault ?? false,
         inFlight: reservations.filter((r) => r.identity === a.identity).length,
         models: a.models,
+        ...(a.modelMetadata ? { modelMetadata: a.modelMetadata } : {}),
         windows: a.windows.map((w) => ({
           ...w,
           remaining:

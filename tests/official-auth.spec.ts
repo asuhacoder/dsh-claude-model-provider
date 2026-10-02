@@ -32,7 +32,12 @@ beforeEach(() => {
   )
   fake.models.mockResolvedValue([
     { value: 'default' },
-    { value: 'opus', supportedEffortLevels: ['low', 'max'] },
+    {
+      value: 'opus',
+      displayName: 'Opus 5.5',
+      description: 'For complex work',
+      supportedEffortLevels: ['low', 'max'],
+    },
     { value: 'haiku' },
   ])
   fake.query.mockImplementation(() => ({ supportedModels: fake.models, close: fake.close }))
@@ -88,6 +93,11 @@ it('verifies before and after control, retains only profile reference and enforc
   try {
     const a = await verifyAccount(s, 'claude', 'primary', 'default', true)
     expect(a).toMatchObject({ aliases: ['primary'], models: { opus: ['low', 'max'], haiku: [] } })
+    expect(a.modelMetadata?.opus).toEqual({
+      displayName: 'Opus 5.5',
+      description: 'For complex work',
+    })
+    expect(a.modelMetadata).not.toHaveProperty('default')
     expect(a.identity).not.toContain('fixture-org')
     expect(JSON.stringify(a)).not.toContain('orgId')
     await assertAccount(s, 'claude', a)

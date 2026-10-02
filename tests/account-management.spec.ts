@@ -93,7 +93,7 @@ it('advertises only verified active capabilities and labels missing quota as unk
     billingSafety: 'unverified',
     windows: [{ remaining: null }, { remaining: expect.closeTo(0.2) }],
   })
-  expect(accountModelCatalog([a], 'opus').map((m) => m.id)).toEqual(['default', 'haiku', 'opus'])
+  expect(accountModelCatalog([a], 'opus').map((m) => m.id)).toEqual(['opus', 'haiku'])
   expect(
     accountModelInfo([a], 'claude-sdk-local', 'default', 'opus').reasoning?.efforts.map(
       (e) => e.id,

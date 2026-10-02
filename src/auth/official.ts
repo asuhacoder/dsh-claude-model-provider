@@ -122,6 +122,11 @@ export async function verifyAccount(
         .filter((m) => m.value !== 'default')
         .map((m) => [m.value, m.supportedEffortLevels ?? []]),
     ),
+    modelMetadata: Object.fromEntries(
+      models
+        .filter((m) => m.value !== 'default')
+        .map((m) => [m.value, { displayName: m.displayName, description: m.description }]),
+    ),
     windows: [],
     parallelLimit: 4,
   }
