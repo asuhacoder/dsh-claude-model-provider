@@ -1,5 +1,19 @@
 # Release status — 2026-10-02
 
+## Current display fix: 0.1.0-next.4
+
+[Version 0.1.0-next.4](https://github.com/asuhacoder/dsh-claude-model-provider/releases/tag/v0.1.0-next.4) is published as a GitHub prerelease and installed from that public release URL in the active DSH Web profile. [PR #5](https://github.com/asuhacoder/dsh-claude-model-provider/pull/5) is merged after all five required CI jobs passed.
+
+The picker and settings use official model names, versions, descriptions and order. The current account reports Claude Opus 5.5, Claude Fable 5.1, Claude Sonnet 5.5 and Claude Haiku 4.5, followed by older versioned models. The provider label is Claude Subscription. The duplicate default row is removed while legacy default selections remain resolvable. Older saved accounts retain compatibility and can update their metadata with Check connection.
+
+Validation: 263 tests, typecheck, build, coverage and required CI passed. The active DSH catalog and a real Claude response passed. All 59 sessions and four provider groups present immediately before this update were preserved. All 163 installed package files match the public artifact. The original global default model, configuration and other plugin dependencies were restored/verified unchanged after the smoke test. Visual browser verification was not performed.
+
+SHA-256: `7b643c0d58d1b56b919c682e92d113605a5df33759597d05a2742cbb059cc239`; implementation commit: `9dd0bdd`.
+
+npm publication was attempted with the authenticated maintainer account, but npm requires an additional Web authentication for this publish. It is pending; the active DSH already uses the published GitHub package. The earlier npm latest-tag cleanup below is also still pending. Release verification details are attached as `next4-verification.json` to the GitHub release.
+
+## Previous npm release: 0.1.0-next.3
+
 `@asuha/dsh-claude-model-provider@0.1.0-next.3` is published on [npm](https://www.npmjs.com/package/@asuha/dsh-claude-model-provider/v/0.1.0-next.3) with the `next` tag and as a [GitHub prerelease](https://github.com/asuhacoder/dsh-claude-model-provider/releases/tag/v0.1.0-next.3), using personal accounts `asuha` and `asuhacoder`.
 
 The actual active DSH Web profile now depends on the exact npm version `0.1.0-next.3`, replacing the temporary GitHub release URL and local artifact installations. After restart, a real Claude Opus response and a DSH-owned file read both passed. All 159 installed package files match the published tarball. Configuration and other plugin dependencies were unchanged; all 56 sessions and six provider groups present immediately before the npm switch were preserved. The original pre-integration baseline of 53 sessions and five provider groups was also preserved during initial integration.
