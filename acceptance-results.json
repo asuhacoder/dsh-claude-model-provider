@@ -22,7 +22,8 @@
       "result": "PASSED",
       "evidence": [
         "scripts/verify-install.mjs",
-        "evidence/active-web-github-next3.json"
+        "evidence/active-web-github-next3.json",
+        "evidence/active-web-npm-next3.json"
       ],
       "notes": "Final tarball installed into an empty HOME/DSH_HOME with public plugin commands; actual apply and module identity passed."
     },
@@ -59,7 +60,8 @@
       "evidence": [
         "evidence/live-matrix.json",
         "tests/tool-bridge.spec.ts",
-        "evidence/active-web-github-next3.json"
+        "evidence/active-web-github-next3.json",
+        "evidence/active-web-npm-next3.json"
       ],
       "notes": "Bounded real DSH-owned tool request and permission-denial receipt passed; native SDK tools are disabled."
     },
@@ -726,7 +728,8 @@
       "result": "PASSED",
       "evidence": [
         "scripts/verify-install.mjs",
-        "evidence/active-web-github-next3.json"
+        "evidence/active-web-github-next3.json",
+        "evidence/active-web-npm-next3.json"
       ],
       "notes": "Host and plugin dsh-llm resolve identically through official PluginPackages interception."
     },
@@ -842,9 +845,11 @@
         "evidence/npm-authenticated-rehearsal.json",
         "evidence/active-web-final-candidate-next3.json",
         "evidence/github-publication-next3.json",
-        "evidence/active-web-github-next3.json"
+        "evidence/active-web-github-next3.json",
+        "evidence/npm-publication-next3.json",
+        "evidence/active-web-npm-next3.json"
       ],
-      "notes": "The immutable next.3 artifact, SBOM and local maintainer signature are publicly released on GitHub and installed in the actual active DSH; both real response and DSH file tool roundtrip passed. npm publication requires additional maintainer authentication and has not completed. npm OIDC enrollment/provenance and long canary remain unverified."
+      "notes": "Exact next.3 artifact, SBOM and local maintainer signature are published on GitHub. The same artifact was published with npm --tag next, checked against registry SHA-512 and downloaded bytes and installed in the actual active DSH. Real response and DSH file tool roundtrip passed after restart; existing configuration, dependencies and sessions were preserved. npm automatically added latest on initial publication; removing it requires additional npm Web authentication and remains pending. npm OIDC provenance/trusted publishing and long canary remain unverified."
     },
     {
       "id": "A-046",
@@ -1007,5 +1012,19 @@
       ],
       "notes": "Doctor defaults offline; public CLI gates live with confirmation; probe submits only one prompt."
     }
-  ]
+  ],
+  "authorizedExperimentalRelease": {
+    "status": "PENDING_TAG_CLEANUP",
+    "version": "0.1.0-next.3",
+    "npmTag": "next",
+    "npmPublished": true,
+    "activeDshRegistryInstalled": true,
+    "realAccounts": 1,
+    "historicalFullAcceptanceComplete": false,
+    "pending": "Removal of automatic initial latest tag requires separate npm Web authentication.",
+    "evidence": [
+      "evidence/npm-publication-next3.json",
+      "evidence/active-web-npm-next3.json"
+    ]
+  }
 }

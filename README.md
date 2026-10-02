@@ -12,7 +12,7 @@ Unofficial Claude subscription provider for DeepSeek Harness. A derivative of sn
 dsh plugin --profile web add @asuha/dsh-claude-model-provider@next --ignore-scripts
 ```
 
-See [release status](RELEASE_STATUS.md) for npm availability. The fixed-version GitHub release is also installable:
+The npm `next` package is published and verified in an active DSH installation. See [release status](RELEASE_STATUS.md) for validation and remaining release-metadata work. The fixed-version GitHub release is also installable:
 
 ```sh
 dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/asuha-dsh-claude-model-provider-0.1.0-next.3.tgz --ignore-scripts

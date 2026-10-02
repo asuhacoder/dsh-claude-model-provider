@@ -1,0 +1,59 @@
+{
+  "status": "PASSED",
+  "verifiedAt": "2026-10-02T07:38:47.869Z",
+  "stage": "published",
+  "scope": "actual active web profile through authenticated DSH RPC, session agent and DSH tool execution",
+  "dsh": "0.2.0-rc.2",
+  "package": "@asuha/dsh-claude-model-provider",
+  "version": "0.1.0-next.3",
+  "registryInstalled": true,
+  "publishedReleaseInstalled": true,
+  "artifactSha256": "f213f6a5621fad29593ba3885bbd4c2f33403bf1df6c774b487ac41eaf4b62ab",
+  "existingProviderGroupsPreserved": 6,
+  "existingSessionsPreserved": 56,
+  "selected": {
+    "provider": "claude-sdk-local",
+    "model": "opus",
+    "reasoningEffort": "low"
+  },
+  "claudeModels": 11,
+  "checks": [
+    {
+      "name": "real-web-agent-response",
+      "responseVerified": true,
+      "assistantMessages": 1,
+      "tools": [],
+      "toolResults": 0,
+      "turnEnd": "completed"
+    },
+    {
+      "name": "real-web-dsh-file-tool-roundtrip",
+      "responseVerified": true,
+      "assistantMessages": 2,
+      "tools": [
+        "read"
+      ],
+      "toolResults": 1,
+      "turnEnd": "completed"
+    }
+  ],
+  "usage": {
+    "responses": 7,
+    "toolBoundaries": 3,
+    "failed": 0,
+    "usage": {
+      "inputTokens": 51639,
+      "outputTokens": 533,
+      "cacheReadTokens": 897957,
+      "cacheWriteTokens": 271486,
+      "reasoningTokens": 0
+    },
+    "acceptedTasks": null
+  },
+  "realAccounts": 1,
+  "uiVisualVerification": false,
+  "installedFilesVerified": 159,
+  "installationSource": "@asuha/dsh-claude-model-provider@0.1.0-next.3 (npm registry)",
+  "configurationPreserved": true,
+  "otherDependenciesPreserved": true
+}
