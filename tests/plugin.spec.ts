@@ -79,7 +79,7 @@ describe('DSH plugin registration', () => {
     })
 
     expect(ctx.llm.listProviders()).toEqual([
-      { id: 'claude-sdk-local', name: 'Claude (official SDK)' },
+      { id: 'claude-sdk-local', name: 'Claude Subscription' },
     ])
     await expect(ctx.llm.listModels('claude-sdk-local')).resolves.toEqual([])
     const adapter = new claudePlugin.ClaudeCodeAdapter(

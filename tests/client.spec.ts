@@ -15,6 +15,7 @@ it('renders local account management, honest unknowns and user-driven controls',
         billingSafety: 'user-confirmed-off',
         inFlight: 1,
         models: { opus: ['low', 'max'] },
+        modelMetadata: { opus: { displayName: 'Opus 5.5' } },
         windows: [],
         lastRouteReason: null,
       },
@@ -39,13 +40,20 @@ it('renders local account management, honest unknowns and user-driven controls',
       usage: { inputTokens: 4, outputTokens: 2 },
     },
   }
-  const rpc = { call: vi.fn(async () => ({ok:true as const,value:status})) }
+  const rpc = { call: vi.fn(async () => ({ ok: true as const, value: status })) }
   let tree!: ReactTestRenderer
   await act(async () => {
     tree = create(createElement(Section, { rpc } as never))
   })
   expect(JSON.stringify(tree.toJSON())).toContain('不明')
   expect(rpc.call).toHaveBeenCalledTimes(1)
+  expect(
+    tree.root.findAllByType('option').map((o) => [o.props.value, o.children.join('')]),
+  ).toEqual([
+    ['opus', 'Claude Opus 5.5'],
+    ['haiku', 'Claude Haiku'],
+  ])
+  expect(JSON.stringify(tree.toJSON())).not.toContain('公式SDK')
   const inputs = tree.root.findAllByType('input')
   await act(async () => {
     inputs[0]!.props.onChange({ target: { value: 'new' } })

@@ -1,5 +1,6 @@
 import { createElement as h, useEffect, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
+import { listedAccountModels, modelPresentation } from '../model-presentation.js'
 import type { AccountController } from '../ui/controller.js'
 type Status = ReturnType<AccountController['status']>
 interface Rpc {
@@ -39,7 +40,7 @@ export function Section({ rpc }: { rpc: Rpc }) {
   return h(
     'section',
     { style: { maxWidth: 960, padding: 24, display: 'grid', gap: 16 } },
-    h('h2', null, 'Claude — 公式SDK'),
+    h('h2', null, 'Claude サブスクリプション'),
     h(
       'p',
       null,
@@ -100,7 +101,7 @@ export function Section({ rpc }: { rpc: Rpc }) {
       ? h(
           'label',
           null,
-          '既定モデル ',
+          '既存の会話で「default」を選択している場合のモデル ',
           h(
             'select',
             {
@@ -109,13 +110,9 @@ export function Section({ rpc }: { rpc: Rpc }) {
               onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
                 void run('setModel', { model: e.target.value }),
             },
-            [
-              ...new Set(
-                state.accounts
-                  .filter((a) => a.state !== 'DISABLED')
-                  .flatMap((a) => Object.keys(a.models)),
-              ),
-            ].map((m) => h('option', { key: m, value: m }, m)),
+            listedAccountModels(state.accounts).map((m) =>
+              h('option', { key: m.id, value: m.id }, m.name),
+            ),
           ),
         )
       : null,
@@ -136,7 +133,13 @@ export function Section({ rpc }: { rpc: Rpc }) {
             null,
             'モデル／思考の強さ: ',
             Object.entries(a.models)
-              .map(([m, e]) => m + ' (' + (e.join(', ') || '指定なし') + ')')
+              .map(
+                ([m, e]) =>
+                  modelPresentation(m, a.modelMetadata?.[m]).name +
+                  ' (' +
+                  (e.join(', ') || '指定なし') +
+                  ')',
+              )
               .join(' / '),
           ),
           ...(a.windows.length
@@ -175,7 +178,7 @@ export function apply(ctx: Context) {
         name: 'settings.section',
         id: 'claude-sdk-local',
         order: 91,
-        label: () => 'Claude 公式SDK',
+        label: () => 'Claude サブスクリプション',
         inject: () => ({ rpc: connection.rpc }),
       },
       Section,

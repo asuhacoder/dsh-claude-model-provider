@@ -5,7 +5,6 @@ import type { Account } from '../src/routing/types.js'
 import {
   ClaudeCodeAdapter,
   resolveConfig,
-  BUILTIN_MODEL_ALIASES,
   modelCatalog,
   PROVIDER_ID,
   resolvedModelInfo,
@@ -44,27 +43,27 @@ describe('Claude model aliases', () => {
         const models = await Promise.all(
           catalog.map((model) => ctx.llm.resolveModelInfo(PROVIDER_ID, model.id)),
         )
-        expect(models.map((model) => model.id)).toEqual(['default', 'haiku', 'opus'])
-        expect(models[0]?.reasoning).toBeUndefined()
+        expect(models.map((model) => model.id)).toEqual(['opus', 'haiku'])
+        expect(models[0]?.reasoning?.efforts.map((effort) => effort.id)).toEqual(['low', 'high'])
         expect(models[1]?.reasoning).toBeUndefined()
-        expect(models[2]?.reasoning?.efforts.map((effort) => effort.id)).toEqual(['low', 'high'])
+        expect((await ctx.llm.resolveModelInfo(PROVIDER_ID, 'default')).reasoning).toBeUndefined()
       } finally {
         remove()
         await fiber.dispose()
       }
     },
   )
-  it('advertises the stable aliases in preferred order', () => {
+  it('lists usable aliases without an artificial default entry', () => {
     const models = modelCatalog('opus')
-    expect(models.map((model) => model.id)).toEqual(BUILTIN_MODEL_ALIASES)
+    expect(models.map((model) => model.id)).toEqual(['opus', 'sonnet', 'haiku'])
     expect(models[0]).toMatchObject({
       provider: PROVIDER_ID,
-      id: 'default',
-      name: 'Claude Opus (default)',
+      id: 'opus',
+      name: 'Claude Opus',
       inputModalities: ['text', 'image'],
     })
     expect(Object.isFrozen(models)).toBe(true)
-    expect(modelCatalog('claude-opus-4-1')[0]?.name).toBe('claude-opus-4-1 (default)')
+    expect(modelCatalog('claude-opus-4-1')[0]?.name).toBe('Claude Opus 4.1')
   })
 
   it('maps only the default alias and preserves explicit Claude model names', () => {
@@ -80,13 +79,13 @@ describe('Claude model aliases', () => {
     expect(resolvedModelInfo(PROVIDER_ID, 'default', 'haiku')).toMatchObject({
       provider: PROVIDER_ID,
       id: 'default',
-      name: 'Claude Haiku (default)',
-      description: 'Claude Code alias resolving to haiku',
+      name: 'Claude Haiku',
+      description: expect.stringContaining('Refresh the connection'),
     })
     expect(resolvedModelInfo(PROVIDER_ID, 'sonnet', 'haiku')).toMatchObject({
       id: 'sonnet',
       name: 'Claude Sonnet',
-      description: 'Claude Code model sonnet',
+      description: expect.stringContaining('Refresh the connection'),
       reasoning: {
         efforts: [{ id: 'low' }, { id: 'medium' }, { id: 'high' }, { id: 'xhigh' }, { id: 'max' }],
       },

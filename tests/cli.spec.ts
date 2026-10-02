@@ -284,7 +284,7 @@ describe('doctor CLI', () => {
     await expect(runCli(['-h'], shortHelp.dependencies)).resolves.toBe(0)
     const version = harness()
     await expect(runCli(['-V'], version.dependencies)).resolves.toBe(0)
-    expect(version.stdout.join('')).toBe('0.1.0-next.3\n')
+    expect(version.stdout.join('')).toBe('0.1.0-next.4\n')
   })
 
   it('fails closed when entrypoint realpath resolution fails', () => {

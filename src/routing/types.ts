@@ -11,6 +11,10 @@ export interface QuotaWindow {
   hardBlockedUntil?: number
   source: 'sdk' | 'fixture' | 'estimate'
 }
+export interface ModelPresentation {
+  displayName?: string
+  description?: string
+}
 export interface Account {
   identity: string
   aliases: string[]
@@ -19,6 +23,7 @@ export interface Account {
   verifiedAt: number
   extraUsageOffConfirmedAt?: number
   models: Record<string, string[]>
+  modelMetadata?: Record<string, ModelPresentation>
   windows: QuotaWindow[]
   isDefault?: boolean
   parallelLimit: number

@@ -1,6 +1,6 @@
 {
   "name": "@asuha/dsh-claude-model-provider",
-  "version": "0.1.0-next.3",
+  "version": "0.1.0-next.4",
   "description": "Unofficial subscription-only Claude SDK provider for DeepSeek Harness",
   "license": "MIT",
   "author": "asuhacoder",

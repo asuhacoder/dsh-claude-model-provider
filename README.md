@@ -15,10 +15,10 @@ dsh plugin --profile web add @asuha/dsh-claude-model-provider@next --ignore-scri
 The npm `next` package is published and verified in an active DSH installation. See [release status](RELEASE_STATUS.md) for validation and remaining release-metadata work. The fixed-version GitHub release is also installable:
 
 ```sh
-dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.3/asuha-dsh-claude-model-provider-0.1.0-next.3.tgz --ignore-scripts
+dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.4/asuha-dsh-claude-model-provider-0.1.0-next.4.tgz --ignore-scripts
 ```
 
-The `next` tag contains experimental releases. Version `0.1.0-next.3` fixes a model-catalog failure caused by models with no effort selector. It was exercised in an existing DSH Web profile alongside its existing providers, including a real response and a DSH file-tool round trip.
+The `next` tag contains experimental releases. Version `0.1.0-next.4` displays official Claude model names and versions, preserves official descriptions and order, and removes the redundant default row. It retains the empty-effort catalog fix from `0.1.0-next.3`.
 
 ## Build a tarball
 
@@ -28,12 +28,12 @@ Download the repository's experimental tarball or build it:
 pnpm install --frozen-lockfile --ignore-scripts
 pnpm build
 pnpm release:dry-run
-dsh plugin --profile web add ./dist/asuha-dsh-claude-model-provider-0.1.0-next.3.tgz --ignore-scripts
+dsh plugin --profile web add ./dist/asuha-dsh-claude-model-provider-0.1.0-next.4.tgz --ignore-scripts
 ```
 
-The plugin only adds `claude-sdk-local`; it does not change the selected model or replace the Subscription Plugin. Restart DSH and select **Claude (official SDK) / opus**. The default alias resolves to Opus.
+The plugin only adds `claude-sdk-local`; it does not change the selected model or replace the Subscription Plugin. Restart DSH and select **Claude Subscription / Claude Opus 5.5**. Model names, versions, descriptions and ordering come from the official Claude model list. The legacy `default` ID still works in existing conversations but is no longer an extra picker entry. After upgrading, use **Check connection** in Claude settings to refresh the saved model names.
 
-Before generation, register your existing official login in DSH Settings → Claude 公式SDK. Alternatively, while DSH is stopped, use the installed CLI (no token copying):
+Before generation, register your existing official login in DSH Settings → Claude サブスクリプション. Alternatively, while DSH is stopped, use the installed CLI (no token copying):
 
 ```sh
 claude auth login
