@@ -10,6 +10,7 @@ describe('installable DSH bundle', () => {
       type: 'module',
       main: './lib/index.js',
       types: './lib/index.d.ts',
+      publishConfig: { access: 'public', tag: 'next' },
       dsh: { bundle: { patch: './cordis.patch.yml' } },
     })
     expect(manifest.files).toEqual([
@@ -20,6 +21,8 @@ describe('installable DSH bundle', () => {
       'LICENSE',
       'THIRD_PARTY_NOTICES.md',
       'README.ja.md',
+      'CHANGELOG.md',
+      'RELEASE_STATUS.md',
       'COMPLIANCE.md',
       'CAPABILITY_REPORT.json',
       'compatibility.lock.json',
