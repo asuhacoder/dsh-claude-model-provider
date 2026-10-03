@@ -14,6 +14,7 @@ import { filterClaudeEnvironment, sdkEnvironment } from '../src/process.js'
 import { accountModelInfo } from '../src/models.js'
 import type { Account } from '../src/routing/types.js'
 import { resolveCliState } from '../src/cli-state.js'
+import { defaultStateDirectory } from '../src/storage/paths.js'
 
 const user = (text: string) =>
   createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text }] })
@@ -33,6 +34,14 @@ const request = (
 ): GenerateOptions => ({ provider: 'claude-sdk-local', model: 'opus', messages, ...extra })
 
 describe('interruption regressions', () => {
+  it.runIf(process.platform === 'win32')('does not treat a different Windows drive as a DSH profile', async () => {
+    let dumps = 0
+    expect(await resolveCliState([], {
+      home: 'C:\\fixture\\dsh', cwd: 'D:\\work', modulePath: 'D:\\provider\\lib\\provider-cli.js',
+      dump: async () => { dumps++; throw new Error('not a DSH profile') },
+    })).toBe(defaultStateDirectory())
+    expect(dumps).toBe(0)
+  })
   it.each(['approval=never', 'runtime=danger-full-access', 'Return UPDATED instead'])(
     'rebuilds mixed tool results plus %s with all receipts and updates',
     async (text) => {

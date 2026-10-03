@@ -31,7 +31,9 @@ export async function runProviderCli(args: string[], deps: CliDependencies = {})
       readOnly,
     ))
   try {
-    state = await (deps.resolveState ?? resolveCliState)(args)
+    // Help needs neither an installed DSH executable nor a profile database.
+    if (['doctor', 'accounts', 'explain-route', 'diagnostics'].includes(args[0] ?? ''))
+      state = await (deps.resolveState ?? resolveCliState)(args)
     if (args[0] === 'doctor') {
       if (args.includes('--recover')) {
         output((deps.recover ?? recoverStateLock)(state))

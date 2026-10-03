@@ -31,7 +31,10 @@ export async function resolveCliState(
   if (explicit !== undefined) return explicit
   const root = join(options.home ?? process.env.DSH_HOME ?? join(homedir(), '.dsh'), 'profiles')
   const profileFor = (path: string) => {
-    const parts = relative(root, path).split(sep)
+    const relativePath = relative(root, path)
+    // Windows returns an absolute path when the drives differ.
+    if (isAbsolute(relativePath)) return undefined
+    const parts = relativePath.split(sep)
     return parts.length >= 1 && parts[0] && parts[0] !== '..' && !isAbsolute(parts[0])
       ? parts[0]
       : undefined

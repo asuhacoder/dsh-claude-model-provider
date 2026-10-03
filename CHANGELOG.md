@@ -2,7 +2,7 @@
 
 ## 0.1.0-next.5 — 2026-10-03
 
-Promote the locally verified `0.1.0-next.4.local.2` interruption repair to an experimental release. Preserve mixed tool receipts and runtime notifications when rebuilding from DSH history; distinguish SDK limits and request failures; expose context capacity and bounded summary output; separate queue and execution deadlines; and repair the installed management CLI's executable, dependency and profile resolution. Source verification passed 281 tests, typecheck, build and coverage. Prior real-account verification covered 14 source requests and three installed-package requests; it was performed on the local predecessor, not the renamed release artifact. See README.md for unverified boundaries.
+Promote the locally verified `0.1.0-next.4.local.2` interruption repair to an experimental release. Preserve mixed tool receipts and runtime notifications when rebuilding from DSH history; distinguish SDK limits and request failures; expose context capacity and bounded summary output; separate queue and execution deadlines; and repair the installed management CLI's executable, dependency and profile resolution. Ignore unrelated Windows drives when detecting a profile, and allow management CLI help without resolving state. Local macOS source verification passed 282 tests, typecheck, build and coverage; one Windows-only regression is exercised in CI. Prior real-account verification covered 14 source requests and three installed-package requests; it was performed on the local predecessor, not the renamed release artifact. See README.md for unverified boundaries.
 
 ## 0.1.0-next.4 — 2026-10-02
 
