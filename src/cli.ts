@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-import { realpathSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
+import { isCliEntrypoint } from './entrypoint.js'
+export { isCliEntrypoint } from './entrypoint.js'
 import {
   DOCTOR_EXECUTABLE_POLICIES,
   type DoctorDependencies,
@@ -222,19 +222,6 @@ export async function runCli(
   }
 }
 
-/** Resolve pnpm/npm bin symlinks before deciding whether this module is the executable entrypoint. */
-export function isCliEntrypoint(
-  moduleUrl: string,
-  argvPath: string | undefined,
-  realpath: (path: string) => string = realpathSync,
-): boolean {
-  if (argvPath === undefined) return false
-  try {
-    return realpath(fileURLToPath(moduleUrl)) === realpath(argvPath)
-  } catch {
-    return false
-  }
-}
 
 if (isCliEntrypoint(import.meta.url, process.argv[1])) {
   process.exitCode = await runCli(process.argv.slice(2))

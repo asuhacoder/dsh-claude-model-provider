@@ -9,7 +9,7 @@ dsh plugin --profile web add @asuha/dsh-claude-model-provider@next --ignore-scri
 claude auth login
 ```
 
-npmの`next`版を公開し、実際に使用中のDSHへの導入と動作確認を完了しました。検証結果と残る配布設定は[リリース状況](RELEASE_STATUS.md)で確認できます。固定バージョンのGitHub配布物からも導入できます。
+npmの`next`タグは最後に公開した試験版を指します。このソースは `0.1.0-next.5` の公開準備版です。実際の公開状況は[リリース状況](RELEASE_STATUS.md)で確認できます。以前の固定バージョンのGitHub配布物からも導入できます。
 
 ```sh
 dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.4/asuha-dsh-claude-model-provider-0.1.0-next.4.tgz --ignore-scripts
@@ -24,6 +24,20 @@ DSHを再起動し、設定の「Claude サブスクリプション」で既存�
 正常なセッションは同じアカウントに固定します。残量不明を0%や100%にはしません。履歴・system prompt・ツール集合が変わったらDSHの正本から再構築します。副作用の完了が不明なツールは勝手に再実行しません。
 
 ローカル診断は`doctor --offline`、疎通は`doctor --live --extra-usage-off --budget-generations 1`です。実2アカウントの認証分離、独立環境での自動修復・自動公開、長期canaryは未検証です。これらを実施済みとは扱わず、`next`の試験版として提供します。公式SDKで動いたことと、あらゆる第三者向け配布が許諾されることは別です。[初回設定](BOOTSTRAP_CHECKLIST.md)、[利用条件](COMPLIANCE.md)、[英語の詳細](README.md)を参照してください。
+
+## next.5 の応答停止への修正
+
+`0.1.0-next.5` はローカルで検証した `0.1.0-next.4.local.2` の修正を試験版として配布するものです。ツール結果と権限・実行環境通知が同時に届いた場合、すべての完了記録と通知を含めて再構築します。結果の欠落や重複は拒否します。生成回数上限などのSDK終了理由も区別して表示します。
+
+DSHへClaudeの履歴容量を伝え、要約要求の `maxTokens` に対応しました。既知のモデル系統は初回に保守的な200,000トークンを使用し、SDKが観測した容量へ更新します。出力上限到達時はSDK内部の自動継続を止め、次の処理をDSHへ返します。この途中終了では補助的なSDK呼び出しの利用量・料金を確定できないため、観測済みの本応答の利用量だけを報告します。
+
+履歴再構築のサイズ上限は既定4 MiB（`maxReplayBytes`、最大64 MiB）です。履歴を黙って切り捨てません。これはモデルのトークン容量とは別のメモリ保護上限です。超えた場合はDSHの履歴を要約してから続行します。
+
+既定値は、キュー待ち `queueTimeoutMs=120000`、割当後の要求期限 `requestTimeoutMs=600000`、SDKの生成回数 `maxGenerations=50` です。キュー待ちは生成の時間枠を消費しません。期限超過はユーザー中止と区別します。これらは保守的な運用既定値であり、測定した最適値ではありません。
+
+管理CLIの実行権限・リンク経由の起動を修正し、DSHプロセス外でも必要なJavaScript依存を解決できる配布形式にしました。インストール先・実行ディレクトリからDSHプロファイルを判定し、合成済み設定の保存先を使用します。別の場所から実行する場合は `--dsh-profile web`、明示する場合は `--state /absolute/private/state` を指定します。プロファイル解決に失敗したときは別の保存先へ勝手に切り替えません。`accounts list` に使用中の保存先が表示されます。
+
+再検証用の `test:live:interruption` は、追加使用量OFFの確認が記録済みの `--state`、非公開の `--report` 保存先、`--live` を必要とします。独立した状態DBと副作用のないテストツールを使用します。実測した14回のモデル要求で、通知混在・要約・再起動・約281 KBの履歴・128トークン上限・生成回数上限からの継続が通過しました。長期連続運転、GUIの自動圧縮全経路、複数の実アカウントはこの試験の対象外です。
 
 ## next.2 の追加機能
 

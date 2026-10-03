@@ -3,7 +3,7 @@ import type {
   SDKMessage,
   SDKResultMessage,
 } from '@anthropic-ai/claude-agent-sdk'
-import type { ContentBlock, FinishReason, StreamChunk } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, FinishReason, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import { CLAUDE_ERROR_CODES, claudeError, protocolError } from './errors.js'
 import { asCallId, canonicalToolJson } from './pending-tools.js'
 import { dshToolName } from './tool-server.js'
@@ -20,12 +20,14 @@ type OpenBlock =
       readonly startedWithArguments: boolean
     }
 
-function resultFailure(error: SDKAssistantMessageError | undefined) {
+function resultFailure(error: SDKAssistantMessageError | undefined, result: SDKResultMessage) {
   switch (error) {
     case 'authentication_failed':
     case 'oauth_org_not_allowed':
     case 'account_on_hold':
     case 'billing_error':
+    case 'verification_required':
+    case 'cloud_credential_error':
       return claudeError(
         CLAUDE_ERROR_CODES.authenticationFailed,
         'Claude Code authentication or account access failed; run `claude auth login` and retry',
@@ -37,7 +39,42 @@ function resultFailure(error: SDKAssistantMessageError | undefined) {
       )
     case 'rate_limit':
       return claudeError(CLAUDE_ERROR_CODES.rateLimited, 'Claude Code rate limit was reached')
+    case 'invalid_request':
+      return claudeError(
+        CLAUDE_ERROR_CODES.invalidRequest,
+        'Claude Code rejected the request; check model capacity and request controls',
+      )
     default:
+      if (result.subtype !== 'success') {
+        const failures = {
+          error_max_turns: [
+            CLAUDE_ERROR_CODES.maxTurns,
+            'Claude Code reached maxGenerations; continue with the saved DSH tool receipts or raise the configured limit',
+          ],
+          error_max_budget_usd: [
+            CLAUDE_ERROR_CODES.maxBudget,
+            'Claude Code reached its configured budget limit',
+          ],
+          error_max_structured_output_retries: [
+            CLAUDE_ERROR_CODES.structuredOutputRetries,
+            'Claude Code exhausted structured-output retries',
+          ],
+          error_during_execution: [
+            CLAUDE_ERROR_CODES.executionFailed,
+            'Claude Code failed during execution',
+          ],
+        } as const
+        const [code, description] = failures[result.subtype]
+        const turns =
+          Number.isSafeInteger(result.num_turns) && result.num_turns >= 0
+            ? result.num_turns
+            : 'unknown'
+        // errors can contain prompt text, paths or secrets. Preserve typed facts only.
+        return claudeError(
+          code,
+          `${description} (SDK subtype=${result.subtype}, turns=${turns}, errorCount=${result.errors?.length ?? 0})`,
+        )
+      }
       return claudeError(
         CLAUDE_ERROR_CODES.transportError,
         `Claude Code ended the turn with ${error ?? 'an unknown execution error'}`,
@@ -91,8 +128,17 @@ export class ClaudeOutputTranslator {
   #lastAssistantUuid: string | undefined
   #complete = false
   #terminalReason: FinishReason | undefined
+  #truncatedAtBoundary = false
+  #partialUsage: TokenUsage = { inputTokens: 0, outputTokens: 0 }
 
-  constructor(readonly usage: UsageTracker) {}
+  constructor(
+    readonly usage: UsageTracker,
+    readonly stopAtOutputLimit = false,
+  ) {}
+
+  get truncatedAtBoundary(): boolean {
+    return this.#truncatedAtBoundary
+  }
 
   get complete(): boolean {
     return this.#complete
@@ -135,10 +181,33 @@ export class ClaudeOutputTranslator {
     const event = message.event
     switch (event.type) {
       case 'message_start':
+        if (!this.stopAtOutputLimit) return []
+        this.#partialUsage = {
+          inputTokens: event.message.usage.input_tokens,
+          outputTokens: event.message.usage.output_tokens,
+          cacheReadTokens: event.message.usage.cache_read_input_tokens ?? 0,
+          cacheWriteTokens: event.message.usage.cache_creation_input_tokens ?? 0,
+        }
+        return []
       case 'message_stop':
         return []
       case 'message_delta':
         this.#messageStopReason = event.delta.stop_reason
+        this.#partialUsage = { ...this.#partialUsage, outputTokens: event.usage.output_tokens }
+        if (this.stopAtOutputLimit && event.delta.stop_reason === 'max_tokens') {
+          if (this.#open.size > 0)
+            throw protocolError('Claude output limit arrived with open content blocks')
+          this.#reconcile()
+          this.#truncatedAtBoundary = true
+          this.#complete = true
+          this.#terminalReason = { kind: 'max-tokens' }
+          // Claude Code normally retries truncation internally. DSH owns the next
+          // step, so stop before that hidden continuation and report observed usage.
+          return [
+            { type: 'usage', usage: this.usage.finishPartial(this.#partialUsage) },
+            finish(this.#terminalReason),
+          ]
+        }
         return []
       case 'content_block_start': {
         if (!Number.isSafeInteger(event.index) || event.index < 0 || this.#open.has(event.index)) {
@@ -334,7 +403,7 @@ export class ClaudeOutputTranslator {
       return chunks
     }
     if (message.subtype !== 'success' || message.is_error || this.#assistantError !== undefined) {
-      const error = resultFailure(this.#assistantError)
+      const error = resultFailure(this.#assistantError, message)
       this.#complete = true
       this.#terminalReason = { kind: 'error', failure: error.failure }
       chunks.push(finish(this.#terminalReason))

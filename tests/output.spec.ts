@@ -55,6 +55,21 @@ function acceptAll(translator: ClaudeOutputTranslator, messages: SDKMessage[]) {
 }
 
 describe('Claude output translation', () => {
+  it('stops at the first native truncation before hidden SDK continuation', () => {
+    const usage = new UsageTracker(), translator = new ClaudeOutputTranslator(usage, true)
+    const chunks = acceptAll(translator, [
+      envelope({ type: 'message_start', message: { usage: { input_tokens: 21, output_tokens: 1, cache_read_input_tokens: 3, cache_creation_input_tokens: 2 } } }),
+      envelope({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: 'partial', citations: null } }),
+      assistant([{ type: 'text', text: 'partial', citations: null }]),
+      envelope({ type: 'content_block_stop', index: 0 }),
+      envelope({ type: 'message_delta', delta: { stop_reason: 'max_tokens' }, usage: { output_tokens: 128 } }),
+    ])
+    expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'max-tokens' } })
+    expect(chunks.at(-2)).toEqual({ type: 'usage', usage: { inputTokens: 21, outputTokens: 128, cacheReadTokens: 3, cacheWriteTokens: 2 } })
+    expect(translator.truncatedAtBoundary).toBe(true)
+    expect(usage.snapshot.outputTokens).toBe(128)
+    expect(() => translator.accept(result())).toThrow(/after the terminal result/)
+  })
   it('streams fragmented thinking and text in order, reconciles, accounts, and finishes once', () => {
     const translator = new ClaudeOutputTranslator(new UsageTracker())
     const chunks = acceptAll(translator, [
@@ -526,7 +541,7 @@ describe('Claude output translation', () => {
     const noCategory = new ClaudeOutputTranslator(new UsageTracker())
     expect(
       noCategory.accept(result({ subtype: 'error_during_execution', is_error: true })).at(-1),
-    ).toMatchObject({ reason: { failure: { code: 'CLAUDE_TRANSPORT_ERROR' } } })
+    ).toMatchObject({ reason: { failure: { code: 'CLAUDE_EXECUTION_FAILED' } } })
   })
 
   it.each([

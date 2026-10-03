@@ -122,7 +122,7 @@ class ToolQuery implements ClaudeQuery {
   closed = false
   client: Client | undefined
 
-  constructor(readonly request: ClaudeQueryRequest) {
+  constructor(readonly request: ClaudeQueryRequest, readonly receiptsOnly = false) {
     void this.#run()
   }
 
@@ -137,6 +137,10 @@ class ToolQuery implements ClaudeQuery {
       for await (const input of this.request.prompt) {
         this.inputs.push(input)
         if (input.shouldQuery !== true) continue
+        if (this.receiptsOnly) {
+          for (const message of finalTurn('fixture-value')) this.output.push(message)
+          continue
+        }
         for (const message of toolTurn()) this.output.push(message)
         const toolResult = await this.client.callTool({
           name: 'read',
@@ -247,6 +251,35 @@ async function collect(iterable: AsyncIterable<StreamChunk>): Promise<StreamChun
 }
 
 describe('DSH-owned MCP pause and resume', () => {
+  it('rebuilds a parked boundary with receipts and notifications once, then keeps a coherent warm cursor', async () => {
+    const queries: ToolQuery[] = []
+    const factory: ClaudeQueryFactory = (r) => {
+      const q = new ToolQuery(r, queries.length > 0)
+      queries.push(q)
+      return q
+    }
+    const subprocess = { resolveExecutable: vi.fn(async () => '/usr/local/bin/claude') } as unknown as SubprocessRuntime
+    const config = resolveConfig(), manager = new BridgeManager(subprocess, config, factory)
+    const adapter = new ClaudeCodeAdapter(config, manager)
+    try {
+      const first = await collect(adapter.stream(request([user()])))
+      const finish = first.findLast((c) => c.type === 'finish')!
+      const notice = { ...user(), id: 'policy' as never, content: [{ type: 'text' as const, text: 'approval=never; runtime updated; reply with receipt' }] }
+      const messages = [user(), assistantTool(finish.replayState), toolResult(), notice]
+      const second = await collect(adapter.stream(request(messages)))
+      expect(second.at(-1)).toMatchObject({ reason: { kind: 'stop' } })
+      expect(queries).toHaveLength(2)
+      expect(queries[0]?.closed).toBe(true)
+      expect(queries[1]?.toolResults).toHaveLength(0)
+      const prompt = JSON.stringify(queries[1]?.inputs[0]?.message.content)
+      expect(prompt).toContain('fixture-value')
+      expect(prompt).toContain('approval=never; runtime updated')
+      const reply: Message = { id: 'reply' as never, role: 'assistant', source: { kind: 'model', provider: 'claude-sdk-local', model: 'default' }, content: [{ type: 'text', text: 'fixture-value' }] }
+      const third = await collect(adapter.stream(request([...messages, reply, { ...user(), id: 'next' as never }])))
+      expect(third.at(-1)).toMatchObject({ reason: { kind: 'stop' } })
+      expect(queries).toHaveLength(2)
+    } finally { await manager.dispose() }
+  })
   it('executes one parked MCP call through DSH and resumes the same Claude query', async () => {
     const queries: ToolQuery[] = []
     const factory: ClaudeQueryFactory = (queryRequest) => {

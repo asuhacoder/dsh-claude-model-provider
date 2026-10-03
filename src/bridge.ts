@@ -73,6 +73,7 @@ class SessionBridge {
   #system: string | undefined
   #model: string | undefined
   #effort: EffortLevel | undefined
+  #maxTokens: number | undefined
   #closed = false
   #phase: 'idle' | 'generating' | 'awaiting-tools' | 'closed' = 'idle'
   #lastUsedAt = Date.now()
@@ -119,6 +120,7 @@ class SessionBridge {
     system: string | undefined,
     start: ClaudeStartPlan,
     effort: EffortLevel | undefined,
+    maxTokens: number | undefined,
     signal?: AbortSignal,
   ): Promise<void> {
     const executable = await resolveClaudeExecutable(
@@ -133,6 +135,7 @@ class SessionBridge {
       cwd: processCwd(),
       env: {
         ...sdkEnvironment(this.config.passEnv),
+        ...(maxTokens === undefined ? {} : { CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(maxTokens) }),
         ...(this.config.profileRef !== 'default'
           ? { CLAUDE_CONFIG_DIR: this.config.profileRef }
           : {}),
@@ -173,6 +176,7 @@ class SessionBridge {
     this.#query = this.queryFactory({ prompt: this.#input, options })
     this.#model = model
     this.#effort = effort
+    this.#maxTokens = maxTokens
     this.#system = system
     this.#pump = this.#pumpOutput(this.#query)
   }
@@ -235,7 +239,14 @@ class SessionBridge {
         if (plan.kind !== 'prompt' || plan.start === undefined) {
           throw protocolError('a new Claude query requires an explicit cold-start plan')
         }
-        await this.#start(model, options.system, plan.start, effort, options.signal)
+        await this.#start(
+          model,
+          options.system,
+          plan.start,
+          effort,
+          options.maxTokens,
+          options.signal,
+        )
       } else {
         if (plan.kind === 'prompt' && plan.start !== undefined) {
           throw protocolError('a live Claude query received a second cold-start plan')
@@ -244,6 +255,12 @@ class SessionBridge {
           throw new ClaudePluginError(
             'CLAUDE_COLD_REPLAY_UNSUPPORTED',
             'DSH system prompt changed inside a live Claude query',
+          )
+        }
+        if (this.#maxTokens !== options.maxTokens) {
+          throw new ClaudePluginError(
+            'CLAUDE_COLD_REPLAY_UNSUPPORTED',
+            'DSH output-token limit changed; rebuild required',
           )
         }
         if (this.#model !== model) {
@@ -266,7 +283,7 @@ class SessionBridge {
         await this.#toolServer.resolve(plan.results, options.signal)
       }
 
-      const translator = new ClaudeOutputTranslator(this.#usage)
+      const translator = new ClaudeOutputTranslator(this.#usage, options.maxTokens !== undefined)
       while (!translator.complete) {
         const next = await this.#output.next()
         if (next.done) throw protocolError('Claude SDK output ended before a result message')
@@ -299,7 +316,7 @@ class SessionBridge {
               messages: options.messages,
               assistant: blocks,
               phase: chunk.reason.kind === 'tool-calls' ? 'awaiting-tools' : 'settled',
-              sessionId: translator.sessionId,
+              sessionId: translator.truncatedAtBoundary ? undefined : translator.sessionId,
               transcriptAt: translator.lastAssistantUuid,
               model,
               system: options.system,
@@ -310,6 +327,9 @@ class SessionBridge {
             this.#phase = chunk.reason.kind === 'tool-calls' ? 'awaiting-tools' : 'idle'
             this.#lastUsedAt = Date.now()
             committed = true
+            if (translator.truncatedAtBoundary) {
+              this.#invalidate(transportError('Claude output limit reached; DSH owns continuation'))
+            }
             yield replayState === undefined ? chunk : { ...chunk, replayState }
           } else {
             yield chunk
@@ -451,6 +471,7 @@ export class BridgeManager {
         try {
           for await (const chunk of bridge.stream(options, model, {
             forceDegraded: attempt > 0 || this.config.portableColdStart,
+            maxReplayBytes: this.config.maxReplayBytes,
           })) {
             observed = true
             if (chunk.type === 'finish') {

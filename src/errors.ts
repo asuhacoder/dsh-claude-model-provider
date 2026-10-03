@@ -12,6 +12,11 @@ export const CLAUDE_ERROR_CODES = {
   modelNotFound: 'CLAUDE_MODEL_NOT_FOUND',
   protocolError: 'CLAUDE_PROTOCOL_ERROR',
   rateLimited: 'CLAUDE_RATE_LIMITED',
+  maxTurns: 'CLAUDE_MAX_TURNS',
+  maxBudget: 'CLAUDE_MAX_BUDGET',
+  structuredOutputRetries: 'CLAUDE_STRUCTURED_OUTPUT_RETRIES',
+  executionFailed: 'CLAUDE_EXECUTION_FAILED',
+  invalidRequest: 'CLAUDE_INVALID_REQUEST',
   toolProtocolError: 'CLAUDE_TOOL_PROTOCOL_ERROR',
   toolTimeout: 'CLAUDE_TOOL_TIMEOUT',
   transportError: 'CLAUDE_TRANSPORT_ERROR',
@@ -60,6 +65,18 @@ export function inFlightRecoveryUnsupported(message: string): ClaudePluginError 
 
 export function protocolError(message: string, cause?: unknown): ClaudePluginError {
   return claudeError(CLAUDE_ERROR_CODES.protocolError, message, cause)
+}
+
+/** Only adapter-owned messages cross the boundary; SDK/OS exception text stays private. */
+export function publicFailureMessage(error: unknown, code: string): string {
+  if (code === 'QUEUE_DEADLINE')
+    return 'Claude account/session queue wait exceeded queueTimeoutMs; retry when capacity is available'
+  if (code === 'REQUEST_DEADLINE')
+    return 'Claude generation exceeded requestTimeoutMs; completed DSH tool results are retained'
+  if (code === 'OUTCOME_UNKNOWN')
+    return 'A prior DSH tool has no completion receipt; verify its outcome before continuing'
+  if (error instanceof ClaudePluginError) return error.message.slice(0, 1024)
+  return code
 }
 
 export function transportError(message: string, cause?: unknown): ClaudePluginError {

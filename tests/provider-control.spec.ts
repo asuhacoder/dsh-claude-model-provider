@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type SubprocessRuntime from '@deepseek-ai/dsh-subprocess'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
@@ -66,6 +66,45 @@ function provider(deps: ProviderDependencies) {
   return p
 }
 describe('request isolation and controlled migration', () => {
+  it('gives a queued request its full execution deadline after admission', async () => {
+    vi.useFakeTimers()
+    let calls = 0
+    const p = provider({ requestTimeoutMs: 40, queueTimeoutMs: 100,
+      createManager: () => ({ dispose: async () => {}, async *stream(options) {
+        const delay = ++calls === 1 ? 25 : 30
+        await abortable(new Promise((r) => setTimeout(r, delay)), options.signal)
+        yield stop
+      } }),
+    })
+    try {
+      const first = collect(p)
+      await vi.advanceTimersByTimeAsync(0)
+      const second = collect(p, request('queued'))
+      await vi.advanceTimersByTimeAsync(55)
+      expect((await first).at(-1)).toEqual(stop)
+      expect((await second).at(-1)).toEqual(stop)
+    } finally { await p.dispose(); vi.useRealTimers() }
+  })
+  it('reports queue expiry separately and leaves the predecessor running', async () => {
+    vi.useFakeTimers()
+    let disposed = 0
+    const p = provider({ requestTimeoutMs: 100, queueTimeoutMs: 10,
+      createManager: () => ({ dispose: async () => { disposed++ }, async *stream(options) {
+        await abortable(new Promise((r) => setTimeout(r, 30)), options.signal)
+        yield stop
+      } }),
+    })
+    try {
+      const first = collect(p)
+      await vi.advanceTimersByTimeAsync(0)
+      const second = collect(p, request('queued'))
+      await vi.advanceTimersByTimeAsync(11)
+      expect((await second).at(-1)).toMatchObject({ reason: { kind: 'error', failure: { code: 'QUEUE_DEADLINE' } } })
+      expect(disposed).toBe(0)
+      await vi.advanceTimersByTimeAsync(20)
+      expect((await first).at(-1)).toEqual(stop)
+    } finally { await p.dispose(); vi.useRealTimers() }
+  })
   it.each(['terminal', 'throw'])(
     'migrates before output after typed quota (%s), preserving consumed work on each account',
     async (mode) => {
@@ -304,6 +343,21 @@ describe('request isolation and controlled migration', () => {
   })
 })
 describe('typed observations, budgets and usage', () => {
+  it('updates the requested model capacity from the official main model, excluding helper usage', () => {
+    const s = new StateStore(':memory:'), r = new StickyRouter(s)
+    r.register(acct('A'))
+    const b = r.route({ session: 's', requestId: 'r', model: 'opus', now: 1 })
+    const observation: AttemptObservation = { sdkRetries: 0 }
+    try {
+      observeSdk(s, r, b, observation, { type: 'system', subtype: 'init', model: 'claude-opus-5-5' } as SDKMessage, 2)
+      observeSdk(s, r, b, observation, { type: 'result', modelUsage: {
+        'helper-model': { contextWindow: 32000, maxOutputTokens: 4096 },
+        'claude-opus-5-5': { contextWindow: 1000000, maxOutputTokens: 128000 },
+      } } as unknown as SDKMessage, 3)
+      expect(s.get<Account>('accounts', 'A')?.modelMetadata?.opus).toMatchObject({ contextWindow: 1000000, maxOutputTokens: 128000 })
+      expect(s.get<Account>('accounts', 'A')?.modelMetadata).not.toHaveProperty('helper-model')
+    } finally { s.close() }
+  })
   it('records model-scoped windows, detects overage and fences late events', () => {
     const s = new StateStore(':memory:'),
       r = new StickyRouter(s)

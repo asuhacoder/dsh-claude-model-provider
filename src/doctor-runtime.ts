@@ -54,6 +54,8 @@ export interface DoctorSdkProbeResult {
 }
 
 const require = createRequire(import.meta.url)
+// Defined only in the standalone CLI build, whose JS peers are bundled.
+declare const __DSH_CLI_PEER_VERSIONS__: Readonly<Record<string, string>> | undefined
 
 export function installedPackageFacts(): DoctorPackageFacts {
   const plugin = require('../package.json') as {
@@ -76,7 +78,14 @@ export function installedPackageFacts(): DoctorPackageFacts {
           ? { version: manifest.version, range }
           : { range, error: 'package manifest has no version' }
     } catch {
-      peers[name] = { range, error: 'package is not resolvable' }
+      const bundled =
+        typeof __DSH_CLI_PEER_VERSIONS__ === 'undefined'
+          ? undefined
+          : __DSH_CLI_PEER_VERSIONS__?.[name]
+      peers[name] =
+        bundled === undefined
+          ? { range, error: 'package is not resolvable' }
+          : { range, version: bundled }
     }
   }
   return {

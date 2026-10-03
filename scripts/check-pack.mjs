@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -20,6 +20,7 @@ if (!Array.isArray(reports) || reports.length !== 1 || !Array.isArray(reports[0]
 }
 
 const files = reports[0].files.map((file) => file.path).sort()
+const manifest = JSON.parse(readFileSync('package.json', 'utf8'))
 const required = [
   'AUTHORS.md',
   'LICENSE',
@@ -36,10 +37,21 @@ const required = [
 const missing = required.filter((file) => !files.includes(file))
 if (missing.length > 0) throw new Error(`Packed artifact is missing: ${missing.join(', ')}`)
 
-const exact = new Set(['AUTHORS.md', 'LICENSE', 'README.md', 'cordis.patch.yml', 'package.json'])
-const unexpected = files.filter((file) => !exact.has(file) && !file.startsWith('lib/'))
+const entries = manifest.files
+if (!Array.isArray(entries) || entries.some((entry) => typeof entry !== 'string' || /[?*\\]|(^|\/)\.\.(\/|$)/.test(entry))) {
+  throw new Error('Package files must be explicit files or directory prefixes')
+}
+const exact = new Set(['package.json', 'LICENSE', 'README.md', ...entries.filter((entry) => !entry.endsWith('/'))])
+const directories = entries.filter((entry) => entry.endsWith('/'))
+const unexpected = files.filter((file) => !exact.has(file) && !directories.some((directory) => file.startsWith(directory)))
 if (unexpected.length > 0) {
   throw new Error(`Packed artifact contains unexpected files: ${unexpected.join(', ')}`)
 }
+
+const missingDeclared = entries.filter((entry) => entry.endsWith('/') ? !files.some((file) => file.startsWith(entry)) : !files.includes(entry))
+if (missingDeclared.length > 0) throw new Error(`Declared package files are missing: ${missingDeclared.join(', ')}`)
+
+const forbidden = files.filter((file) => /(^|\/)(?:\.env(?:\.|$)|\.npmrc$|\.git(?:\/|$)|state\.sqlite(?:-|$)|handoff[^/]*|transcripts?(?:\/|$)|profiles?(?:\/|$))/.test(file))
+if (forbidden.length > 0) throw new Error(`Packed artifact contains private files: ${forbidden.join(', ')}`)
 
 console.log(`Checked npm package contents: ${files.length} intended file(s)`)

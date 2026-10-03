@@ -65,6 +65,9 @@ try {
   const before = parse(dsh(['--profile', 'web', '--dump-config']))
   dsh(['plugin', '--profile', 'web', 'add', tarball, '--ignore-scripts'])
   const after = parse(dsh(['--profile', 'web', '--dump-config']))
+  // Exercise the shipped bin through its real package-manager symlink/shim.
+  const cliHelp = JSON.parse(dsh(['plugin', '--profile', 'web', 'exec', 'dsh-claude-model-provider', '--help']))
+  if (!cliHelp.options?.includes('--dsh-profile <profile-name>')) throw new Error('INSTALLED_CLI_FAILED')
   const inserted = after.filter((x) => !before.some((b) => b.id === x.id))
   if (inserted.length !== 1 || inserted[0].name !== '@asuha/dsh-claude-model-provider')
     throw new Error('BAD_COMPOSITION')
@@ -106,6 +109,7 @@ try {
     checks: [
       'empty-HOME-public-install-command',
       'composition-unchanged',
+      'installed-management-CLI-executable',
       'runtime-module-identity',
       'actual-LLM-registration',
       'unverified-accounts-not-advertised',

@@ -166,6 +166,27 @@ export class UsageTracker {
     return this.#lastDelta
   }
 
+  /** Observed main-loop usage when the query is closed before its aggregate result.
+   * Auxiliary usage/cost is unavailable at this boundary and is not invented.
+   */
+  finishPartial(usage: TokenUsage): TokenUsage {
+    const delta = {
+      inputTokens: counter(usage.inputTokens, 'partial.inputTokens'),
+      outputTokens: counter(usage.outputTokens, 'partial.outputTokens'),
+      cacheReadTokens: counter(usage.cacheReadTokens, 'partial.cacheReadTokens'),
+      cacheWriteTokens: counter(usage.cacheWriteTokens, 'partial.cacheWriteTokens'),
+    }
+    this.#previous = Object.freeze({
+      ...this.#previous,
+      inputTokens: this.#previous.inputTokens + delta.inputTokens,
+      outputTokens: this.#previous.outputTokens + delta.outputTokens,
+      cacheReadTokens: this.#previous.cacheReadTokens + delta.cacheReadTokens,
+      cacheWriteTokens: this.#previous.cacheWriteTokens + delta.cacheWriteTokens,
+    })
+    this.#lastDelta = Object.freeze({ costUsd: 0, queryCostUsd: 0 })
+    return delta
+  }
+
   delta(
     usage: Readonly<Record<string, Partial<ModelUsage>>> | undefined,
     turnUsage?: TurnUsageDetails,

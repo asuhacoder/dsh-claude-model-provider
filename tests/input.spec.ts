@@ -129,7 +129,7 @@ describe('live SDK input cursor', () => {
     ).toThrowError(expect.objectContaining({ code: 'CLAUDE_PROTOCOL_ERROR' }))
   })
 
-  it.each([{ temperature: 0 }, { maxTokens: 100 }, { stop: ['END'] }])(
+  it.each([{ temperature: 0 }, { stop: ['END'] }])(
     'rejects controls not owned by the Claude transport: %#',
     async (extra) => {
       await expect(

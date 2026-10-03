@@ -217,6 +217,15 @@ it('runs CLI account and diagnostic operations without executing on import', asy
   ).toBe(1)
   expect(JSON.stringify(out.mock.calls)).not.toContain('private secret')
 })
+it('prints help without resolving a profile or opening its state', async () => {
+  const output = vi.fn(), resolveState = vi.fn(async () => {
+    throw new RouteBlocked('PROFILE_STATE_UNRESOLVED')
+  }), store = vi.fn(() => { throw new Error('must not open state') })
+  expect(await runProviderCli(['--help'], { output, resolveState, store })).toBe(0)
+  expect(output).toHaveBeenCalledWith(expect.objectContaining({ commands: expect.any(Array) }))
+  expect(resolveState).not.toHaveBeenCalled()
+  expect(store).not.toHaveBeenCalled()
+})
 it('separates offline doctor, guarded live doctor, recovery and diagnostic failure', async () => {
   const output = vi.fn(),
     doctor = vi.fn(async () => ({ overall: 'pass' }) as never),

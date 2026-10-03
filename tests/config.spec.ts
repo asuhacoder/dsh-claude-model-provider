@@ -24,9 +24,11 @@ describe('configuration', () => {
       debug: false,
       profileRef: 'default',
       portableColdStart: false,
-      maxGenerations: 12,
+      maxGenerations: 50,
       stateDirectory: '',
-      requestTimeoutMs: 120000,
+      queueTimeoutMs: 120000,
+      maxReplayBytes: 4 * 1024 * 1024,
+      requestTimeoutMs: 600000,
     })
 
     const resolved = resolveConfig({
@@ -42,6 +44,8 @@ describe('configuration', () => {
       portableColdStart: false,
       maxGenerations: 12,
       stateDirectory: '',
+      queueTimeoutMs: 120000,
+      maxReplayBytes: 4 * 1024 * 1024,
       requestTimeoutMs: 120000,
     })
     expect(resolved).toEqual({
@@ -57,6 +61,8 @@ describe('configuration', () => {
       portableColdStart: false,
       maxGenerations: 12,
       stateDirectory: '',
+      queueTimeoutMs: 120000,
+      maxReplayBytes: 4 * 1024 * 1024,
       requestTimeoutMs: 120000,
     })
     expect(Object.isFrozen(resolved)).toBe(true)

@@ -14,6 +14,7 @@ import type {
 } from '@deepseek-ai/dsh-llm'
 import { SENSITIVE_ENV_PATTERN } from '@deepseek-ai/dsh-subprocess'
 import { BridgeManager, defaultQueryFactory } from './bridge.js'
+import { MAX_DEGRADED_REPLAY_BYTES } from './replay.js'
 import { ClaudeDiagnostics } from './diagnostics.js'
 import {
   abortError,
@@ -78,6 +79,8 @@ export interface Config {
   maxGenerations?: number
   stateDirectory?: string
   requestTimeoutMs?: number
+  queueTimeoutMs?: number
+  maxReplayBytes?: number
 }
 
 export const Config: z<Config> = z.object({
@@ -103,9 +106,11 @@ export const Config: z<Config> = z.object({
   debug: z.boolean().default(false),
   profileRef: z.string().default('default'),
   portableColdStart: z.boolean().default(false),
-  maxGenerations: z.number().min(1).max(100).default(12),
+  maxGenerations: z.number().min(1).max(100).default(50),
   stateDirectory: z.string().default(''),
-  requestTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(120000),
+  requestTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(600000),
+  queueTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(120000),
+  maxReplayBytes: z.number().min(1024).max(64 * 1024 * 1024).default(MAX_DEGRADED_REPLAY_BYTES),
 })
 
 export interface ResolvedConfig {
@@ -122,6 +127,8 @@ export interface ResolvedConfig {
   readonly maxGenerations: number
   readonly stateDirectory: string
   readonly requestTimeoutMs: number
+  readonly queueTimeoutMs: number
+  readonly maxReplayBytes: number
 }
 
 const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -191,6 +198,8 @@ export function resolveConfig(input: Config = {}): ResolvedConfig {
     maxGenerations: parsed.maxGenerations,
     stateDirectory: parsed.stateDirectory,
     requestTimeoutMs: parsed.requestTimeoutMs,
+    queueTimeoutMs: parsed.queueTimeoutMs,
+    maxReplayBytes: parsed.maxReplayBytes,
   }
   return Object.freeze(resolved)
 }

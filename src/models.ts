@@ -12,6 +12,16 @@ export const PROVIDER_NAME = 'Claude Subscription'
 export const BUILTIN_MODEL_ALIASES = ['default', 'sonnet', 'opus', 'haiku'] as const
 export const CLAUDE_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const
 
+/** Conservative baseline for the supported Claude families, before SDK usage reports capacity.
+ * Extended (e.g. 1M) context is advertised only after it is observed for this account/model.
+ */
+export function modelContextWindow(model: string): number | undefined {
+  return /^(opus|sonnet|haiku)(?:\[1m\])?$/.test(model) ||
+    /^claude-(opus|sonnet|haiku|3(?:-[57])?)-(?:\d|opus|sonnet|haiku)/.test(model)
+    ? 200_000
+    : undefined
+}
+
 export type ClaudeReasoningEffort = (typeof CLAUDE_REASONING_EFFORTS)[number]
 
 export function resolveClaudeEffort(value: unknown): EffortLevel | undefined {
@@ -125,6 +135,9 @@ export function resolvedModelInfo(
     ...modelPresentation(claudeModel),
     inputModalities: ['text', 'image'],
     reasoning: reasoningInfo(),
+    ...(modelContextWindow(claudeModel) === undefined
+      ? {}
+      : { context: { contextWindow: modelContextWindow(claudeModel)! } }),
   }
 }
 
@@ -166,8 +179,15 @@ export function accountModelInfo(
     description: _fallbackDescription,
     ...metadata
   } = result
+  const capacities = matching.map(
+    (a) => a.modelMetadata?.[id]?.contextWindow ?? modelContextWindow(id),
+  )
+  const contextWindow = capacities.every((n) => n !== undefined && Number.isSafeInteger(n) && n > 0)
+    ? Math.min(...(capacities as number[]))
+    : undefined
   return {
     ...metadata,
+    ...(contextWindow === undefined ? {} : { context: { contextWindow } }),
     ...modelPresentation(
       id,
       [...matching]
