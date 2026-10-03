@@ -9,7 +9,7 @@ dsh plugin --profile web add @asuha/dsh-claude-model-provider@next --ignore-scri
 claude auth login
 ```
 
-npmの`next`版を公開し、実際に使用中のDSHへの導入と動作確認を完了しました。検証結果と残る配布設定は[リリース状況](RELEASE_STATUS.md)で確認できます。固定バージョンのGitHub配布物からも導入できます。
+npmの`next`タグは最後に公開した試験版を指します。このソースは `0.1.0-next.5` の公開準備版です。実際の公開状況は[リリース状況](RELEASE_STATUS.md)で確認できます。以前の固定バージョンのGitHub配布物からも導入できます。
 
 ```sh
 dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.4/asuha-dsh-claude-model-provider-0.1.0-next.4.tgz --ignore-scripts
@@ -25,9 +25,9 @@ DSHを再起動し、設定の「Claude サブスクリプション」で既存�
 
 ローカル診断は`doctor --offline`、疎通は`doctor --live --extra-usage-off --budget-generations 1`です。実2アカウントの認証分離、独立環境での自動修復・自動公開、長期canaryは未検証です。これらを実施済みとは扱わず、`next`の試験版として提供します。公式SDKで動いたことと、あらゆる第三者向け配布が許諾されることは別です。[初回設定](BOOTSTRAP_CHECKLIST.md)、[利用条件](COMPLIANCE.md)、[英語の詳細](README.md)を参照してください。
 
-## 応答停止への修正（ローカル検証版）
+## next.5 の応答停止への修正
 
-`0.1.0-next.4.local.2` は未公開の修正ビルドです。ツール結果と権限・実行環境通知が同時に届いた場合、すべての完了記録と通知を含めて再構築します。結果の欠落や重複は拒否します。生成回数上限などのSDK終了理由も区別して表示します。
+`0.1.0-next.5` はローカルで検証した `0.1.0-next.4.local.2` の修正を試験版として配布するものです。ツール結果と権限・実行環境通知が同時に届いた場合、すべての完了記録と通知を含めて再構築します。結果の欠落や重複は拒否します。生成回数上限などのSDK終了理由も区別して表示します。
 
 DSHへClaudeの履歴容量を伝え、要約要求の `maxTokens` に対応しました。既知のモデル系統は初回に保守的な200,000トークンを使用し、SDKが観測した容量へ更新します。出力上限到達時はSDK内部の自動継続を止め、次の処理をDSHへ返します。この途中終了では補助的なSDK呼び出しの利用量・料金を確定できないため、観測済みの本応答の利用量だけを報告します。
 

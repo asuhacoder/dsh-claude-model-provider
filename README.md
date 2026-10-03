@@ -12,7 +12,7 @@ Unofficial Claude subscription provider for DeepSeek Harness. A derivative of sn
 dsh plugin --profile web add @asuha/dsh-claude-model-provider@next --ignore-scripts
 ```
 
-The npm `next` package is published and verified in an active DSH installation. See [release status](RELEASE_STATUS.md) for validation and remaining release-metadata work. The fixed-version GitHub release is also installable:
+The npm `next` tag selects the most recently published experimental version. This source prepares `0.1.0-next.5`; see [release status](RELEASE_STATUS.md) for the actual publication state. The previous fixed-version GitHub release is also installable:
 
 ```sh
 dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.4/asuha-dsh-claude-model-provider-0.1.0-next.4.tgz --ignore-scripts
@@ -28,7 +28,7 @@ Download the repository's experimental tarball or build it:
 pnpm install --frozen-lockfile --ignore-scripts
 pnpm build
 pnpm release:dry-run
-dsh plugin --profile web add ./dist/asuha-dsh-claude-model-provider-0.1.0-next.4.local.2.tgz --ignore-scripts
+dsh plugin --profile web add ./dist/asuha-dsh-claude-model-provider-0.1.0-next.5.tgz --ignore-scripts
 ```
 
 The plugin only adds `claude-sdk-local`; it does not change the selected model or replace the Subscription Plugin. Restart DSH and select **Claude Subscription / Claude Opus 5.5**. Model names, versions, descriptions and ordering come from the official Claude model list. The legacy `default` ID still works in existing conversations but is no longer an extra picker entry. After upgrading, use **Check connection** in Claude settings to refresh the saved model names.
@@ -53,9 +53,9 @@ Profiles may be added with `accounts add <alias> --profile <absolute-directory> 
 - Offline diagnostics queue no model prompt. Live probes require explicit flags. Tokens/cache counters remain separate from actual subscription balances and monetary charges.
 - The baseline router is active. The advanced predictive optimizer and live calibration are incomplete; no efficiency improvement is advertised.
 
-## Local interruption repair
+## Interruption repair in next.5
 
-`0.1.0-next.4.local.2` is an unpublished local repair build. Mixed tool receipts and user/runtime updates rebuild the query from the complete DSH history before the parked MCP continuation resumes. Missing, duplicate, or mismatched receipts still fail closed. Typed SDK limits and execution failures retain distinct public codes without copying SDK error payloads.
+`0.1.0-next.5` promotes the locally verified `0.1.0-next.4.local.2` repair. Mixed tool receipts and user/runtime updates rebuild the query from the complete DSH history before the parked MCP continuation resumes. Missing, duplicate, or mismatched receipts still fail closed. Typed SDK limits and execution failures retain distinct public codes without copying SDK error payloads.
 
 DSH receives conservative 200k context metadata for known Claude families until account-specific SDK usage reports its capacity. Summary requests support `maxTokens`; at truncation the bridge closes before Claude Code internally retries, leaving continuation to DSH. Usage at this boundary includes the observed main response; auxiliary SDK usage/cost is unavailable. Portable replay keeps a configurable 4 MiB memory guard (`maxReplayBytes`, at most 64 MiB), never silently truncating history. DSH remains responsible for token-based compaction.
 

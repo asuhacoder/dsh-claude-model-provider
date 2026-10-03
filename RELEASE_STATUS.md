@@ -1,4 +1,14 @@
-# Release status — 2026-10-02
+# Release status — 2026-10-03
+
+## Current candidate: 0.1.0-next.5
+
+This version promotes the interruption repair previously tested as the unpublished `0.1.0-next.4.local.2` build. npm publication is pending maintainer authentication. It must be published under `next`, without assigning `latest`. `publishConfig.tag` now defaults to `next`; local maintainer publication explicitly disables provenance rather than claiming an unavailable CI attestation.
+
+The repair source is commit `d2ac12e1bfc5d7977525db76da1018a489ed2051`. Fresh local verification on October 3 passed 281 tests, typecheck, build, coverage thresholds and nine operations tests. Coverage: statements 94.72%, branches 90.43%, functions 95.10%, lines 96.68%. The predecessor's real-account tests covered 14 source requests and three installed-package requests, including mixed-notification recovery and warm continuation. These historical results do not claim live testing of the newly versioned artifact. Final artifact installation and publication are recorded separately.
+
+Public versions increment the prerelease counter (`next.3`, `next.4`, `next.5`) under the planned `0.1.0` release. Each published version is immutable and must map to one source revision and exact tarball. Local-only suffixes are not public release versions. `next` is the experimental npm channel; `latest` is reserved for a separately approved stable release. As checked on October 3 before publication, npm still points both `next` and `latest` at `next.3`; the stale `latest` tag requires authenticated cleanup.
+
+The browser client is intentionally loaded by the DSH browser module loader. publint reports its existing CommonJS/browser wrapper as incompatible with a direct Node ESM import; direct Node import of the browser client is not a supported usage. The provider and installed management CLI are verified separately.
 
 ## Current display fix: 0.1.0-next.4
 
@@ -28,7 +38,7 @@ Artifact SHA-256: `f213f6a5621fad29593ba3885bbd4c2f33403bf1df6c774b487ac41eaf4b6
 Source commit: `a3e57eb3ce6ee09c04037a1aaf2903043b05b348`.
 The npm registry SHA-512 integrity and downloaded tarball bytes were checked against that immutable artifact. Publication and installation evidence is recorded separately; post-publication documentation commits do not replace the released tarball.
 
-Evidence: [npm publication](evidence/npm-publication-next3.json), [active DSH npm installation](evidence/active-web-npm-next3.json), [isolated installation](evidence/coexist-next3.json), [source CI](https://github.com/asuhacoder/dsh-claude-model-provider/actions/runs/36914865274).
+Evidence: [npm publication](https://github.com/asuhacoder/dsh-claude-model-provider/blob/main/evidence/npm-publication-next3.json), [active DSH npm installation](https://github.com/asuhacoder/dsh-claude-model-provider/blob/main/evidence/active-web-npm-next3.json), [isolated installation](https://github.com/asuhacoder/dsh-claude-model-provider/blob/main/evidence/coexist-next3.json), [source CI](https://github.com/asuhacoder/dsh-claude-model-provider/actions/runs/36914865274).
 
 Initial npm publication used the authenticated local maintainer and has no npm provenance. The local build signature is not independent verification. npm trusted publishing/OIDC enrollment remains a separate follow-up.
 
