@@ -666,4 +666,104 @@ describe('per-session Claude bridge', () => {
     expect(fixture.queries[0]?.closed).toBe(true)
     await fixture.manager.dispose()
   })
+
+  it('continues a pruned history whose images exceed one replay through DSH image offload', async () => {
+    const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47])
+    const ref = (index: number): ImageAttachmentRef => ({
+      attachmentId: `sha256:shot-${index}` as never,
+      mediaType: 'image/png',
+      bytes: png.byteLength,
+      width: 1,
+      height: 1,
+    })
+    const attachments: AttachmentReader = {
+      imageLimits: {
+        maxImageBytes: 8 * 1_024 * 1_024,
+        maxImagesPerMessage: 20,
+        maxMessageImageBytes: 20 * 1_024 * 1_024,
+        maxImagePixels: 64_000_000,
+        maxImageDimension: 8_000,
+        mediaTypes: ['image/png'],
+      },
+      readImageRequest: vi.fn(async (attachment: ImageAttachmentRef) => ({
+        variantId: `variant:${String(attachment.attachmentId)}` as never,
+        attachment,
+        data: png,
+        mediaType: 'image/png' as const,
+        bytes: png.byteLength,
+        width: 1,
+        height: 1,
+        depth: 'uchar' as const,
+        space: 'srgb' as const,
+        hasAlpha: true,
+      })),
+    }
+    const screenshots = (id: string, text: string, from: number, count: number): Message => ({
+      id: id as never,
+      role: 'user',
+      source: { kind: 'user' },
+      content: [
+        { type: 'text', text },
+        ...Array.from({ length: count }, (_, index) => ({
+          type: 'image' as const,
+          attachment: ref(from + index),
+        })),
+      ],
+    })
+    const answers = ['one', 'two', 'three']
+    const fixture = harness(
+      (query, _turn, queryIndex) => query.emit(textTurn(answers[queryIndex] ?? 'extra', 1, 1)),
+      resolveConfig(),
+      attachments,
+    )
+    try {
+      const u1 = screenshots('u1', `tool output ${'x'.repeat(4_000)}`, 0, 15)
+      const u2 = screenshots('u2', 'more screenshots', 15, 14)
+      await collect(fixture.adapter.stream(request([u1], 'pruned-images')))
+      await collect(
+        fixture.adapter.stream(request([u1, assistant('a1', 'one'), u2], 'pruned-images')),
+      )
+      expect(fixture.queries).toHaveLength(1)
+
+      const pruned = screenshots('u1', 'tool output [middle pruned]', 0, 15)
+      const followUp = (first: Message): Message[] => [
+        first,
+        assistant('a1', 'one'),
+        u2,
+        assistant('a2', 'one'),
+        user('u3', 'text-only follow-up'),
+      ]
+      const rejected = await collect(
+        fixture.adapter.stream(request(followUp(pruned), 'pruned-images')),
+      )
+      expect(rejected).toEqual([
+        {
+          type: 'finish',
+          reason: {
+            kind: 'error',
+            failure: expect.objectContaining({ code: 'IMAGE_OFFLOAD_REQUIRED', offloadImages: 9 }),
+          },
+        },
+      ])
+
+      const offloaded: Message = {
+        ...pruned,
+        content: pruned.content.map((block, index) =>
+          block.type === 'image' && index <= 9 ? { ...block, offloaded: true as const } : block,
+        ),
+      }
+      const continued = await collect(
+        fixture.adapter.stream(request(followUp(offloaded), 'pruned-images')),
+      )
+      expect(continued.at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'stop' } })
+      const replay = fixture.queries.at(-1)?.inputs[0]?.message.content
+      if (replay === undefined || typeof replay === 'string') throw new Error('expected blocks')
+      expect(replay.filter((block) => block.type === 'image')).toHaveLength(20)
+      const transcript = replay[0]?.type === 'text' ? replay[0].text : ''
+      expect(transcript.match(/image omitted to fit request image limits; sha256:shot-\d+\./g)).toHaveLength(9)
+      expect(transcript).toContain('text-only follow-up')
+    } finally {
+      await fixture.manager.dispose()
+    }
+  })
 })
