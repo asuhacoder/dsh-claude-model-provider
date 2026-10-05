@@ -104,7 +104,8 @@ describe('Claude rich-content encoding', () => {
         expect.objectContaining({ mediaType }),
         expect.objectContaining({
           maxBytes: CLAUDE_MAX_ENCODED_IMAGE_BYTES,
-          width: 1, height: 1,
+          width: 1,
+          height: 1,
         }),
         undefined,
       )
@@ -253,30 +254,30 @@ describe('Claude rich-content encoding', () => {
     await expect(
       new ClaudeContentEncoder(attachments).userMessage(
         user(
-          Array.from({ length: 21 }, (_, index) => ({
+          Array.from({ length: 101 }, (_, index) => ({
             type: 'image' as const,
             attachment: ref('image/png', String(index)),
           })),
         ),
       ),
-    ).rejects.toThrow(/at most 20/)
+    ).rejects.toThrow(/at most 100/)
 
-    const elevenImages = Array.from({ length: 11 }, (_, index) => ({
+    const fiftyOneImages = Array.from({ length: 51 }, (_, index) => ({
       type: 'image' as const,
       attachment: ref('image/png', `batch-${index}`),
     }))
     expect(() =>
       new ClaudeContentEncoder(attachments).assertMessages([
-        user(elevenImages),
-        user(elevenImages),
+        user(fiftyOneImages),
+        user(fiftyOneImages),
       ]),
-    ).toThrow(/at most 20/)
+    ).toThrow(/at most 100/)
     expect(() =>
       new ClaudeContentEncoder(attachments).assertToolResults([
-        toolResult(elevenImages),
-        toolResult(elevenImages),
+        toolResult(fiftyOneImages),
+        toolResult(fiftyOneImages),
       ]),
-    ).toThrow(/at most 20/)
+    ).toThrow(/at most 100/)
 
     attachments.readImageRequest.mockResolvedValueOnce({
       variantId: 'variant:large' as never,

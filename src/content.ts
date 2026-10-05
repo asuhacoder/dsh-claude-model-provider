@@ -9,7 +9,7 @@ import { CallToolResultSchema, type CallToolResult } from '@modelcontextprotocol
 import { imageOffloadRequired, toolProtocolError, unsupportedInput } from './errors.js'
 import { canonicalToolJson } from './json.js'
 
-export const CLAUDE_MAX_IMAGES_PER_REQUEST = 20
+export const CLAUDE_MAX_IMAGES_PER_REQUEST = 100
 export const CLAUDE_MAX_IMAGE_DIMENSION = 8_000
 export const CLAUDE_MAX_BASE64_IMAGE_BYTES = 10 * 1_024 * 1_024
 export const CLAUDE_MAX_ENCODED_IMAGE_BYTES = Math.floor(CLAUDE_MAX_BASE64_IMAGE_BYTES / 4) * 3
@@ -87,10 +87,7 @@ export class ClaudeContentEncoder {
   #assertBatch(refs: readonly ImageAttachmentRef[], context: string): void {
     if (refs.length === 0) return
     const attachments = this.#requireAttachments()
-    const maxImages = Math.min(
-      CLAUDE_MAX_IMAGES_PER_REQUEST,
-      attachments.imageLimits.maxImagesPerMessage,
-    )
+    const maxImages = CLAUDE_MAX_IMAGES_PER_REQUEST
     if (refs.length > maxImages) {
       throw unsupportedInput(
         `${context} contains ${refs.length} images; Claude accepts at most ${maxImages}`,
@@ -109,7 +106,7 @@ export class ClaudeContentEncoder {
   #assertReplayBudget(messages: readonly Message[], images: number): void {
     if (images === 0) return
     const limits = this.#requireAttachments().imageLimits
-    const maxImages = Math.min(CLAUDE_MAX_IMAGES_PER_REQUEST, limits.maxImagesPerMessage)
+    const maxImages = CLAUDE_MAX_IMAGES_PER_REQUEST
     const offloadImages = requiredImageOffload(
       messages,
       { representation: 'raw', maxImages, maxBytes: limits.maxMessageImageBytes },

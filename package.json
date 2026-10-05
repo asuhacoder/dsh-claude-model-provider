@@ -91,7 +91,9 @@
     "test:live:matrix": "pnpm build && node scripts/live-matrix.mjs",
     "test:live:hybrid": "pnpm build && node scripts/live-hybrid.mjs",
     "bench:forecast": "pnpm build && node scripts/bench-forecast.mjs",
-    "test:live:interruption": "pnpm build && node scripts/live-interruption.mjs"
+    "test:live:interruption": "pnpm build && node scripts/live-interruption.mjs",
+    "test:live:image-replay": "pnpm build && node scripts/live-image-replay.mjs",
+    "test:live:image-offload": "pnpm build && node scripts/live-image-offload-e2e.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.4",

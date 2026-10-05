@@ -116,7 +116,11 @@ export const Config: z<Config> = z.object({
   stateDirectory: z.string().default(''),
   requestTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(600000),
   queueTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(120000),
-  maxReplayBytes: z.number().min(1024).max(64 * 1024 * 1024).default(MAX_DEGRADED_REPLAY_BYTES),
+  maxReplayBytes: z
+    .number()
+    .min(1024)
+    .max(64 * 1024 * 1024)
+    .default(MAX_DEGRADED_REPLAY_BYTES),
 })
 
 export interface ResolvedConfig {
@@ -307,7 +311,8 @@ export function apply(ctx: Context, config: Config = {}): void {
   )
   const hostPathMapper = (hostPath: string): string | undefined => {
     const fs: unknown = ctx.get('fs')
-    if (fs === null || typeof fs !== 'object' || !('processPathFromHostPath' in fs)) return undefined
+    if (fs === null || typeof fs !== 'object' || !('processPathFromHostPath' in fs))
+      return undefined
     const map = fs.processPathFromHostPath
     if (typeof map !== 'function') return undefined
     const mapped: unknown = map.call(fs, hostPath)

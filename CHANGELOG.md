@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-Continue a session whose degraded replay retains more images than one Claude replay frame accepts. The provider now fails that request with `IMAGE_OFFLOAD_REQUIRED` and the count of oldest images to offload, so DSH records a durable offload and retries, instead of ending the turn with `CLAUDE_UNSUPPORTED_INPUT`. Images that DSH marked as offloaded reach Claude as placeholder text that names the attachment and its read-only path. Verified with mocked SDK queries only; no real-account run covers this path.
+Continue a session after DSH prunes old tool output. The provider then rebuilds the conversation as one replay frame that carries every retained image. That frame now accepts up to 100 images, which is the Claude request limit, instead of the 20-image DSH upload limit for a single message. When a replay still exceeds 100 images or the DSH image byte budget, the provider fails the request with `IMAGE_OFFLOAD_REQUIRED` and the count of oldest images to offload. DSH records a durable offload and retries, where the turn previously ended with `CLAUDE_UNSUPPORTED_INPUT`. Images that DSH marked as offloaded reach Claude as placeholder text that names the attachment and its read-only path.
+
+Real-account verification on macOS with `opus`: replay frames of 29 and 100 images completed and the model identified the first and last image; frames of 20 and 21 images that include a 2400-pixel image completed; a 101-image frame returned `IMAGE_OFFLOAD_REQUIRED` with `offloadImages: 1` before any model call (`pnpm test:live:image-replay`). A packed tarball installed into a temporary `dsh headless` profile completed a cold resume in which the harness logged the rejected attempt, an `image/offload` event, and a successful retry whose placeholder path resolved to the stored PNG (`pnpm test:live:image-offload`). A single new step that carries more than 100 images still fails with `CLAUDE_UNSUPPORTED_INPUT`.
 
 ## 0.1.0-next.5 — 2026-10-03
 

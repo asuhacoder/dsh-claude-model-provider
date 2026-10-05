@@ -205,7 +205,7 @@ class FakeQuery implements ClaudeQuery {
 
 function harness(
   onTurn: (query: FakeQuery, turn: number, queryIndex: number) => Promise<void> | void,
-  config = resolveConfig({defaultModel:'sonnet'}),
+  config = resolveConfig({ defaultModel: 'sonnet' }),
   attachments?: AttachmentReader,
 ) {
   const requests: ClaudeQueryRequest[] = []
@@ -231,30 +231,58 @@ describe('per-session Claude bridge', () => {
     const fixture = harness((q) => {
       const events = textTurn('partial', 1, 1).slice(0, -1)
       q.emit([
-        envelope({ type: 'message_start', message: { usage: { input_tokens: 7, output_tokens: 1 } } }),
+        envelope({
+          type: 'message_start',
+          message: { usage: { input_tokens: 7, output_tokens: 1 } },
+        }),
         ...events,
-        envelope({ type: 'message_delta', delta: { stop_reason: 'max_tokens' }, usage: { output_tokens: 128 } }),
+        envelope({
+          type: 'message_delta',
+          delta: { stop_reason: 'max_tokens' },
+          usage: { output_tokens: 128 },
+        }),
       ])
     })
     try {
-      const chunks = await collect(fixture.adapter.stream(request([user('u1', 'long answer')], 'bounded', { maxTokens: 128 })))
+      const chunks = await collect(
+        fixture.adapter.stream(request([user('u1', 'long answer')], 'bounded', { maxTokens: 128 })),
+      )
       expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'max-tokens' } })
       expect(fixture.queries[0]?.closed).toBe(true)
       expect(fixture.manager.activeBridgeCount).toBe(0)
-    } finally { await fixture.manager.dispose() }
+    } finally {
+      await fixture.manager.dispose()
+    }
   })
   it('applies maxTokens at process start and rebuilds when that limit changes', async () => {
     const fixture = harness((q) => q.emit(textTurn('summary', 1, 1)))
     const initial = [user('u1', 'summarize')]
     try {
-      const first = await collect(fixture.adapter.stream(request(initial, 'summary', { purpose: 'compaction', maxTokens: 8192 })))
+      const first = await collect(
+        fixture.adapter.stream(
+          request(initial, 'summary', { purpose: 'compaction', maxTokens: 8192 }),
+        ),
+      )
       expect(first.at(-1)).toMatchObject({ reason: { kind: 'stop' } })
-      expect(fixture.requests[0]?.options.env).toMatchObject({ CLAUDE_CODE_MAX_OUTPUT_TOKENS: '8192' })
-      const second = await collect(fixture.adapter.stream(request([...initial, assistant('a1', 'summary'), user('u2', 'shorter')], 'summary', { purpose: 'compaction', maxTokens: 1024 })))
+      expect(fixture.requests[0]?.options.env).toMatchObject({
+        CLAUDE_CODE_MAX_OUTPUT_TOKENS: '8192',
+      })
+      const second = await collect(
+        fixture.adapter.stream(
+          request([...initial, assistant('a1', 'summary'), user('u2', 'shorter')], 'summary', {
+            purpose: 'compaction',
+            maxTokens: 1024,
+          }),
+        ),
+      )
       expect(second.at(-1)).toMatchObject({ reason: { kind: 'stop' } })
       expect(fixture.requests).toHaveLength(2)
-      expect(fixture.requests[1]?.options.env).toMatchObject({ CLAUDE_CODE_MAX_OUTPUT_TOKENS: '1024' })
-    } finally { await fixture.manager.dispose() }
+      expect(fixture.requests[1]?.options.env).toMatchObject({
+        CLAUDE_CODE_MAX_OUTPUT_TOKENS: '1024',
+      })
+    } finally {
+      await fixture.manager.dispose()
+    }
   })
   it('starts an isolated SDK query and streams one complete text turn', async () => {
     const fixture = harness((query) => query.emit(textTurn('hello', 7, 5)))
@@ -667,7 +695,7 @@ describe('per-session Claude bridge', () => {
     await fixture.manager.dispose()
   })
 
-  it('continues a pruned history whose images exceed one replay through DSH image offload', async () => {
+  it('continues a pruned image history and recovers an over-budget replay through DSH image offload', async () => {
     const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47])
     const ref = (index: number): ImageAttachmentRef => ({
       attachmentId: `sha256:shot-${index}` as never,
@@ -710,12 +738,19 @@ describe('per-session Claude bridge', () => {
         })),
       ],
     })
-    const answers = ['one', 'two', 'three']
     const fixture = harness(
-      (query, _turn, queryIndex) => query.emit(textTurn(answers[queryIndex] ?? 'extra', 1, 1)),
+      (query, _turn, queryIndex) => query.emit(textTurn(queryIndex === 0 ? 'one' : 'next', 1, 1)),
       resolveConfig(),
       attachments,
     )
+    const replayOf = (queryIndex: number) => {
+      const content = fixture.queries[queryIndex]?.inputs[0]?.message.content
+      if (content === undefined || typeof content === 'string') throw new Error('expected blocks')
+      return {
+        images: content.filter((block) => block.type === 'image').length,
+        transcript: content[0]?.type === 'text' ? content[0].text : '',
+      }
+    }
     try {
       const u1 = screenshots('u1', `tool output ${'x'.repeat(4_000)}`, 0, 15)
       const u2 = screenshots('u2', 'more screenshots', 15, 14)
@@ -726,42 +761,62 @@ describe('per-session Claude bridge', () => {
       expect(fixture.queries).toHaveLength(1)
 
       const pruned = screenshots('u1', 'tool output [middle pruned]', 0, 15)
-      const followUp = (first: Message): Message[] => [
+      const continued = await collect(
+        fixture.adapter.stream(
+          request(
+            [
+              pruned,
+              assistant('a1', 'one'),
+              u2,
+              assistant('a2', 'one'),
+              user('u3', 'text-only follow-up'),
+            ],
+            'pruned-images',
+          ),
+        ),
+      )
+      expect(continued.at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'stop' } })
+      expect(replayOf(1).images).toBe(29)
+      expect(replayOf(1).transcript).toContain('text-only follow-up')
+
+      const oversized = (first: Message): Message[] => [
         first,
-        assistant('a1', 'one'),
-        u2,
-        assistant('a2', 'one'),
-        user('u3', 'text-only follow-up'),
+        ...Array.from({ length: 5 }, (_, index) => [
+          assistant(`reply-${index}`, 'noted'),
+          screenshots(`more-${index}`, 'batch', 20 + index * 20, index === 4 ? 1 : 20),
+        ]).flat(),
+        assistant('reply-last', 'noted'),
+        user('ask', 'still there?'),
       ]
+      const first = screenshots('first', 'batch', 0, 20)
       const rejected = await collect(
-        fixture.adapter.stream(request(followUp(pruned), 'pruned-images')),
+        fixture.adapter.stream(request(oversized(first), 'over-budget')),
       )
       expect(rejected).toEqual([
         {
           type: 'finish',
           reason: {
             kind: 'error',
-            failure: expect.objectContaining({ code: 'IMAGE_OFFLOAD_REQUIRED', offloadImages: 9 }),
+            failure: expect.objectContaining({ code: 'IMAGE_OFFLOAD_REQUIRED', offloadImages: 1 }),
           },
         },
       ])
 
       const offloaded: Message = {
-        ...pruned,
-        content: pruned.content.map((block, index) =>
-          block.type === 'image' && index <= 9 ? { ...block, offloaded: true as const } : block,
+        ...first,
+        content: first.content.map((block, index) =>
+          block.type === 'image' && index === 1 ? { ...block, offloaded: true as const } : block,
         ),
       }
-      const continued = await collect(
-        fixture.adapter.stream(request(followUp(offloaded), 'pruned-images')),
+      const recovered = await collect(
+        fixture.adapter.stream(request(oversized(offloaded), 'over-budget')),
       )
-      expect(continued.at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'stop' } })
-      const replay = fixture.queries.at(-1)?.inputs[0]?.message.content
-      if (replay === undefined || typeof replay === 'string') throw new Error('expected blocks')
-      expect(replay.filter((block) => block.type === 'image')).toHaveLength(20)
-      const transcript = replay[0]?.type === 'text' ? replay[0].text : ''
-      expect(transcript.match(/image omitted to fit request image limits; sha256:shot-\d+\./g)).toHaveLength(9)
-      expect(transcript).toContain('text-only follow-up')
+      expect(recovered.at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'stop' } })
+      const replay = replayOf(fixture.queries.length - 1)
+      expect(replay.images).toBe(100)
+      expect(
+        replay.transcript.match(/image omitted to fit request image limits; sha256:shot-\d+\./g),
+      ).toEqual(['image omitted to fit request image limits; sha256:shot-0.'])
     } finally {
       await fixture.manager.dispose()
     }
