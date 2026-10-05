@@ -10,9 +10,11 @@ import { resolveConfig } from '../src/index.js'
 import { StickyRouter } from '../src/routing/router.js'
 import type { Account, Binding } from '../src/routing/types.js'
 import { RouteBlocked } from '../src/routing/types.js'
+import { imageOffloadRequired } from '../src/errors.js'
 
 const fake = vi.hoisted(() => ({
   chunks: [] as StreamChunk[],
+  error: undefined as unknown,
   authenticate: vi.fn(),
   streams: vi.fn(),
   dispose: vi.fn(),
@@ -25,6 +27,7 @@ vi.mock('../src/bridge.js', () => ({
   BridgeManager: class {
     async *stream(options: GenerateOptions) {
       fake.streams(options)
+      if (fake.error !== undefined) throw fake.error
       yield* fake.chunks
     }
     async dispose() {
@@ -60,6 +63,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   fake.authenticate.mockResolvedValue(undefined)
   fake.chunks = [{ type: 'finish', reason: { kind: 'stop' } }]
+  fake.error = undefined
 })
 describe('subscription provider request boundary', () => {
   it('blocks an empty pool before any SDK stream', async () => {
@@ -70,6 +74,28 @@ describe('subscription provider request boundary', () => {
       ])
       expect(fake.streams).not.toHaveBeenCalled()
       expect(p.store.list('reservations')).toEqual([])
+    } finally {
+      await p.dispose()
+    }
+  })
+  it('reports the image count DSH must offload so the harness can recover the turn', async () => {
+    const p = provider()
+    new StickyRouter(p.store).register(account('A'))
+    fake.error = imageOffloadRequired('replay retains 29 images', 9)
+    try {
+      expect(await collect(p)).toEqual([
+        {
+          type: 'finish',
+          reason: {
+            kind: 'error',
+            failure: {
+              code: 'IMAGE_OFFLOAD_REQUIRED',
+              message: 'dsh-claude-plugin: replay retains 29 images',
+              offloadImages: 9,
+            },
+          },
+        },
+      ])
     } finally {
       await p.dispose()
     }

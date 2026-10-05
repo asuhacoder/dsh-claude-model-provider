@@ -1,4 +1,4 @@
-import { LlmError } from '@deepseek-ai/dsh-llm'
+import { IMAGE_OFFLOAD_REQUIRED_CODE, LlmError } from '@deepseek-ai/dsh-llm'
 
 export const CLAUDE_ERROR_CODES = {
   aborted: 'CLAUDE_ABORTED',
@@ -16,6 +16,7 @@ export const CLAUDE_ERROR_CODES = {
   maxBudget: 'CLAUDE_MAX_BUDGET',
   structuredOutputRetries: 'CLAUDE_STRUCTURED_OUTPUT_RETRIES',
   executionFailed: 'CLAUDE_EXECUTION_FAILED',
+  imageOffloadRequired: IMAGE_OFFLOAD_REQUIRED_CODE,
   invalidRequest: 'CLAUDE_INVALID_REQUEST',
   toolProtocolError: 'CLAUDE_TOOL_PROTOCOL_ERROR',
   toolTimeout: 'CLAUDE_TOOL_TIMEOUT',
@@ -29,8 +30,11 @@ export type ClaudeErrorCode = (typeof CLAUDE_ERROR_CODES)[keyof typeof CLAUDE_ER
 
 /** A stable DSH-facing failure emitted by this adapter. */
 export class ClaudePluginError extends LlmError {
-  constructor(code: ClaudeErrorCode, message: string, cause?: unknown) {
-    super(`dsh-claude-plugin: ${message}`, code, cause === undefined ? undefined : { cause })
+  constructor(code: ClaudeErrorCode, message: string, cause?: unknown, offloadImages?: number) {
+    super(`dsh-claude-plugin: ${message}`, code, {
+      ...(cause === undefined ? {} : { cause }),
+      ...(offloadImages === undefined ? {} : { offloadImages }),
+    })
     this.name = 'ClaudePluginError'
   }
 }
@@ -53,6 +57,16 @@ export function abortError(cause?: unknown): ClaudePluginError {
 
 export function unsupportedInput(message: string): ClaudePluginError {
   return claudeError(CLAUDE_ERROR_CODES.unsupportedInput, message)
+}
+
+/** DSH offloads that many oldest images durably and retries; nothing is dropped here. */
+export function imageOffloadRequired(message: string, offloadImages: number): ClaudePluginError {
+  return new ClaudePluginError(
+    CLAUDE_ERROR_CODES.imageOffloadRequired,
+    message,
+    undefined,
+    offloadImages,
+  )
 }
 
 export function coldReplayUnsupported(message: string, cause?: unknown): ClaudePluginError {

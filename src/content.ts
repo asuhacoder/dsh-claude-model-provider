@@ -4,8 +4,9 @@ import type { SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import type AttachmentStore from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef, ImageMediaType } from '@deepseek-ai/dsh-attachment'
 import type { ContentBlock, RequestMessage as Message } from '@deepseek-ai/dsh-llm'
+import { requiredImageOffload } from '@deepseek-ai/dsh-llm'
 import { CallToolResultSchema, type CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import { toolProtocolError, unsupportedInput } from './errors.js'
+import { imageOffloadRequired, toolProtocolError, unsupportedInput } from './errors.js'
 import { canonicalToolJson } from './json.js'
 
 export const CLAUDE_MAX_IMAGES_PER_REQUEST = 20
@@ -99,6 +100,25 @@ export class ClaudeContentEncoder {
     if (declaredBytes > attachments.imageLimits.maxMessageImageBytes) {
       throw unsupportedInput(
         `${context} declares ${declaredBytes} image bytes, exceeding the DSH message image bound`,
+      )
+    }
+  }
+
+  // A replay aggregates every retained image of the history into one frame, so
+  // exceeding the frame bound is recoverable: DSH offloads the oldest and retries.
+  #assertReplayBudget(messages: readonly Message[], images: number): void {
+    if (images === 0) return
+    const limits = this.#requireAttachments().imageLimits
+    const maxImages = Math.min(CLAUDE_MAX_IMAGES_PER_REQUEST, limits.maxImagesPerMessage)
+    const offloadImages = requiredImageOffload(
+      messages,
+      { representation: 'raw', maxImages, maxBytes: limits.maxMessageImageBytes },
+      (block) => block.attachment.bytes,
+    )
+    if (offloadImages > 0) {
+      throw imageOffloadRequired(
+        `degraded DSH replay retains ${images} images; one Claude replay frame accepts at most ${maxImages} images and ${limits.maxMessageImageBytes} image bytes, so ${offloadImages} more oldest occurrence(s) must be offloaded`,
+        offloadImages,
       )
     }
   }
@@ -216,7 +236,7 @@ export class ClaudeContentEncoder {
     signal?: AbortSignal,
   ): Promise<SDKUserMessage> {
     const refs = messages.flatMap((message) => imageRefs(message.content))
-    this.#assertBatch(refs, 'degraded DSH replay')
+    this.#assertReplayBudget(messages, refs.length)
     const images = await Promise.all(refs.map((ref) => this.#image(ref, signal)))
     const content: SdkUserContentBlock[] = [{ type: 'text', text: transcript }]
     for (const [index, image] of images.entries()) {

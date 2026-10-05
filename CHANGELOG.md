@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+Continue a session whose degraded replay retains more images than one Claude replay frame accepts. The provider now fails that request with `IMAGE_OFFLOAD_REQUIRED` and the count of oldest images to offload, so DSH records a durable offload and retries, instead of ending the turn with `CLAUDE_UNSUPPORTED_INPUT`. Images that DSH marked as offloaded reach Claude as placeholder text that names the attachment and its read-only path. Verified with mocked SDK queries only; no real-account run covers this path.
+
 ## 0.1.0-next.5 — 2026-10-03
 
 Promote the locally verified `0.1.0-next.4.local.2` interruption repair to an experimental release. Preserve mixed tool receipts and runtime notifications when rebuilding from DSH history; distinguish SDK limits and request failures; expose context capacity and bounded summary output; separate queue and execution deadlines; and repair the installed management CLI's executable, dependency and profile resolution. Ignore unrelated Windows drives when detecting a profile, and allow management CLI help without resolving state. Local macOS source verification passed 282 tests, typecheck, build and coverage; one Windows-only regression is exercised in CI. Prior real-account verification covered 14 source requests and three installed-package requests; it was performed on the local predecessor, not the renamed release artifact. See README.md for unverified boundaries.
