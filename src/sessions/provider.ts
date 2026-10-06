@@ -1,6 +1,7 @@
 import { defaultStateDirectory } from '../storage/paths.js'
 export { defaultStateDirectory } from '../storage/paths.js'
 import { randomUUID, createHash } from 'node:crypto'
+import { LlmError } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import type SubprocessRuntime from '@deepseek-ai/dsh-subprocess'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
@@ -547,6 +548,9 @@ export class SubscriptionProvider {
           failure: {
             code,
             message: publicFailureMessage(error, code),
+            ...(error instanceof LlmError && error.failure.offloadImages !== undefined
+              ? { offloadImages: error.failure.offloadImages }
+              : {}),
             ...(error instanceof RouteBlocked &&
             error.retryAt !== undefined &&
             error.retryAt < Number.MAX_SAFE_INTEGER

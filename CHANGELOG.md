@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+Continue a session after DSH prunes old tool output. The provider then rebuilds the conversation as one replay frame that carries every retained image. That frame now accepts up to 100 images, which is the Claude request limit, instead of the 20-image DSH upload limit for a single message. When a replay still exceeds 100 images or the DSH image byte budget, the provider fails the request with `IMAGE_OFFLOAD_REQUIRED` and the count of oldest images to offload. DSH records a durable offload and retries, where the turn previously ended with `CLAUDE_UNSUPPORTED_INPUT`. Images that DSH marked as offloaded reach Claude as placeholder text that names the attachment and its read-only path.
+
+Real-account verification on macOS with `opus`: replay frames of 29 and 100 images completed and the model identified the first and last image; frames of 20 and 21 images that include a 2400-pixel image completed; a 101-image frame returned `IMAGE_OFFLOAD_REQUIRED` with `offloadImages: 1` before any model call (`pnpm test:live:image-replay`). A packed tarball installed into a temporary `dsh headless` profile completed a cold resume in which the harness logged the rejected attempt, an `image/offload` event, and a successful retry whose placeholder path resolved to the stored PNG (`pnpm test:live:image-offload`). A single new step that carries more than 100 images still fails with `CLAUDE_UNSUPPORTED_INPUT`.
+
 ## 0.1.0-next.5 — 2026-10-03
 
 Promote the locally verified `0.1.0-next.4.local.2` interruption repair to an experimental release. Preserve mixed tool receipts and runtime notifications when rebuilding from DSH history; distinguish SDK limits and request failures; expose context capacity and bounded summary output; separate queue and execution deadlines; and repair the installed management CLI's executable, dependency and profile resolution. Ignore unrelated Windows drives when detecting a profile, and allow management CLI help without resolving state. Local macOS source verification passed 282 tests, typecheck, build and coverage; one Windows-only regression is exercised in CI. Prior real-account verification covered 14 source requests and three installed-package requests; it was performed on the local predecessor, not the renamed release artifact. See README.md for unverified boundaries.

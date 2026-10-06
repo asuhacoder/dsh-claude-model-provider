@@ -4,9 +4,15 @@ import { SubscriptionProvider, prepareDshRequest } from './sessions/provider.js'
 import { isAbsolute } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { LlmAdapter } from '@deepseek-ai/dsh-llm'
+import {
+  LlmAdapter,
+  offloadedImageText,
+  projectOffloadedImages,
+  resolveImageAttachmentAccess,
+} from '@deepseek-ai/dsh-llm'
 import type {
   GenerateOptions,
+  ImageAttachmentAccessResolver,
   LlmModelInfo,
   LlmProviderInfo,
   LlmResolvedModelInfo,
@@ -110,7 +116,11 @@ export const Config: z<Config> = z.object({
   stateDirectory: z.string().default(''),
   requestTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(600000),
   queueTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(120000),
-  maxReplayBytes: z.number().min(1024).max(64 * 1024 * 1024).default(MAX_DEGRADED_REPLAY_BYTES),
+  maxReplayBytes: z
+    .number()
+    .min(1024)
+    .max(64 * 1024 * 1024)
+    .default(MAX_DEGRADED_REPLAY_BYTES),
 })
 
 export interface ResolvedConfig {
@@ -216,6 +226,7 @@ export class ClaudeCodeAdapter extends LlmAdapter {
     readonly config: ResolvedConfig,
     readonly bridges: Pick<BridgeManager, 'stream'> &
       Partial<Pick<SubscriptionProvider, 'accounts' | 'defaultModel'>>,
+    readonly resolveImageAccess?: ImageAttachmentAccessResolver,
   ) {
     super()
   }
@@ -256,7 +267,15 @@ export class ClaudeCodeAdapter extends LlmAdapter {
     )
     let finished = false
     try {
-      for await (const chunk of this.bridges.stream(prepareDshRequest(options), model)) {
+      const request = prepareDshRequest(options)
+      // DSH's durable offload marks must reach Claude as placeholders on every path.
+      const messages = projectOffloadedImages(request.messages, (ref) =>
+        offloadedImageText(ref, this.resolveImageAccess?.(ref)),
+      )
+      for await (const chunk of this.bridges.stream(
+        { ...request, messages: [...messages] },
+        model,
+      )) {
         if (chunk.type === 'finish') finished = true
         yield chunk
       }
@@ -290,5 +309,19 @@ export function apply(ctx: Context, config: Config = {}): void {
       { pending: () => bridges.pendingRequests() },
     ),
   )
-  ctx.llm.registerAdapter([PROVIDER_ID], new ClaudeCodeAdapter(resolved, bridges))
+  const hostPathMapper = (hostPath: string): string | undefined => {
+    const fs: unknown = ctx.get('fs')
+    if (fs === null || typeof fs !== 'object' || !('processPathFromHostPath' in fs))
+      return undefined
+    const map = fs.processPathFromHostPath
+    if (typeof map !== 'function') return undefined
+    const mapped: unknown = map.call(fs, hostPath)
+    return typeof mapped === 'string' ? mapped : undefined
+  }
+  ctx.llm.registerAdapter(
+    [PROVIDER_ID],
+    new ClaudeCodeAdapter(resolved, bridges, (ref) =>
+      resolveImageAttachmentAccess(ctx.attachments, hostPathMapper, ref),
+    ),
+  )
 }
