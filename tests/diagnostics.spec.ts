@@ -122,6 +122,7 @@ describe('redacted Claude diagnostics', () => {
       event: 'generation.fail',
       code: 'CLAUDE_UNEXPECTED_ERROR',
       errorType: 'Error',
+      chain: [{ name: 'Error', frames: [expect.stringMatching(/diagnostics\.spec\.ts:\d+/)] }],
     })
     expect(String(debug.mock.calls.at(-1)?.[1])).not.toContain(systemSecret)
 

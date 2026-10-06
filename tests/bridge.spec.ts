@@ -564,6 +564,31 @@ describe('per-session Claude bridge', () => {
     await fixture.manager.dispose()
   })
 
+  it('reports the protocol failure when closing the SDK query also throws', async () => {
+    const fixture = harness((query) => {
+      const close = query.close.bind(query)
+      query.close = () => {
+        close()
+        throw new Error('fixture close failed')
+      }
+      query.emit([
+        envelope({
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'text_delta', text: 'orphan' },
+        }),
+      ])
+    })
+    const chunks = await collect(
+      fixture.adapter.stream(request([user('u1', 'malformed')], 'close-failure-session')),
+    )
+    expect(chunks.at(-1)).toMatchObject({
+      type: 'finish',
+      reason: { kind: 'error', failure: { code: 'CLAUDE_PROTOCOL_ERROR' } },
+    })
+    await fixture.manager.dispose()
+  })
+
   it('isolates different DSH sessions into different SDK queries', async () => {
     const fixture = harness((query, _turn, queryIndex) =>
       query.emit(textTurn(`answer-${queryIndex}`, 1, 1)),
