@@ -10,7 +10,9 @@ import { resolveConfig } from '../src/index.js'
 import { StickyRouter } from '../src/routing/router.js'
 import type { Account, Binding } from '../src/routing/types.js'
 import { RouteBlocked } from '../src/routing/types.js'
-import { imageOffloadRequired } from '../src/errors.js'
+import { imageOffloadRequired, transportError } from '../src/errors.js'
+import type { UsageRecord } from '../src/metrics/history.js'
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 
 const fake = vi.hoisted(() => ({
   chunks: [] as StreamChunk[],
@@ -192,6 +194,94 @@ describe('subscription provider request boundary', () => {
       expect(await collect(p, aborted)).toMatchObject([{ reason: { kind: 'aborted' } }])
       expect(fake.streams).toHaveBeenCalledOnce()
       expect(p.store.list('reservations')).toEqual([])
+    } finally {
+      await p.dispose()
+    }
+  })
+})
+
+describe('subscription provider failure evidence', () => {
+  const secret = 'PAYLOAD-SECRET-7f3a'
+  const partialToolCall = {
+    type: 'stream_event',
+    parent_tool_use_id: null,
+    event: {
+      type: 'content_block_delta',
+      index: 1,
+      delta: { type: 'input_json_delta', partial_json: `{"command":"${secret}` },
+    },
+  } as unknown as SDKMessage
+  const failing = (thrown: unknown, dispose: () => Promise<void> = () => Promise.resolve()) =>
+    new SubscriptionProvider(
+      {} as SubprocessRuntime,
+      resolveConfig({ stateDirectory: ':memory:' }),
+      undefined,
+      {
+        createManager: (_account, _config, observe) => ({
+          // eslint-disable-next-line require-yield
+          async *stream() {
+            observe(partialToolCall)
+            throw thrown
+          },
+          dispose,
+        }),
+      },
+    )
+
+  it('names an unclassified exception and stores payload-free evidence under the request id', async () => {
+    const p = failing(new TypeError(`cannot read ${secret}`))
+    new StickyRouter(p.store).register(account('A'))
+    try {
+      const [finish] = await collect(p)
+      expect(finish).toMatchObject({
+        type: 'finish',
+        reason: { kind: 'error', failure: { code: 'SUBSCRIPTION_PROVIDER_FAILED' } },
+      })
+      const message =
+        finish?.type === 'finish' && finish.reason.kind === 'error'
+          ? finish.reason.failure.message
+          : ''
+      const [record] = p.store.list<UsageRecord>('usage')
+      expect(message).toContain('TypeError')
+      expect(message).toContain(record!.id)
+      expect(record!.failure).toMatchObject({
+        code: 'SUBSCRIPTION_PROVIDER_FAILED',
+        phase: 'generating',
+        chain: [{ name: 'TypeError' }],
+        sdk: { events: 1, last: 'stream_event:content_block_delta:input_json_delta' },
+      })
+      expect(record!.failure!.chain[0]!.frames[0]).toMatch(/subscription-provider\.spec\.ts:\d+/)
+      expect(message + JSON.stringify(record)).not.toContain(secret)
+    } finally {
+      await p.dispose()
+    }
+  })
+
+  it('keeps the first failure when bridge cleanup also fails', async () => {
+    const p = failing(transportError('fixture transport broke'), () =>
+      Promise.reject(new Error(`cleanup ${secret}`)),
+    )
+    new StickyRouter(p.store).register(account('A'))
+    try {
+      expect(await collect(p)).toMatchObject([
+        {
+          type: 'finish',
+          reason: {
+            kind: 'error',
+            failure: {
+              code: 'CLAUDE_TRANSPORT_ERROR',
+              message: 'dsh-claude-plugin: fixture transport broke',
+            },
+          },
+        },
+      ])
+      const [record] = p.store.list<UsageRecord>('usage')
+      expect(record!.failure).toMatchObject({
+        code: 'CLAUDE_TRANSPORT_ERROR',
+        chain: [{ name: 'ClaudePluginError', code: 'CLAUDE_TRANSPORT_ERROR' }],
+        cleanup: [{ name: 'Error' }],
+      })
+      expect(JSON.stringify(record)).not.toContain(secret)
     } finally {
       await p.dispose()
     }

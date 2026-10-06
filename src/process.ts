@@ -6,6 +6,7 @@ import type { SubprocessHandle } from '@deepseek-ai/dsh-subprocess'
 import { SENSITIVE_ENV_PATTERN } from '@deepseek-ai/dsh-subprocess'
 import type { ExecutablePolicy, ResolvedConfig } from './index.js'
 import { CLAUDE_ERROR_CODES, claudeError, transportError } from './errors.js'
+import type { ProcessExit } from './failure-evidence.js'
 
 export const MAX_CLAUDE_STDERR_BYTES = 8 * 1_024
 
@@ -78,7 +79,10 @@ export class DshSpawnedProcess extends EventEmitter implements SpawnedProcess {
   #signalCode: NodeJS.Signals | null = null
   #settled = false
 
-  constructor(readonly handle: SubprocessHandle) {
+  constructor(
+    readonly handle: SubprocessHandle,
+    onExit: (exit: ProcessExit) => void = () => {},
+  ) {
     super()
     if (handle.stdin === undefined || handle.stdout === undefined) {
       handle.terminate()
@@ -91,6 +95,7 @@ export class DshSpawnedProcess extends EventEmitter implements SpawnedProcess {
         this.#settled = true
         this.#exitCode = exitCode
         this.#signalCode = signal
+        onExit({ exitCode, signal, requested: this.#killed })
         if (signal !== null) this.#killed = true
         this.emit('exit', exitCode, signal)
       },
@@ -149,6 +154,11 @@ export async function resolveClaudeExecutable(
 
 export class ClaudeProcessFactory {
   readonly #active = new Set<DshSpawnedProcess>()
+  #lastExit: ProcessExit | undefined
+
+  get lastExit(): ProcessExit | undefined {
+    return this.#lastExit
+  }
 
   constructor(
     readonly subprocess: SubprocessRuntime,
@@ -179,7 +189,9 @@ export class ClaudeProcessFactory {
           : {}),
       },
     })
-    const process = new DshSpawnedProcess(handle)
+    const process = new DshSpawnedProcess(handle, (exit) => {
+      this.#lastExit = exit
+    })
     this.#active.add(process)
     void handle.done.then(
       () => this.#active.delete(process),

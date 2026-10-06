@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import type { Logger } from '@deepseek-ai/cordis'
 import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
 import { ClaudePluginError } from './errors.js'
+import { describeError } from './failure-evidence.js'
 import type { UsageSnapshot, UsageTelemetryDelta } from './usage.js'
 
 export const MAX_DIAGNOSTIC_BYTES = 4 * 1_024
@@ -106,6 +107,7 @@ export class GenerationDiagnostics {
           : error instanceof Error
             ? 'Error'
             : typeof error,
+      chain: describeError(error),
     })
   }
 

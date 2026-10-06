@@ -82,7 +82,7 @@ export function protocolError(message: string, cause?: unknown): ClaudePluginErr
 }
 
 /** Only adapter-owned messages cross the boundary; SDK/OS exception text stays private. */
-export function publicFailureMessage(error: unknown, code: string): string {
+export function publicFailureMessage(error: unknown, code: string, detail?: string): string {
   if (code === 'QUEUE_DEADLINE')
     return 'Claude account/session queue wait exceeded queueTimeoutMs; retry when capacity is available'
   if (code === 'REQUEST_DEADLINE')
@@ -90,7 +90,7 @@ export function publicFailureMessage(error: unknown, code: string): string {
   if (code === 'OUTCOME_UNKNOWN')
     return 'A prior DSH tool has no completion receipt; verify its outcome before continuing'
   if (error instanceof ClaudePluginError) return error.message.slice(0, 1024)
-  return code
+  return detail === undefined ? code : `${code}: ${detail}`
 }
 
 export function transportError(message: string, cause?: unknown): ClaudePluginError {
