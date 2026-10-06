@@ -14,6 +14,7 @@ import type { ResolvedConfig } from './index.js'
 import { AsyncQueue } from './async-queue.js'
 import { type AttachmentReader, ClaudeContentEncoder } from './content.js'
 import { ClaudeDiagnostics } from './diagnostics.js'
+import { noteCleanupFailure, type ProcessExit } from './failure-evidence.js'
 import { abortError, ClaudePluginError, protocolError, transportError } from './errors.js'
 import {
   assertSdkUserInput,
@@ -200,7 +201,11 @@ class SessionBridge {
     this.#output.fail(error)
     this.#input.fail(error)
     this.#abortController.abort(error)
-    this.#query?.close()
+    try {
+      this.#query?.close()
+    } catch (cleanup: unknown) {
+      noteCleanupFailure(error, cleanup)
+    }
     void this.#toolServer.close(
       error instanceof Error ? protocolError(error.message, error) : protocolError('bridge closed'),
     )
@@ -392,6 +397,10 @@ export class BridgeManager {
     readonly diagnostics = new ClaudeDiagnostics(config.debug),
   ) {
     this.processFactory = new ClaudeProcessFactory(subprocess, config)
+  }
+
+  get processExit(): ProcessExit | undefined {
+    return this.processFactory.lastExit
   }
 
   get activeBridgeCount(): number {

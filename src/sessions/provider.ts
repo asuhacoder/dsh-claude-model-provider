@@ -19,6 +19,15 @@ import { CapacitySignal, KeyedQueue, ProviderCircuit, abortable } from '../routi
 import { UsageHistory, addUsage, type UsageRecord } from '../metrics/history.js'
 import { shadowForecast } from '../routing/forecast.js'
 import { publicFailureMessage } from '../errors.js'
+import {
+  describeCleanupFailure,
+  describeError,
+  sdkEventKind,
+  summarizeUnclassified,
+  type FailureEvidence,
+  type ProcessExit,
+  type SdkTrail,
+} from '../failure-evidence.js'
 export function prepareDshRequest(options: GenerateOptions): GenerateOptions {
   const prompts: string[] = [],
     messages = [...options.messages]
@@ -36,6 +45,7 @@ const hash = (x: unknown) => createHash('sha256').update(canonicalToolJson(x)).d
 export interface ManagedBridge {
   stream(options: GenerateOptions, model: string): AsyncIterable<StreamChunk>
   dispose(): Promise<void>
+  readonly processExit?: ProcessExit | undefined
 }
 export interface ProviderDependencies {
   authenticate?: typeof assertAccount
@@ -54,6 +64,7 @@ export interface AttemptObservation {
   retryAt?: number
   sdkRetries: number
   actualModel?: string
+  trail?: SdkTrail
 }
 /** Typed official events, never text-matched account rotation. */
 export function observeSdk(
@@ -64,6 +75,7 @@ export function observeSdk(
   event: SDKMessage,
   now: number,
 ): void {
+  state.trail = { events: (state.trail?.events ?? 0) + 1, last: sdkEventKind(event), lastAt: now }
   router.fence(binding.key, binding.generation)
   if (event.type === 'system' && event.subtype === 'init') state.actualModel = event.model
   if (event.type === 'result') {
@@ -277,7 +289,27 @@ export class SubscriptionProvider {
       sdkRetries = 0,
       attemptRetries = 0,
       finished = false,
-      attemptRecorded = false
+      attemptRecorded = false,
+      observed: AttemptObservation | undefined,
+      evidence: FailureEvidence | undefined
+    const collectEvidence = (code: string, error?: unknown): FailureEvidence => {
+      const trail = observed?.trail ?? { events: 0 },
+        exit = this.#managers.get(key)?.manager.processExit,
+        cleanup = describeCleanupFailure(error)
+      return {
+        code,
+        phase: this.#pending.get(requestId)?.phase ?? 'unknown',
+        chain: error === undefined ? [] : describeError(error),
+        ...(cleanup === undefined ? {} : { cleanup }),
+        sdk: {
+          ...trail,
+          ...(trail.lastAt === undefined
+            ? {}
+            : { silentMs: Math.max(0, this.now() - trail.lastAt) }),
+        },
+        ...(exit === undefined ? {} : { process: exit }),
+      }
+    }
     const recordAttempt = () => {
       if (!binding || attemptRecorded) return
       history.record({
@@ -299,6 +331,7 @@ export class SubscriptionProvider {
           ]),
         ),
         sdkRetries: attemptRetries,
+        ...(evidence === undefined ? {} : { failure: evidence }),
       })
       attemptRecorded = true
     }
@@ -383,6 +416,7 @@ export class SubscriptionProvider {
           holder = undefined
         }
         const state: AttemptObservation = { sdkRetries: 0 }
+        observed = state
         if (!holder) {
           const bound = { ...binding },
             created = {
@@ -512,6 +546,8 @@ export class SubscriptionProvider {
               : terminal.reason.kind === 'aborted'
                 ? 'aborted'
                 : 'error'
+        if (terminal.reason.kind === 'error')
+          evidence = collectEvidence(terminal.reason.failure.code)
         if (outcome === 'error' || outcome === 'aborted') await this.#drop(key)
         finished = true
         yield terminal
@@ -530,7 +566,6 @@ export class SubscriptionProvider {
           }
         }
       }
-      if (unlock) await this.#drop(key)
       const code =
         timeout.signal.aborted ||
         (error instanceof RouteBlocked && error.code === 'REQUEST_DEADLINE')
@@ -540,6 +575,13 @@ export class SubscriptionProvider {
             : error instanceof Error && 'code' in error && typeof error.code === 'string'
               ? error.code
               : 'SUBSCRIPTION_PROVIDER_FAILED'
+      // Read the child exit before cleanup stops it, and keep cleanup from replacing `error`.
+      const failure = collectEvidence(code, error)
+      evidence = failure
+      if (unlock)
+        await this.#drop(key).catch((cleanup: unknown) => {
+          failure.cleanup = describeError(cleanup)
+        })
       finished = true
       yield {
         type: 'finish',
@@ -547,7 +589,16 @@ export class SubscriptionProvider {
           kind: outcome === 'aborted' ? 'aborted' : 'error',
           failure: {
             code,
-            message: publicFailureMessage(error, code),
+            message: publicFailureMessage(
+              error,
+              code,
+              error instanceof RouteBlocked
+                ? undefined
+                : summarizeUnclassified(
+                    error,
+                    binding === undefined ? undefined : `${requestId}:${attempts}`,
+                  ),
+            ),
             ...(error instanceof LlmError && error.failure.offloadImages !== undefined
               ? { offloadImages: error.failure.offloadImages }
               : {}),

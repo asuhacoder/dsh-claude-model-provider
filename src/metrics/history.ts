@@ -1,5 +1,6 @@
 import type { TokenUsage } from '@deepseek-ai/dsh-llm'
 import { StateStore } from '../storage/store.js'
+import type { FailureEvidence } from '../failure-evidence.js'
 export interface UsageRecord {
   id: string
   session: string
@@ -14,6 +15,7 @@ export interface UsageRecord {
   usage: TokenUsage
   quotaEpochs: Record<string, string>
   sdkRetries: number
+  failure?: FailureEvidence
 }
 const fields = [
   'inputTokens',
