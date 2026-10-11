@@ -582,6 +582,12 @@ export class SubscriptionProvider {
         await this.#drop(key).catch((cleanup: unknown) => {
           failure.cleanup = describeError(cleanup)
         })
+      const retryAfterMs =
+        error instanceof RouteBlocked &&
+        error.retryAt !== undefined &&
+        error.retryAt < Number.MAX_SAFE_INTEGER
+          ? error.retryAt - this.now()
+          : undefined
       finished = true
       yield {
         type: 'finish',
@@ -602,10 +608,8 @@ export class SubscriptionProvider {
             ...(error instanceof LlmError && error.failure.offloadImages !== undefined
               ? { offloadImages: error.failure.offloadImages }
               : {}),
-            ...(error instanceof RouteBlocked &&
-            error.retryAt !== undefined &&
-            error.retryAt < Number.MAX_SAFE_INTEGER
-              ? { providerRetryAfterMs: Math.max(0, error.retryAt - this.now()) }
+            ...(retryAfterMs !== undefined && Number.isFinite(retryAfterMs) && retryAfterMs > 0
+              ? { providerRetryAfterMs: retryAfterMs }
               : {}),
           },
         },

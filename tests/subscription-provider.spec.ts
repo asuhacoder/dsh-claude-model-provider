@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createToolResultMessage,
+  LlmError,
   type GenerateOptions,
   type StreamChunk,
 } from '@deepseek-ai/dsh-llm'
@@ -68,6 +69,39 @@ beforeEach(() => {
   fake.error = undefined
 })
 describe('subscription provider request boundary', () => {
+  it('preserves a quota error after its retry time elapses without emitting an invalid zero delay', async () => {
+    const p = provider()
+    new StickyRouter(p.store).register(account('A'))
+    fake.authenticate.mockRejectedValue(new RouteBlocked('BOUND_ACCOUNT_COOLDOWN', Date.now() - 1))
+    try {
+      const terminal = (await collect(p)).at(-1)!
+      if (terminal.type !== 'finish' || terminal.reason.kind !== 'error')
+        throw new Error('expected quota error')
+      const failure = terminal.reason.failure
+      expect(failure.code).toBe('BOUND_ACCOUNT_COOLDOWN')
+      expect(() => new LlmError(failure.message, failure.code, failure)).not.toThrow()
+      expect(failure).not.toHaveProperty('providerRetryAfterMs')
+    } finally {
+      await p.dispose()
+    }
+  })
+  it('keeps a future quota retry delay positive and valid for DSH', async () => {
+    const p = provider()
+    new StickyRouter(p.store).register(account('A'))
+    fake.authenticate.mockRejectedValue(
+      new RouteBlocked('BOUND_ACCOUNT_COOLDOWN', Date.now() + 60000),
+    )
+    try {
+      const terminal = (await collect(p)).at(-1)!
+      if (terminal.type !== 'finish' || terminal.reason.kind !== 'error')
+        throw new Error('expected quota error')
+      const failure = terminal.reason.failure
+      expect(failure.providerRetryAfterMs).toBeGreaterThan(0)
+      expect(() => new LlmError(failure.message, failure.code, failure)).not.toThrow()
+    } finally {
+      await p.dispose()
+    }
+  })
   it('blocks an empty pool before any SDK stream', async () => {
     const p = provider()
     try {

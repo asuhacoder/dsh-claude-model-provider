@@ -56,16 +56,38 @@ function acceptAll(translator: ClaudeOutputTranslator, messages: SDKMessage[]) {
 
 describe('Claude output translation', () => {
   it('stops at the first native truncation before hidden SDK continuation', () => {
-    const usage = new UsageTracker(), translator = new ClaudeOutputTranslator(usage, true)
+    const usage = new UsageTracker(),
+      translator = new ClaudeOutputTranslator(usage, true)
     const chunks = acceptAll(translator, [
-      envelope({ type: 'message_start', message: { usage: { input_tokens: 21, output_tokens: 1, cache_read_input_tokens: 3, cache_creation_input_tokens: 2 } } }),
-      envelope({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: 'partial', citations: null } }),
+      envelope({
+        type: 'message_start',
+        message: {
+          usage: {
+            input_tokens: 21,
+            output_tokens: 1,
+            cache_read_input_tokens: 3,
+            cache_creation_input_tokens: 2,
+          },
+        },
+      }),
+      envelope({
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'text', text: 'partial', citations: null },
+      }),
       assistant([{ type: 'text', text: 'partial', citations: null }]),
       envelope({ type: 'content_block_stop', index: 0 }),
-      envelope({ type: 'message_delta', delta: { stop_reason: 'max_tokens' }, usage: { output_tokens: 128 } }),
+      envelope({
+        type: 'message_delta',
+        delta: { stop_reason: 'max_tokens' },
+        usage: { output_tokens: 128 },
+      }),
     ])
     expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'max-tokens' } })
-    expect(chunks.at(-2)).toEqual({ type: 'usage', usage: { inputTokens: 21, outputTokens: 128, cacheReadTokens: 3, cacheWriteTokens: 2 } })
+    expect(chunks.at(-2)).toEqual({
+      type: 'usage',
+      usage: { inputTokens: 21, outputTokens: 128, cacheReadTokens: 3, cacheWriteTokens: 2 },
+    })
     expect(translator.truncatedAtBoundary).toBe(true)
     expect(usage.snapshot.outputTokens).toBe(128)
     expect(() => translator.accept(result())).toThrow(/after the terminal result/)
@@ -416,6 +438,88 @@ describe('Claude output translation', () => {
         },
       ]),
     )
+    expect(() => translator.accept(envelope({ type: 'content_block_stop', index: 0 }))).toThrow(
+      /did not reconcile/,
+    )
+  })
+
+  it.each([
+    [
+      'a regex range',
+      String.raw`{"command":"grep -P '[\\u3040-\\u309f]' notes.txt"}`,
+      { command: "grep -P '[\u3040-\u309f]' notes.txt" },
+    ],
+    [
+      'a surrogate pair inside generated code',
+      String.raw`{"path":"/a.ts","content":"const face = '\\ud83d\\ude00'"}`,
+      { path: '/a.ts', content: "const face = '\u{1f600}'" },
+    ],
+    [
+      'an escaped backslash and a control escape that Claude Code leaves alone',
+      String.raw`{"command":"printf '\\\\u0041 \\u0009 \\u00e9'"}`,
+      { command: String.raw`printf '\\u0041 \u0009 ` + "\u00e9'" },
+    ],
+  ])(
+    'reconciles %s that Claude Code unescaped and keeps the emitted arguments for DSH',
+    (_name, emitted, completedInput) => {
+      const translator = new ClaudeOutputTranslator(new UsageTracker())
+      const chunks = acceptAll(translator, [
+        envelope({
+          type: 'content_block_start',
+          index: 0,
+          content_block: {
+            type: 'tool_use',
+            id: 'toolu_unicode',
+            name: 'mcp__dsh__bash',
+            input: {},
+          },
+        }),
+        envelope({
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'input_json_delta', partial_json: emitted },
+        }),
+        assistant([
+          { type: 'tool_use', id: 'toolu_unicode', name: 'mcp__dsh__bash', input: completedInput },
+        ]),
+        envelope({ type: 'content_block_stop', index: 0 }),
+      ])
+      expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'tool-calls' } })
+      expect(translator.toolCalls).toEqual([
+        { type: 'tool-call', id: 'toolu_unicode', name: 'bash', arguments: emitted },
+      ])
+    },
+  )
+
+  it.each([
+    ['a different character', String.raw`{"command":"echo \\u3040"}`, { command: 'echo \u3041' }],
+    [
+      'an escape Claude Code would not have produced',
+      '{"command":"echo \u3040"}',
+      { command: String.raw`echo \u3040` },
+    ],
+    [
+      'an unescaped Windows path',
+      String.raw`{"command":"type C:\\users\\u00e9"}`,
+      { command: 'type C:\\users\u00e9' },
+    ],
+  ])('still rejects completed arguments that differ by %s', (_name, emitted, completedInput) => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    acceptAll(translator, [
+      envelope({
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'tool_use', id: 'toolu_unicode', name: 'mcp__dsh__bash', input: {} },
+      }),
+      envelope({
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'input_json_delta', partial_json: emitted },
+      }),
+      assistant([
+        { type: 'tool_use', id: 'toolu_unicode', name: 'mcp__dsh__bash', input: completedInput },
+      ]),
+    ])
     expect(() => translator.accept(envelope({ type: 'content_block_stop', index: 0 }))).toThrow(
       /did not reconcile/,
     )

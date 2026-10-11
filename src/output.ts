@@ -4,9 +4,10 @@ import type {
   SDKResultMessage,
 } from '@anthropic-ai/claude-agent-sdk'
 import type { ContentBlock, FinishReason, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
-import { CLAUDE_ERROR_CODES, claudeError, protocolError } from './errors.js'
+import { CLAUDE_ERROR_CODES, claudeError, protocolError, toolProtocolError } from './errors.js'
+import { matchesEmittedToolArguments } from './json.js'
 import { asCallId, canonicalToolJson } from './pending-tools.js'
-import { dshToolName } from './tool-server.js'
+import { DSH_MCP_TOOL_PREFIX, dshToolName } from './tool-server.js'
 import { UsageTracker } from './usage.js'
 
 type OpenBlock =
@@ -90,9 +91,9 @@ function sameBlocks(left: readonly ContentBlock[], right: readonly ContentBlock[
     if (block.type === 'tool-call' && other.type === 'tool-call') {
       if (block.id !== other.id || block.name !== other.name) return false
       try {
-        return (
-          canonicalToolJson(JSON.parse(block.arguments)) ===
-          canonicalToolJson(JSON.parse(other.arguments))
+        return matchesEmittedToolArguments(
+          JSON.parse(block.arguments),
+          canonicalToolJson(JSON.parse(other.arguments)),
         )
       } catch {
         return false
@@ -122,6 +123,10 @@ export class ClaudeOutputTranslator {
   readonly #open = new Map<number, OpenBlock>()
   readonly #closed: ContentBlock[] = []
   readonly #completed: ContentBlock[] = []
+  readonly #unavailableTools = new Map<string, { name: string; denied: boolean }>()
+  readonly #ignoredBlocks = new Set<number>()
+  readonly #outputIndices = new Map<number, number>()
+  #nextOutputIndex = 0
   #assistantError: SDKAssistantMessageError | undefined
   #messageStopReason: string | null | undefined
   #sessionId: string | undefined
@@ -134,6 +139,7 @@ export class ClaudeOutputTranslator {
   constructor(
     readonly usage: UsageTracker,
     readonly stopAtOutputLimit = false,
+    readonly recoverUnavailableTools = false,
   ) {}
 
   get truncatedAtBoundary(): boolean {
@@ -157,7 +163,9 @@ export class ClaudeOutputTranslator {
   }
 
   get lastAssistantUuid(): string | undefined {
-    return this.#lastAssistantUuid
+    // A recovery omitted rejected tool blocks from DSH history. Rebuild from
+    // that history on a cold restart rather than resuming an omitted block.
+    return this.#unavailableTools.size > 0 ? undefined : this.#lastAssistantUuid
   }
 
   get toolCalls(): readonly Extract<ContentBlock, { type: 'tool-call' }>[] {
@@ -213,7 +221,12 @@ export class ClaudeOutputTranslator {
         }
         return []
       case 'content_block_start': {
-        if (!Number.isSafeInteger(event.index) || event.index < 0 || this.#open.has(event.index)) {
+        if (
+          !Number.isSafeInteger(event.index) ||
+          event.index < 0 ||
+          this.#open.has(event.index) ||
+          this.#ignoredBlocks.has(event.index)
+        ) {
           throw protocolError(`invalid or duplicate Claude content block index ${event.index}`)
         }
         const content = event.content_block
@@ -228,6 +241,10 @@ export class ClaudeOutputTranslator {
             Array.isArray(content.input)
           ) {
             throw protocolError('Claude tool-use input must start as a JSON object')
+          }
+          if (this.#unavailableTool(content.id, content.name)) {
+            this.#ignoredBlocks.add(event.index)
+            return []
           }
           const initial =
             Object.keys(content.input).length === 0 ? '' : completedToolArguments(content.input)
@@ -244,13 +261,13 @@ export class ClaudeOutputTranslator {
           )
         }
         this.#open.set(event.index, block)
-        const chunks: StreamChunk[] = [
-          { type: 'block-start', index: event.index, blockType: block.type },
-        ]
+        const index = this.recoverUnavailableTools ? this.#nextOutputIndex++ : event.index
+        this.#outputIndices.set(event.index, index)
+        const chunks: StreamChunk[] = [{ type: 'block-start', index, blockType: block.type }]
         if (block.type === 'tool-call') {
           chunks.push({
             type: 'tool-call-delta',
-            index: event.index,
+            index,
             id: asCallId(block.id),
             name: block.name,
             argumentsDelta: block.arguments,
@@ -258,26 +275,28 @@ export class ClaudeOutputTranslator {
         } else if (block.text.length > 0) {
           chunks.push(
             block.type === 'text'
-              ? { type: 'text-delta', index: event.index, text: block.text }
-              : { type: 'reasoning-delta', index: event.index, text: block.text },
+              ? { type: 'text-delta', index, text: block.text }
+              : { type: 'reasoning-delta', index, text: block.text },
           )
         }
         return chunks
       }
       case 'content_block_delta': {
+        if (this.#ignoredBlocks.has(event.index)) return []
         const block = this.#open.get(event.index)
         if (block === undefined) {
           throw protocolError(`Claude delta referenced unopened content block ${event.index}`)
         }
+        const index = this.#outputIndices.get(event.index)!
         const delta = event.delta
         if (delta.type === 'signature_delta') return []
         if (delta.type === 'text_delta' && block.type === 'text') {
           block.text += delta.text
-          return [{ type: 'text-delta', index: event.index, text: delta.text }]
+          return [{ type: 'text-delta', index, text: delta.text }]
         }
         if (delta.type === 'thinking_delta' && block.type === 'reasoning') {
           block.text += delta.thinking
-          return [{ type: 'reasoning-delta', index: event.index, text: delta.thinking }]
+          return [{ type: 'reasoning-delta', index, text: delta.thinking }]
         }
         if (delta.type === 'input_json_delta' && block.type === 'tool-call') {
           if (block.startedWithArguments && delta.partial_json.length > 0) {
@@ -287,7 +306,7 @@ export class ClaudeOutputTranslator {
           return [
             {
               type: 'tool-call-delta',
-              index: event.index,
+              index,
               id: asCallId(block.id),
               argumentsDelta: delta.partial_json,
             },
@@ -298,24 +317,18 @@ export class ClaudeOutputTranslator {
         )
       }
       case 'content_block_stop': {
+        if (this.#ignoredBlocks.delete(event.index)) return this.#finishTools()
         const block = this.#open.get(event.index)
         if (block === undefined) {
           throw protocolError(`Claude stopped unopened content block ${event.index}`)
         }
         this.#open.delete(event.index)
+        const index = this.#outputIndices.get(event.index)!
+        this.#outputIndices.delete(event.index)
         const content = this.#materialize(block)
         this.#closed.push(content)
-        const chunks: StreamChunk[] = [{ type: 'block-end', index: event.index, block: content }]
-        if (
-          this.#open.size === 0 &&
-          this.#assistantError === undefined &&
-          this.#completed.some((entry) => entry.type === 'tool-call')
-        ) {
-          this.#reconcile()
-          this.#complete = true
-          this.#terminalReason = { kind: 'tool-calls' }
-          chunks.push(finish(this.#terminalReason))
-        }
+        const chunks: StreamChunk[] = [{ type: 'block-end', index, block: content }]
+        chunks.push(...this.#finishTools())
         return chunks
       }
     }
@@ -355,6 +368,7 @@ export class ClaudeOutputTranslator {
       else if (block.type === 'thinking') {
         this.#completed.push({ type: 'reasoning', text: block.thinking })
       } else if (block.type === 'tool_use') {
+        if (this.#unavailableTool(block.id, block.name)) continue
         this.#completed.push({
           type: 'tool-call',
           id: asCallId(block.id),
@@ -367,23 +381,68 @@ export class ClaudeOutputTranslator {
         )
       }
     }
+    return this.#finishTools()
+  }
+
+  #unavailableTool(id: string, name: string): boolean {
+    if (!this.recoverUnavailableTools || name.startsWith(DSH_MCP_TOOL_PREFIX)) return false
+    if (id.length === 0 || id.length > 512)
+      throw toolProtocolError('Claude unavailable tool-use ID is invalid')
+    const previous = this.#unavailableTools.get(id)
+    if (previous !== undefined && previous.name !== name)
+      throw toolProtocolError('Claude changed an unavailable tool name')
+    if (previous === undefined) this.#unavailableTools.set(id, { name, denied: false })
+    return true
+  }
+
+  #finishTools(): StreamChunk[] {
     if (
-      this.#assistantError === undefined &&
-      this.#completed.some((block) => block.type === 'tool-call')
-    ) {
-      if (this.#open.size > 0) return []
-      this.#reconcile()
-      this.#complete = true
-      this.#terminalReason = { kind: 'tool-calls' }
-      const usage = this.usage.takeStepUsage()
-      return usage === undefined
-        ? [finish(this.#terminalReason)]
-        : [{ type: 'usage', usage }, finish(this.#terminalReason)]
+      this.#open.size > 0 ||
+      this.#ignoredBlocks.size > 0 ||
+      this.#assistantError !== undefined ||
+      [...this.#unavailableTools.values()].some((tool) => !tool.denied) ||
+      !this.#completed.some((block) => block.type === 'tool-call')
+    )
+      return []
+    this.#reconcile()
+    this.#complete = true
+    this.#terminalReason = { kind: 'tool-calls' }
+    const usage = this.usage.takeStepUsage()
+    return usage === undefined
+      ? [finish(this.#terminalReason)]
+      : [{ type: 'usage', usage }, finish(this.#terminalReason)]
+  }
+
+  #unavailableReceipt(message: Extract<SDKMessage, { type: 'user' }>): StreamChunk[] {
+    if (message.parent_tool_use_id !== null || !Array.isArray(message.message.content)) return []
+    for (const block of message.message.content) {
+      if (block.type !== 'tool_result' || block.is_error !== true) continue
+      const tool = this.#unavailableTools.get(block.tool_use_id)
+      if (tool === undefined) continue
+      const text =
+        typeof block.content === 'string'
+          ? block.content
+          : Array.isArray(block.content)
+            ? block.content
+                .filter((part) => part.type === 'text')
+                .map((part) => part.text)
+                .join('')
+            : ''
+      const rejection = `Error: No such tool available: ${tool.name}`
+      // A generic failed tool could already have had effects. Only the SDK's
+      // explicit unavailable-tool receipt proves this call was not executed.
+      if (text === rejection || text === `<tool_use_error>${rejection}</tool_use_error>`)
+        tool.denied = true
     }
-    return []
+    return this.#finishTools()
   }
 
   #reconcile(): void {
+    const unconfirmed = [...this.#unavailableTools.values()].find((tool) => !tool.denied)
+    if (unconfirmed !== undefined)
+      throw toolProtocolError(
+        `Claude emitted non-DSH tool ${JSON.stringify(unconfirmed.name)} without a confirmed SDK unavailable-tool rejection`,
+      )
     if (this.#closed.length > 0 && this.#completed.length === 0) {
       throw protocolError('Claude omitted completed assistant reconciliation messages')
     }
@@ -445,6 +504,7 @@ export class ClaudeOutputTranslator {
     this.#observeSession(message)
     if (message.type === 'stream_event') return this.#partial(message)
     if (message.type === 'assistant') return this.#assistant(message)
+    if (message.type === 'user') return this.#unavailableReceipt(message)
     if (message.type === 'result') return this.#result(message)
     return []
   }

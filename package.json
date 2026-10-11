@@ -93,7 +93,8 @@
     "bench:forecast": "pnpm build && node scripts/bench-forecast.mjs",
     "test:live:interruption": "pnpm build && node scripts/live-interruption.mjs",
     "test:live:image-replay": "pnpm build && node scripts/live-image-replay.mjs",
-    "test:live:image-offload": "pnpm build && node scripts/live-image-offload-e2e.mjs"
+    "test:live:image-offload": "pnpm build && node scripts/live-image-offload-e2e.mjs",
+    "test:live:protocol": "pnpm build && node scripts/live-protocol-recovery.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.4",

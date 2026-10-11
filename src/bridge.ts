@@ -288,7 +288,13 @@ class SessionBridge {
         await this.#toolServer.resolve(plan.results, options.signal)
       }
 
-      const translator = new ClaudeOutputTranslator(this.#usage, options.maxTokens !== undefined)
+      // Native tools are disabled above. Let the SDK correct an unavailable
+      // name only after its own receipt confirms that no tool was executed.
+      const translator = new ClaudeOutputTranslator(
+        this.#usage,
+        options.maxTokens !== undefined,
+        true,
+      )
       while (!translator.complete) {
         const next = await this.#output.next()
         if (next.done) throw protocolError('Claude SDK output ended before a result message')

@@ -3,7 +3,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import type { ToolCallId as CallId, ToolCallBlock } from '@deepseek-ai/dsh-llm'
 import { ClaudeContentEncoder } from './content.js'
 import { ClaudePluginError, toolProtocolError, toolTimeout } from './errors.js'
-import { canonicalToolJson } from './json.js'
+import { canonicalToolJson, matchesEmittedToolArguments } from './json.js'
 
 export { canonicalToolJson } from './json.js'
 
@@ -228,7 +228,7 @@ export class PendingTools {
         if (pending.name !== call.name) {
           throw toolProtocolError(`Claude MCP and DSH tool names disagree for ${id}`)
         }
-        if (pending.arguments !== canonicalToolJson(parsedArguments(call.arguments))) {
+        if (!matchesEmittedToolArguments(parsedArguments(call.arguments), pending.arguments)) {
           throw toolProtocolError(`Claude MCP and DSH tool arguments disagree for ${id}`)
         }
       }

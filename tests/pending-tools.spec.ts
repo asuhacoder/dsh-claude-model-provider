@@ -31,6 +31,35 @@ function fixture(timeoutMs = 10_000) {
 afterEach(() => vi.useRealTimers())
 
 describe('pending DSH tool correlation', () => {
+  it('correlates the SDK-normalized Unicode input with the unchanged DSH-emitted arguments', async () => {
+    const { pending } = fixture()
+    const registered = pending.register({
+      id: 'unicode',
+      name: 'bash',
+      arguments: { command: "grep '[\u3040-\u30ff]'" },
+      generation: 1,
+    })
+    const emitted = String.raw`{"command":"grep '[\\u3040-\\u30ff]'"}`
+    await pending.assertBoundary([call('unicode', 'bash', emitted)], 1)
+    await pending.resolveBatch([result('unicode', 'NOOP')])
+    await expect(registered).resolves.toMatchObject({ content: [{ text: 'NOOP' }] })
+  })
+
+  it('does not accept a different tool input merely because the emitted input contains Unicode escapes', async () => {
+    const { pending } = fixture()
+    const registered = pending.register({
+      id: 'unicode',
+      name: 'bash',
+      arguments: { command: 'echo \u3041' },
+      generation: 1,
+    })
+    const rejected = expect(registered).rejects.toThrow(/arguments disagree/)
+    await expect(
+      pending.assertBoundary([call('unicode', 'bash', String.raw`{"command":"echo \\u3040"}`)], 1),
+    ).rejects.toThrow(/arguments disagree/)
+    await rejected
+  })
+
   it('canonicalizes JSON and rejects values that cannot cross the tool protocol', async () => {
     expect(canonicalToolJson({ z: 1, a: [{ y: true, x: null }] })).toBe(
       '{"a":[{"x":null,"y":true}],"z":1}',
