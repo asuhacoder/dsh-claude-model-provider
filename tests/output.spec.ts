@@ -134,6 +134,88 @@ describe('Claude output translation', () => {
     expect(() => translator.accept(result())).toThrow(/after the terminal result/)
   })
 
+  it('reports each DSH step its own API-call usage instead of the SDK-turn aggregate', () => {
+    // One live SDK turn spanning a DSH tool boundary. DSH treats each step's
+    // usage as that request's prompt size; the cumulative SDK result total is
+    // ~N requests large and falsely triggers compaction pressure.
+    const tracker = new UsageTracker()
+    const toolStep = new ClaudeOutputTranslator(tracker)
+    const first = acceptAll(toolStep, [
+      envelope({
+        type: 'message_start',
+        message: {
+          usage: {
+            input_tokens: 10,
+            output_tokens: 1,
+            cache_read_input_tokens: 1000,
+            cache_creation_input_tokens: 200,
+          },
+        },
+      }),
+      envelope({
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__read', input: {} },
+      }),
+      envelope({ type: 'content_block_stop', index: 0 }),
+      assistant([{ type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__read', input: {} }]),
+    ])
+    expect(first.slice(-2)).toEqual([
+      {
+        type: 'usage',
+        usage: { inputTokens: 10, outputTokens: 1, cacheReadTokens: 1000, cacheWriteTokens: 200 },
+      },
+      { type: 'finish', reason: { kind: 'tool-calls' } },
+    ])
+
+    const finalStep = new ClaudeOutputTranslator(tracker)
+    const second = acceptAll(finalStep, [
+      // The tool-use call's trailing events arrive after DSH's tool boundary.
+      envelope({ type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 50 } }),
+      envelope({ type: 'message_stop' }),
+      envelope({
+        type: 'message_start',
+        message: {
+          usage: {
+            input_tokens: 5,
+            output_tokens: 1,
+            cache_read_input_tokens: 1210,
+            cache_creation_input_tokens: 60,
+          },
+        },
+      }),
+      envelope({
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'text', text: 'done', citations: null },
+      }),
+      envelope({ type: 'content_block_stop', index: 0 }),
+      assistant([{ type: 'text', text: 'done', citations: null }]),
+      envelope({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 20 } }),
+      envelope({ type: 'message_stop' }),
+      result({
+        modelUsage: {
+          'claude-haiku-4-5': { inputTokens: 70_000, outputTokens: 12 },
+          'claude-opus-5-5': {
+            inputTokens: 15,
+            outputTokens: 70,
+            cacheReadInputTokens: 2210,
+            cacheCreationInputTokens: 260,
+          },
+        },
+      }),
+    ])
+    expect(second.slice(-2)).toEqual([
+      {
+        type: 'usage',
+        usage: { inputTokens: 5, outputTokens: 69, cacheReadTokens: 1210, cacheWriteTokens: 60 },
+      },
+      { type: 'finish', reason: { kind: 'stop' } },
+    ])
+    // The SDK aggregate, including auxiliary models, stays in the snapshot.
+    expect(tracker.snapshot.inputTokens).toBe(70_015)
+  })
+
   it('maps max output tokens and authentication errors to stable finishes', () => {
     const max = new ClaudeOutputTranslator(new UsageTracker())
     expect(max.accept(result({ stop_reason: 'max_tokens' })).at(-1)).toEqual({
