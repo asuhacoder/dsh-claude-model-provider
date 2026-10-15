@@ -73,6 +73,35 @@ function toolResult(message: Message): ToolResultBlock {
   }
 }
 
+// Human input keeps full user-role semantics through a rebuild.
+const HUMAN_SOURCES = new Set(['user', 'user-approval'])
+
+function textNotice(message: Message): boolean {
+  const kind = (message.source as { readonly kind?: unknown } | undefined)?.kind
+  return (
+    message.role === 'user' &&
+    typeof kind === 'string' &&
+    !HUMAN_SOURCES.has(kind) &&
+    message.content.length > 0 &&
+    message.content.every((block) => block.type === 'text')
+  )
+}
+
+function noticeBlock(message: Message): ContentBlock {
+  const source = message.source as { readonly kind?: unknown; readonly form?: unknown } | undefined
+  const label =
+    typeof source?.kind !== 'string'
+      ? 'unknown'
+      : typeof source.form === 'string'
+        ? `${source.kind}:${source.form}`
+        : source.kind
+  const text = message.content.map((block) => (block.type === 'text' ? block.text : '')).join('')
+  return {
+    type: 'text',
+    text: `<system-reminder>\nDSH delivered the following message after this tool call. It is not part of the tool output.\n<message role="user" source=${JSON.stringify(label)}>\n${text}\n</message>\n</system-reminder>`,
+  }
+}
+
 /** Tracks the exact DSH prefix already represented by a live SDK query. */
 export class LiveInputCursor {
   #prefix: readonly Message[] = []
@@ -184,6 +213,16 @@ export class LiveInputCursor {
         )
       }
       const notifications = pending.filter((message) => message.role !== 'tool')
+      const last = results.at(-1)
+      if (last !== undefined && notifications.length > 0 && notifications.every(textNotice)) {
+        // Resolving the parked MCP call keeps the warm prompt cache; a rebuild
+        // rewrites the whole history as one uncached replay frame.
+        results[results.length - 1] = {
+          ...last,
+          content: [...last.content, ...notifications.map(noticeBlock)],
+        }
+        return { kind: 'tool-results', results }
+      }
       if (notifications.length > 0) {
         // A second querying SDK frame can race the parked MCP continuation. Rebuild
         // before resolving it, with all receipts and user updates in DSH order.

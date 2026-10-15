@@ -123,7 +123,11 @@ class ToolQuery implements ClaudeQuery {
   closed = false
   client: Client | undefined
 
-  constructor(readonly request: ClaudeQueryRequest, readonly receiptsOnly = false) {
+  constructor(
+    readonly request: ClaudeQueryRequest,
+    readonly receiptsOnly = false,
+    public toolTurns = Number.POSITIVE_INFINITY,
+  ) {
     void this.#run()
   }
 
@@ -138,7 +142,7 @@ class ToolQuery implements ClaudeQuery {
       for await (const input of this.request.prompt) {
         this.inputs.push(input)
         if (input.shouldQuery !== true) continue
-        if (this.receiptsOnly) {
+        if (this.receiptsOnly || this.toolTurns-- <= 0) {
           for (const message of finalTurn('fixture-value')) this.output.push(message)
           continue
         }
@@ -255,7 +259,7 @@ describe('DSH-owned MCP pause and resume', () => {
   it('delivers text notifications at a parked boundary inside the last tool result without rebuilding', async () => {
     const queries: ToolQuery[] = []
     const factory: ClaudeQueryFactory = (r) => {
-      const q = new ToolQuery(r)
+      const q = new ToolQuery(r, false, 1)
       queries.push(q)
       return q
     }
