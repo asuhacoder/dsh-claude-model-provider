@@ -181,6 +181,7 @@ export class ClaudeOutputTranslator {
     const event = message.event
     switch (event.type) {
       case 'message_start':
+        this.usage.observeCall(event.message.usage, true)
         if (!this.stopAtOutputLimit) return []
         this.#partialUsage = {
           inputTokens: event.message.usage.input_tokens,
@@ -192,6 +193,7 @@ export class ClaudeOutputTranslator {
       case 'message_stop':
         return []
       case 'message_delta':
+        this.usage.observeCall(event.usage, false)
         this.#messageStopReason = event.delta.stop_reason
         this.#partialUsage = { ...this.#partialUsage, outputTokens: event.usage.output_tokens }
         if (this.stopAtOutputLimit && event.delta.stop_reason === 'max_tokens') {
@@ -203,6 +205,7 @@ export class ClaudeOutputTranslator {
           this.#terminalReason = { kind: 'max-tokens' }
           // Claude Code normally retries truncation internally. DSH owns the next
           // step, so stop before that hidden continuation and report observed usage.
+          this.usage.takeStepUsage()
           return [
             { type: 'usage', usage: this.usage.finishPartial(this.#partialUsage) },
             finish(this.#terminalReason),
@@ -372,7 +375,10 @@ export class ClaudeOutputTranslator {
       this.#reconcile()
       this.#complete = true
       this.#terminalReason = { kind: 'tool-calls' }
-      return [finish(this.#terminalReason)]
+      const usage = this.usage.takeStepUsage()
+      return usage === undefined
+        ? [finish(this.#terminalReason)]
+        : [{ type: 'usage', usage }, finish(this.#terminalReason)]
     }
     return []
   }
@@ -391,7 +397,9 @@ export class ClaudeOutputTranslator {
     const chunks: StreamChunk[] = [
       {
         type: 'usage',
-        usage: this.usage.delta(message.modelUsage, message.usage, message.total_cost_usd),
+        usage: this.usage.settle(
+          this.usage.delta(message.modelUsage, message.usage, message.total_cost_usd),
+        ),
       },
     ]
     const maxTokens =

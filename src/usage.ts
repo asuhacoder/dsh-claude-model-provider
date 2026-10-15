@@ -154,9 +154,78 @@ function decreased(current: UsageSnapshot, previous: UsageSnapshot): boolean {
   )
 }
 
+interface CallUsage {
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+}
+
+const CALL_FIELDS = [
+  ['inputTokens', 'input_tokens'],
+  ['outputTokens', 'output_tokens'],
+  ['cacheReadTokens', 'cache_read_input_tokens'],
+  ['cacheWriteTokens', 'cache_creation_input_tokens'],
+] as const
+
+export type StreamUsage = Readonly<
+  Partial<Record<(typeof CALL_FIELDS)[number][1], number | null | undefined>>
+>
+
+const zeroCall = (): CallUsage => ({
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+})
+
+/**
+ * Bridge-scoped usage. The SDK `result` aggregate spans every API call of one
+ * SDK turn (all DSH tool steps plus auxiliary models), but DSH reads each
+ * step's usage as that request's prompt size. Per-call stream usage is
+ * therefore what a step reports; the aggregate stays in the snapshot.
+ */
 export class UsageTracker {
   #previous: UsageSnapshot = ZERO_USAGE
   #lastDelta: UsageTelemetryDelta = Object.freeze({ costUsd: 0, queryCostUsd: 0 })
+  #call: CallUsage = zeroCall()
+  #unreported: CallUsage = zeroCall()
+  #streamed = false
+
+  /** `message_start` opens a call; `message_delta` carries its cumulative counts. */
+  observeCall(usage: StreamUsage | undefined, start: boolean): void {
+    if (start) {
+      this.#call = zeroCall()
+      this.#streamed = true
+    } else if (!this.#streamed) return
+    for (const [field, wire] of CALL_FIELDS) {
+      const raw = usage?.[wire]
+      if (raw === undefined || raw === null) continue
+      const value = counter(raw, `stream.${wire}`)
+      // A delta never lowers a counter its call already reported.
+      if (value <= this.#call[field]) continue
+      this.#unreported[field] += value - this.#call[field]
+      this.#call[field] = value
+    }
+  }
+
+  /** Usage of API calls observed since the previous step report, or undefined without stream usage. */
+  takeStepUsage(): TokenUsage | undefined {
+    if (!this.#streamed) return undefined
+    const usage = { ...this.#unreported }
+    this.#unreported = zeroCall()
+    return usage
+  }
+
+  /** Close one SDK turn: report per-call usage when streamed, else the aggregate delta. */
+  settle(aggregate: TokenUsage): TokenUsage {
+    const step = this.takeStepUsage()
+    this.#streamed = false
+    if (step === undefined) return aggregate
+    return aggregate.reasoningTokens === undefined
+      ? step
+      : { ...step, reasoningTokens: aggregate.reasoningTokens }
+  }
 
   get snapshot(): UsageSnapshot {
     return this.#previous
