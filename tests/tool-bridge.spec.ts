@@ -14,6 +14,7 @@ import {
   resolveConfig,
 } from '../src/index.js'
 import { CLAUDE_TOOL_USE_ID_META } from '../src/tool-server.js'
+import type { AttachmentReader } from '../src/content.js'
 
 const sdkSession = '11111111-1111-4111-8111-111111111111'
 
@@ -251,10 +252,10 @@ async function collect(iterable: AsyncIterable<StreamChunk>): Promise<StreamChun
 }
 
 describe('DSH-owned MCP pause and resume', () => {
-  it('rebuilds a parked boundary with receipts and notifications once, then keeps a coherent warm cursor', async () => {
+  it('delivers text notifications at a parked boundary inside the last tool result without rebuilding', async () => {
     const queries: ToolQuery[] = []
     const factory: ClaudeQueryFactory = (r) => {
-      const q = new ToolQuery(r, queries.length > 0)
+      const q = new ToolQuery(r)
       queries.push(q)
       return q
     }
@@ -264,7 +265,66 @@ describe('DSH-owned MCP pause and resume', () => {
     try {
       const first = await collect(adapter.stream(request([user()])))
       const finish = first.findLast((c) => c.type === 'finish')!
-      const notice = { ...user(), id: 'policy' as never, content: [{ type: 'text' as const, text: 'approval=never; runtime updated; reply with receipt' }] }
+      const notice: Message = {
+        id: 'clock' as never,
+        role: 'user',
+        content: [{ type: 'text', text: 'Time sampled while preparing turn 1, step 2' }],
+        source: { kind: 'time-context', form: 'snapshot' } as never,
+      }
+      const messages = [user(), assistantTool(finish.replayState), toolResult(), notice]
+      const second = await collect(adapter.stream(request(messages)))
+      expect(second.at(-1)).toMatchObject({ reason: { kind: 'stop' } })
+      expect(queries).toHaveLength(1)
+      expect(queries[0]?.inputs).toHaveLength(1)
+      expect(queries[0]?.toolResults).toEqual([
+        expect.objectContaining({
+          content: [
+            { type: 'text', text: 'fixture-value' },
+            {
+              type: 'text',
+              text: '<system-reminder>\nDSH delivered the following message after this tool call. It is not part of the tool output.\n<message role="user" source="time-context:snapshot">\nTime sampled while preparing turn 1, step 2\n</message>\n</system-reminder>',
+            },
+          ],
+        }),
+      ])
+      const reply: Message = { id: 'reply' as never, role: 'assistant', source: { kind: 'model', provider: 'claude-sdk-local', model: 'default' }, content: [{ type: 'text', text: 'fixture-value' }] }
+      const third = await collect(adapter.stream(request([...messages, reply, { ...user(), id: 'next' as never }])))
+      expect(third.at(-1)).toMatchObject({ reason: { kind: 'stop' } })
+      expect(queries).toHaveLength(1)
+    } finally { await manager.dispose() }
+  })
+  it('rebuilds a parked boundary with receipts and non-text notifications once, then keeps a coherent warm cursor', async () => {
+    const queries: ToolQuery[] = []
+    const factory: ClaudeQueryFactory = (r) => {
+      const q = new ToolQuery(r, queries.length > 0)
+      queries.push(q)
+      return q
+    }
+    const subprocess = { resolveExecutable: vi.fn(async () => '/usr/local/bin/claude') } as unknown as SubprocessRuntime
+    const image = { attachmentId: 'sha256:notice-image' as never, mediaType: 'image/png' as const, bytes: 4, width: 1, height: 1 }
+    const attachments: AttachmentReader = {
+      imageLimits: { maxImageBytes: 8_388_608, maxImagesPerMessage: 20, maxMessageImageBytes: 20_971_520, maxImagePixels: 64_000_000, maxImageDimension: 8_000, mediaTypes: ['image/png'] },
+      readImageRequest: vi.fn(async () => ({
+        variantId: 'variant:notice-image' as never,
+        attachment: image,
+        data: Uint8Array.from([0x89, 0x50, 0x4e, 0x47]),
+        mediaType: 'image/png' as const,
+        bytes: 4, width: 1, height: 1, depth: 'uchar' as const, space: 'srgb' as const, hasAlpha: true,
+      })) as never,
+    }
+    const config = resolveConfig(), manager = new BridgeManager(subprocess, config, factory, attachments)
+    const adapter = new ClaudeCodeAdapter(config, manager)
+    try {
+      const first = await collect(adapter.stream(request([user()])))
+      const finish = first.findLast((c) => c.type === 'finish')!
+      const notice: Message = {
+        ...user(),
+        id: 'policy' as never,
+        content: [
+          { type: 'text', text: 'approval=never; runtime updated; reply with receipt' },
+          { type: 'image', attachment: image },
+        ],
+      }
       const messages = [user(), assistantTool(finish.replayState), toolResult(), notice]
       const second = await collect(adapter.stream(request(messages)))
       expect(second.at(-1)).toMatchObject({ reason: { kind: 'stop' } })
