@@ -11,6 +11,7 @@ import {
 import { resolveConfig } from '../src/index.js'
 import { StickyRouter } from '../src/routing/router.js'
 import { RouteBlocked, type Account, type Binding } from '../src/routing/types.js'
+import { transportError } from '../src/errors.js'
 import { StateStore } from '../src/storage/store.js'
 import { UsageHistory, addUsage } from '../src/metrics/history.js'
 import { ProviderCircuit, KeyedQueue, CapacitySignal, abortable } from '../src/routing/control.js'
@@ -178,6 +179,64 @@ describe('request isolation and controlled migration', () => {
       await p.dispose()
     }
   })
+  it('names a typed routing failure in the migrated attempt evidence', async () => {
+    let first = true
+    const p = provider({
+      createManager: (a, _c, observe) => ({
+        dispose: async () => {},
+        async *stream() {
+          if (first) {
+            first = false
+            observe(quota)
+            throw new RouteBlocked('TEST_ROUTE_BLOCKED')
+          }
+          yield stop
+        },
+      }),
+    })
+    new StickyRouter(p.store).register(acct('B'))
+    try {
+      expect((await collect(p)).at(-1)).toEqual(stop)
+      const h = new UsageHistory(p.store)
+      const failed = h.recent().find((x) => x.outcome === 'error')
+      expect(failed!.failure).toMatchObject({ code: 'TEST_ROUTE_BLOCKED' })
+    } finally {
+      await p.dispose()
+    }
+  })
+
+  it.each([
+    ['a string-coded error', transportError('fixture transport'), 'CLAUDE_TRANSPORT_ERROR'],
+    ['a non-string-coded error', Object.assign(new Error('numeric code'), { code: 42 }), 'SUBSCRIPTION_PROVIDER_FAILED'],
+  ])(
+    'names %s in the migrated attempt evidence',
+    async (_name, thrown, expected) => {
+      let first = true
+      const p = provider({
+        createManager: (a, _c, observe) => ({
+          dispose: async () => {},
+          async *stream() {
+            if (first) {
+              first = false
+              observe(quota)
+              throw thrown
+            }
+            yield stop
+          },
+        }),
+      })
+      new StickyRouter(p.store).register(acct('B'))
+      try {
+        expect((await collect(p)).at(-1)).toEqual(stop)
+        const h = new UsageHistory(p.store)
+        const failed = h.recent().find((x) => x.outcome === 'error')
+        expect(failed!.failure).toMatchObject({ code: expected })
+      } finally {
+        await p.dispose()
+      }
+    },
+  )
+
   it.each(['visible', 'retry', 'suspended', 'auth', 'request', 'billing'])(
     'never rotates for %s boundary',
     async (mode) => {
