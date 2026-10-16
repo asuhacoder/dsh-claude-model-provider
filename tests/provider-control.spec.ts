@@ -145,6 +145,36 @@ describe('request isolation and controlled migration', () => {
       }
     },
   )
+  it('records failure evidence for the migrated quota attempt', async () => {
+    let first = true
+    const p = provider({
+      createManager: (a, _c, observe) => ({
+        dispose: async () => {},
+        async *stream() {
+          if (first) {
+            first = false
+            observe(quota)
+            throw new Error('transport wrapper')
+          }
+          yield stop
+        },
+      }),
+    })
+    new StickyRouter(p.store).register(acct('B'))
+    try {
+      expect((await collect(p)).at(-1)).toEqual(stop)
+      const h = new UsageHistory(p.store)
+      const failed = h.recent().find((x) => x.outcome === 'error')
+      expect(failed).toBeDefined()
+      expect(failed!.failure).toMatchObject({
+        code: 'SUBSCRIPTION_PROVIDER_FAILED',
+        phase: 'generating',
+        chain: [{ name: 'Error' }],
+      })
+    } finally {
+      await p.dispose()
+    }
+  })
   it.each(['visible', 'retry', 'suspended', 'auth', 'request', 'billing'])(
     'never rotates for %s boundary',
     async (mode) => {
