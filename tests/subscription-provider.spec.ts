@@ -12,6 +12,7 @@ import { StickyRouter } from '../src/routing/router.js'
 import type { Account, Binding } from '../src/routing/types.js'
 import { RouteBlocked } from '../src/routing/types.js'
 import { imageOffloadRequired, transportError } from '../src/errors.js'
+import { noteFailureDetail } from '../src/failure-evidence.js'
 import type { UsageRecord } from '../src/metrics/history.js'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 
@@ -286,6 +287,23 @@ describe('subscription provider failure evidence', () => {
       })
       expect(record!.failure!.chain[0]!.frames[0]).toMatch(/subscription-provider\.spec\.ts:\d+/)
       expect(message + JSON.stringify(record)).not.toContain(secret)
+    } finally {
+      await p.dispose()
+    }
+  })
+
+  it('stores bounded failure detail beside the failure code', async () => {
+    const thrown = transportError('fixture transport broke')
+    noteFailureDetail(thrown, { partialBlocks: 2, firstDifference: 'index:0:name' })
+    const p = failing(thrown)
+    new StickyRouter(p.store).register(account('A'))
+    try {
+      await collect(p)
+      const [record] = p.store.list<UsageRecord>('usage')
+      expect(record!.failure).toMatchObject({
+        code: 'CLAUDE_TRANSPORT_ERROR',
+        detail: { partialBlocks: 2, firstDifference: 'index:0:name' },
+      })
     } finally {
       await p.dispose()
     }

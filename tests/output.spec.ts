@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import { ClaudeOutputTranslator } from '../src/output.js'
 import { UsageTracker } from '../src/usage.js'
+import { ClaudePluginError } from '../src/errors.js'
+import { describeFailureDetail } from '../src/failure-evidence.js'
 
 const session = '11111111-1111-4111-8111-111111111111'
 
@@ -523,6 +525,152 @@ describe('Claude output translation', () => {
     expect(() => translator.accept(envelope({ type: 'content_block_stop', index: 0 }))).toThrow(
       /did not reconcile/,
     )
+  })
+
+  it('describes the first reconciliation difference in failure evidence', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    let thrown: unknown
+    try {
+      acceptAll(translator, [
+        envelope({
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__bash', input: {} },
+        }),
+        envelope({
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'input_json_delta', partial_json: '{"command":"echo hi"}' },
+        }),
+        assistant([
+          { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__edit', input: { command: 'echo hi' } },
+        ]),
+        envelope({ type: 'content_block_stop', index: 0 }),
+      ])
+    } catch (error) {
+      thrown = error
+    }
+    expect(thrown).toBeInstanceOf(ClaudePluginError)
+    expect(describeFailureDetail(thrown)).toMatchObject({
+      partialBlocks: 1,
+      completedBlocks: 1,
+      firstDifference: 'index:0:name',
+    })
+  })
+
+  it('describes a block count mismatch in failure evidence', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    let thrown: unknown
+    try {
+      acceptAll(translator, [
+        envelope({
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__bash', input: {} },
+        }),
+        envelope({
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'input_json_delta', partial_json: '{"command":"echo hi"}' },
+        }),
+        assistant([
+          { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__bash', input: { command: 'echo hi' } },
+          { type: 'tool_use', id: 'toolu_2', name: 'mcp__dsh__bash', input: {} },
+        ]),
+        envelope({ type: 'content_block_stop', index: 0 }),
+      ])
+    } catch (error) {
+      thrown = error
+    }
+    expect(describeFailureDetail(thrown)).toMatchObject({
+      partialBlocks: 1,
+      completedBlocks: 2,
+      firstDifference: 'count:1:2',
+    })
+  })
+
+  it('describes a completed text mismatch beside a matching tool call in failure evidence', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    let thrown: unknown
+    try {
+      acceptAll(translator, [
+        envelope({
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__bash', input: {} },
+        }),
+        envelope({
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'input_json_delta', partial_json: '{"command":"echo hi"}' },
+        }),
+        envelope({
+          type: 'content_block_start',
+          index: 1,
+          content_block: { type: 'text', text: '', citations: null },
+        }),
+        envelope({
+          type: 'content_block_delta',
+          index: 1,
+          delta: { type: 'text_delta', text: 'streamed note' },
+        }),
+        assistant([
+          { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__bash', input: { command: 'echo hi' } },
+          { type: 'text', text: 'altered note' },
+        ]),
+        envelope({ type: 'content_block_stop', index: 0 }),
+        envelope({ type: 'content_block_stop', index: 1 }),
+      ])
+    } catch (error) {
+      thrown = error
+    }
+    expect(describeFailureDetail(thrown)).toMatchObject({
+      partialBlocks: 2,
+      completedBlocks: 2,
+      firstDifference: 'index:1:content',
+    })
+  })
+
+  it('describes a completed block type mismatch in failure evidence', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    let thrown: unknown
+    try {
+      acceptAll(translator, [
+        envelope({
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__bash', input: {} },
+        }),
+        envelope({
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'input_json_delta', partial_json: '{"command":"echo hi"}' },
+        }),
+        envelope({
+          type: 'content_block_start',
+          index: 1,
+          content_block: { type: 'text', text: '', citations: null },
+        }),
+        envelope({
+          type: 'content_block_delta',
+          index: 1,
+          delta: { type: 'text_delta', text: 'note' },
+        }),
+        assistant([
+          { type: 'text', text: 'note' },
+          { type: 'tool_use', id: 'toolu_9', name: 'mcp__dsh__bash', input: { command: 'echo hi' } },
+        ]),
+        envelope({ type: 'content_block_stop', index: 0 }),
+        envelope({ type: 'content_block_stop', index: 1 }),
+      ])
+    } catch (error) {
+      thrown = error
+    }
+    expect(describeFailureDetail(thrown)).toMatchObject({
+      partialBlocks: 2,
+      completedBlocks: 2,
+      firstDifference: 'index:0:type:tool-call:text',
+    })
   })
 
   it('accepts complete and empty tool arguments while rejecting malformed tool JSON', () => {

@@ -5,6 +5,7 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk'
 import type { ContentBlock, FinishReason, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import { CLAUDE_ERROR_CODES, claudeError, protocolError, toolProtocolError } from './errors.js'
+import { noteFailureDetail } from './failure-evidence.js'
 import { matchesEmittedToolArguments } from './json.js'
 import { asCallId, canonicalToolJson } from './pending-tools.js'
 import { DSH_MCP_TOOL_PREFIX, dshToolName } from './tool-server.js'
@@ -84,23 +85,40 @@ function resultFailure(error: SDKAssistantMessageError | undefined, result: SDKR
 }
 
 function sameBlocks(left: readonly ContentBlock[], right: readonly ContentBlock[]): boolean {
-  if (left.length !== right.length) return false
-  return left.every((block, index) => {
-    const other = right[index]
-    if (other === undefined || block.type !== other.type) return false
-    if (block.type === 'tool-call' && other.type === 'tool-call') {
-      if (block.id !== other.id || block.name !== other.name) return false
-      try {
-        return matchesEmittedToolArguments(
-          JSON.parse(block.arguments),
-          canonicalToolJson(JSON.parse(other.arguments)),
-        )
-      } catch {
-        return false
-      }
+  return firstBlockDifference(left, right) === undefined
+}
+
+function firstBlockDifference(
+  left: readonly ContentBlock[],
+  right: readonly ContentBlock[],
+): string | undefined {
+  if (left.length !== right.length) return `count:${left.length}:${right.length}`
+  for (let index = 0; index < left.length; index++) {
+    const block = left[index]!
+    const other = right[index]!
+    if (block.type !== other.type) {
+      return `index:${index}:type:${block.type}:${other.type}`
     }
-    return JSON.stringify(block) === JSON.stringify(other)
-  })
+    if (block.type === 'tool-call' && other.type === 'tool-call') {
+      if (block.id !== other.id) return `index:${index}:id`
+      if (block.name !== other.name) return `index:${index}:name`
+      try {
+        if (
+          !matchesEmittedToolArguments(
+            JSON.parse(block.arguments),
+            canonicalToolJson(JSON.parse(other.arguments)),
+          )
+        ) {
+          return `index:${index}:arguments`
+        }
+      } catch {
+        return `index:${index}:arguments-json`
+      }
+      continue
+    }
+    if (JSON.stringify(block) !== JSON.stringify(other)) return `index:${index}:content`
+  }
+  return undefined
 }
 
 function finish(reason: FinishReason): StreamChunk {
@@ -447,7 +465,13 @@ export class ClaudeOutputTranslator {
       throw protocolError('Claude omitted completed assistant reconciliation messages')
     }
     if (this.#completed.length > 0 && !sameBlocks(this.#closed, this.#completed)) {
-      throw protocolError('Claude partial and completed assistant content did not reconcile')
+      const error = protocolError('Claude partial and completed assistant content did not reconcile')
+      noteFailureDetail(error, {
+        partialBlocks: this.#closed.length,
+        completedBlocks: this.#completed.length,
+        firstDifference: firstBlockDifference(this.#closed, this.#completed) ?? 'unspecified',
+      })
+      throw error
     }
   }
 

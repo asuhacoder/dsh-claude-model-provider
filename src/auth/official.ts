@@ -89,12 +89,19 @@ export async function officialModels(command: string, profileRef: string): Promi
       persistSession: false,
     },
   })
-  const timer = setTimeout(() => q.close(), 20000)
+  const closeProbe = (): void => {
+    try {
+      q.close()
+    } catch {
+      // Deliberately ignored; the capability result is the outcome that matters.
+    }
+  }
+  const timer = setTimeout(closeProbe, 20000)
   try {
     return await q.supportedModels()
   } finally {
     clearTimeout(timer)
-    q.close()
+    closeProbe()
     input.close()
   }
 }

@@ -6,6 +6,7 @@ import type { GenerateOptions, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-
 import type SubprocessRuntime from '@deepseek-ai/dsh-subprocess'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import { BridgeManager, defaultQueryFactory, type ClaudeQueryFactory } from '../bridge.js'
+import { ClaudeDiagnostics, type DiagnosticLogger } from '../diagnostics.js'
 import type { ResolvedConfig } from '../index.js'
 import type { AttachmentReader } from '../content.js'
 import { StateStore } from '../storage/store.js'
@@ -22,6 +23,7 @@ import { publicFailureMessage } from '../errors.js'
 import {
   describeCleanupFailure,
   describeError,
+  describeFailureDetail,
   sdkEventKind,
   summarizeUnclassified,
   type FailureEvidence,
@@ -58,6 +60,7 @@ export interface ProviderDependencies {
   requestTimeoutMs?: number
   queueTimeoutMs?: number
   maxAttempts?: number
+  logger?: DiagnosticLogger
 }
 export interface AttemptObservation {
   failure?: 'quota' | 'auth' | 'suspended' | 'request' | 'server' | 'temporary' | 'billing'
@@ -167,6 +170,7 @@ export class SubscriptionProvider {
     return [...this.#pending.values()]
   }
   readonly now: () => number
+  readonly #diagnostics: ClaudeDiagnostics
   constructor(
     readonly subprocess: SubprocessRuntime,
     readonly config: ResolvedConfig,
@@ -174,6 +178,7 @@ export class SubscriptionProvider {
     readonly dependencies: ProviderDependencies = {},
   ) {
     this.now = dependencies.now ?? Date.now
+    this.#diagnostics = new ClaudeDiagnostics(config.debug, dependencies.logger)
   }
   get store(): StateStore {
     if (this.#closed) throw new RouteBlocked('PROVIDER_CLOSED')
@@ -295,12 +300,14 @@ export class SubscriptionProvider {
     const collectEvidence = (code: string, error?: unknown): FailureEvidence => {
       const trail = observed?.trail ?? { events: 0 },
         exit = this.#managers.get(key)?.manager.processExit,
-        cleanup = describeCleanupFailure(error)
+        cleanup = describeCleanupFailure(error),
+        detail = error === undefined ? undefined : describeFailureDetail(error)
       return {
         code,
         phase: this.#pending.get(requestId)?.phase ?? 'unknown',
         chain: error === undefined ? [] : describeError(error),
         ...(cleanup === undefined ? {} : { cleanup }),
+        ...(detail === undefined ? {} : { detail }),
         sdk: {
           ...trail,
           ...(trail.lastAt === undefined
@@ -385,6 +392,7 @@ export class SubscriptionProvider {
         usage = { inputTokens: 0, outputTokens: 0 }
         attemptRetries = 0
         attemptRecorded = false
+        evidence = undefined
         if (visited.has(binding.identity)) throw new RouteBlocked('ATTEMPT_BUDGET_EXHAUSTED')
         visited.add(binding.identity)
         circuit.enter(requestId, this.now())
@@ -454,6 +462,7 @@ export class SubscriptionProvider {
               configuration,
               factory,
               this.attachments,
+              this.#diagnostics,
             )
           }
           holder = created
@@ -521,6 +530,17 @@ export class SubscriptionProvider {
             attempts < (this.dependencies.maxAttempts ?? 3) &&
             !signal.aborted
           ) {
+            const migrationCode =
+              thrown instanceof RouteBlocked
+                ? thrown.code
+                : thrown instanceof Error &&
+                    'code' in thrown &&
+                    typeof thrown.code === 'string'
+                  ? thrown.code
+                  : terminal?.reason.kind === 'error'
+                    ? terminal.reason.failure.code
+                    : 'SUBSCRIPTION_PROVIDER_FAILED'
+            evidence = collectEvidence(migrationCode, thrown)
             recordAttempt()
             router.release(requestId)
             this.#capacity.notify()

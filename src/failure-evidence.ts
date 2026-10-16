@@ -3,6 +3,7 @@ import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 const MAX_LINKS = 3
 const MAX_FRAMES = 5
 const MAX_FRAME_LENGTH = 120
+const MAX_DETAIL_ENTRIES = 8
 const IDENTIFIER = /^[\w.:-]{1,64}$/
 
 /** One exception in a cause chain. Messages are never kept; they can quote payload. */
@@ -33,14 +34,39 @@ export interface FailureEvidence {
   cleanup?: FailureLink[]
   sdk: SdkTrail & { silentMs?: number }
   process?: ProcessExit
+  /** Bounded shape facts, for example which output blocks failed to reconcile. */
+  detail?: Record<string, string | number>
 }
 
 const cleanupFailures = new WeakMap<object, unknown>()
+const failureDetails = new WeakMap<object, Record<string, string | number>>()
 
 /** Remembers a cleanup failure beside the failure it must not replace. */
 export function noteCleanupFailure(first: unknown, cleanup: unknown): void {
   if (typeof first === 'object' && first !== null && !cleanupFailures.has(first))
     cleanupFailures.set(first, cleanup)
+}
+
+/** Remembers bounded payload-free shape facts beside the failure they describe. */
+export function noteFailureDetail(first: unknown, detail: Record<string, string | number>): void {
+  if (typeof first !== 'object' || first === null || failureDetails.has(first)) return
+  const entries = Object.entries(detail)
+    .filter(([key, value]) =>
+      IDENTIFIER.test(key)
+        ? typeof value === 'number'
+          ? Number.isFinite(value)
+          : IDENTIFIER.test(value)
+        : false,
+    )
+    .slice(0, MAX_DETAIL_ENTRIES)
+  if (entries.length > 0) failureDetails.set(first, Object.fromEntries(entries))
+}
+
+export function describeFailureDetail(
+  first: unknown,
+): Record<string, string | number> | undefined {
+  if (typeof first !== 'object' || first === null || !failureDetails.has(first)) return undefined
+  return failureDetails.get(first)
 }
 
 function identifier(value: unknown): string | undefined {
