@@ -507,6 +507,7 @@ export class SubscriptionProvider {
           }
           if (
             state.failure === 'server' ||
+            (thrown instanceof RouteBlocked && thrown.code === 'SDK_RETRY_BUDGET_EXHAUSTED') ||
             (thrown instanceof Error &&
               'code' in thrown &&
               thrown.code === 'CLAUDE_TRANSPORT_ERROR')
