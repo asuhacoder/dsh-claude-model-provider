@@ -392,6 +392,7 @@ export class SubscriptionProvider {
         usage = { inputTokens: 0, outputTokens: 0 }
         attemptRetries = 0
         attemptRecorded = false
+        evidence = undefined
         if (visited.has(binding.identity)) throw new RouteBlocked('ATTEMPT_BUDGET_EXHAUSTED')
         visited.add(binding.identity)
         circuit.enter(requestId, this.now())
