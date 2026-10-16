@@ -296,7 +296,9 @@ export class ClaudeCodeAdapter extends LlmAdapter {
 
 export function apply(ctx: Context, config: Config = {}): void {
   const resolved = resolveConfig(config)
-  const bridges = new SubscriptionProvider(ctx.subprocess, resolved, ctx.attachments)
+  const bridges = new SubscriptionProvider(ctx.subprocess, resolved, ctx.attachments, {
+    logger: ctx.logger,
+  })
   ctx.effect(() => () => bridges.dispose(), 'dsh-claude-plugin: bridge teardown')
   registerAccountUi(
     ctx,
