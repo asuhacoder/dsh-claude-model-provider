@@ -526,6 +526,18 @@ export class SubscriptionProvider {
             attempts < (this.dependencies.maxAttempts ?? 3) &&
             !signal.aborted
           ) {
+            const migrationCode =
+              thrown instanceof RouteBlocked
+                ? thrown.code
+                : thrown instanceof Error &&
+                    'code' in thrown &&
+                    typeof thrown.code === 'string' &&
+                    thrown.code.length > 0
+                  ? thrown.code
+                  : terminal?.reason.kind === 'error'
+                    ? terminal.reason.failure.code
+                    : 'SUBSCRIPTION_PROVIDER_FAILED'
+            evidence = collectEvidence(migrationCode, thrown)
             recordAttempt()
             router.release(requestId)
             this.#capacity.notify()
