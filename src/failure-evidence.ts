@@ -62,7 +62,6 @@ export function noteFailureDetail(first: unknown, detail: Record<string, string 
   if (entries.length > 0) failureDetails.set(first, Object.fromEntries(entries))
 }
 
-/** The shape facts noted for this failure, if any. */
 export function describeFailureDetail(
   first: unknown,
 ): Record<string, string | number> | undefined {

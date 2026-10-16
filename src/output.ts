@@ -88,7 +88,6 @@ function sameBlocks(left: readonly ContentBlock[], right: readonly ContentBlock[
   return firstBlockDifference(left, right) === undefined
 }
 
-/** Payload-free description of the first mismatch, for failure evidence. */
 function firstBlockDifference(
   left: readonly ContentBlock[],
   right: readonly ContentBlock[],
