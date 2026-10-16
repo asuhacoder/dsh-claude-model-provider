@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import { ClaudeOutputTranslator } from '../src/output.js'
 import { UsageTracker } from '../src/usage.js'
+import { ClaudePluginError } from '../src/errors.js'
+import { describeFailureDetail } from '../src/failure-evidence.js'
 
 const session = '11111111-1111-4111-8111-111111111111'
 
@@ -523,6 +525,37 @@ describe('Claude output translation', () => {
     expect(() => translator.accept(envelope({ type: 'content_block_stop', index: 0 }))).toThrow(
       /did not reconcile/,
     )
+  })
+
+  it('describes the first reconciliation difference in failure evidence', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    let thrown: unknown
+    try {
+      acceptAll(translator, [
+        envelope({
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__bash', input: {} },
+        }),
+        envelope({
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'input_json_delta', partial_json: '{"command":"echo hi"}' },
+        }),
+        assistant([
+          { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__edit', input: { command: 'echo hi' } },
+        ]),
+        envelope({ type: 'content_block_stop', index: 0 }),
+      ])
+    } catch (error) {
+      thrown = error
+    }
+    expect(thrown).toBeInstanceOf(ClaudePluginError)
+    expect(describeFailureDetail(thrown)).toMatchObject({
+      partialBlocks: 1,
+      completedBlocks: 1,
+      firstDifference: 'index:0:name',
+    })
   })
 
   it('accepts complete and empty tool arguments while rejecting malformed tool JSON', () => {
