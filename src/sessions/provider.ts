@@ -23,6 +23,7 @@ import { publicFailureMessage } from '../errors.js'
 import {
   describeCleanupFailure,
   describeError,
+  describeFailureDetail,
   sdkEventKind,
   summarizeUnclassified,
   type FailureEvidence,
@@ -299,12 +300,14 @@ export class SubscriptionProvider {
     const collectEvidence = (code: string, error?: unknown): FailureEvidence => {
       const trail = observed?.trail ?? { events: 0 },
         exit = this.#managers.get(key)?.manager.processExit,
-        cleanup = describeCleanupFailure(error)
+        cleanup = describeCleanupFailure(error),
+        detail = error === undefined ? undefined : describeFailureDetail(error)
       return {
         code,
         phase: this.#pending.get(requestId)?.phase ?? 'unknown',
         chain: error === undefined ? [] : describeError(error),
         ...(cleanup === undefined ? {} : { cleanup }),
+        ...(detail === undefined ? {} : { detail }),
         sdk: {
           ...trail,
           ...(trail.lastAt === undefined
