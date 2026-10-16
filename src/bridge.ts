@@ -24,6 +24,7 @@ import {
 } from './input.js'
 import { ClaudeOutputTranslator } from './output.js'
 import { ClaudeProcessFactory, resolveClaudeExecutable, sdkEnvironment } from './process.js'
+import { RouteBlocked } from './routing/types.js'
 import { createReplayEnvelope } from './replay.js'
 import { resolveClaudeEffort } from './models.js'
 import { DSH_MCP_SERVER_NAME, DshToolServer } from './tool-server.js'
@@ -189,7 +190,11 @@ class SessionBridge {
       else this.#invalidate(transportError('Claude SDK query ended unexpectedly'))
     } catch (error: unknown) {
       if (!this.#closed) {
-        this.#invalidate(transportError('Claude SDK query failed unexpectedly', error))
+        this.#invalidate(
+          error instanceof RouteBlocked || error instanceof ClaudePluginError
+            ? error
+            : transportError('Claude SDK query failed unexpectedly', error),
+        )
       }
     }
   }
