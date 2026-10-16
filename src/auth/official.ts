@@ -89,12 +89,20 @@ export async function officialModels(command: string, profileRef: string): Promi
       persistSession: false,
     },
   })
-  const timer = setTimeout(() => q.close(), 20000)
+  // A throwing close must never replace the capability result it is tearing down.
+  const closeProbe = (): void => {
+    try {
+      q.close()
+    } catch {
+      // The probe is being discarded either way.
+    }
+  }
+  const timer = setTimeout(closeProbe, 20000)
   try {
     return await q.supportedModels()
   } finally {
     clearTimeout(timer)
-    q.close()
+    closeProbe()
     input.close()
   }
 }
