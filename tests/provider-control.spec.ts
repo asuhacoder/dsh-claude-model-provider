@@ -171,6 +171,9 @@ describe('request isolation and controlled migration', () => {
         phase: 'generating',
         chain: [{ name: 'Error' }],
       })
+      const succeeded = h.recent().find((x) => x.outcome === 'response')
+      expect(succeeded).toBeDefined()
+      expect(succeeded!.failure).toBeUndefined()
     } finally {
       await p.dispose()
     }
