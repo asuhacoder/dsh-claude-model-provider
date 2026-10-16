@@ -535,8 +535,7 @@ export class SubscriptionProvider {
                 ? thrown.code
                 : thrown instanceof Error &&
                     'code' in thrown &&
-                    typeof thrown.code === 'string' &&
-                    thrown.code.length > 0
+                    typeof thrown.code === 'string'
                   ? thrown.code
                   : terminal?.reason.kind === 'error'
                     ? terminal.reason.failure.code

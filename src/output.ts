@@ -95,9 +95,9 @@ function firstBlockDifference(
   if (left.length !== right.length) return `count:${left.length}:${right.length}`
   for (let index = 0; index < left.length; index++) {
     const block = left[index]!
-    const other = right[index]
-    if (other === undefined || block.type !== other.type) {
-      return `index:${index}:type:${block.type}:${other?.type ?? 'missing'}`
+    const other = right[index]!
+    if (block.type !== other.type) {
+      return `index:${index}:type:${block.type}:${other.type}`
     }
     if (block.type === 'tool-call' && other.type === 'tool-call') {
       if (block.id !== other.id) return `index:${index}:id`
