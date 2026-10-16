@@ -13,6 +13,7 @@ import {
   resolveConfig,
 } from '../src/index.js'
 import { AsyncQueue } from '../src/async-queue.js'
+import { RouteBlocked } from '../src/routing/types.js'
 
 const sdkSession = '11111111-1111-4111-8111-111111111111'
 
@@ -560,6 +561,25 @@ describe('per-session Claude bridge', () => {
     expect(chunks.at(-1)).toMatchObject({
       type: 'finish',
       reason: { kind: 'error', failure: { code: 'CLAUDE_TRANSPORT_ERROR' } },
+    })
+    await fixture.manager.dispose()
+  })
+
+  it('passes a typed routing failure from the SDK iterator through unchanged', async () => {
+    const fixture = harness((query) => query.fail(new RouteBlocked('SDK_RETRY_BUDGET_EXHAUSTED')))
+    await expect(
+      collect(fixture.manager.stream(request([user('u1', 'hello')], 'routing-failure-session'), 'sonnet')),
+    ).rejects.toMatchObject({ name: 'RouteBlocked', code: 'SDK_RETRY_BUDGET_EXHAUSTED' })
+    await fixture.manager.dispose()
+  })
+
+  it('still wraps an untyped SDK iterator failure as a transport error', async () => {
+    const fixture = harness((query) => query.fail(new TypeError('fixture iterator broke')))
+    await expect(
+      collect(fixture.manager.stream(request([user('u1', 'hello')], 'untyped-failure-session'), 'sonnet')),
+    ).rejects.toMatchObject({
+      name: 'ClaudePluginError',
+      code: 'CLAUDE_TRANSPORT_ERROR',
     })
     await fixture.manager.dispose()
   })
