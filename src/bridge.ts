@@ -211,9 +211,12 @@ class SessionBridge {
     } catch (cleanup: unknown) {
       noteCleanupFailure(error, cleanup)
     }
-    void this.#toolServer.close(
-      error instanceof Error ? protocolError(error.message, error) : protocolError('bridge closed'),
-    )
+    // A rejecting MCP close is secondary evidence; it must not become an unhandled rejection.
+    this.#toolServer
+      .close(
+        error instanceof Error ? protocolError(error.message, error) : protocolError('bridge closed'),
+      )
+      .catch((cleanup: unknown) => noteCleanupFailure(error, cleanup))
     this.onClosed(this)
   }
 
