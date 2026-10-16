@@ -88,6 +88,14 @@ it('queries capabilities without enqueueing inference and always closes', async 
   await expect(officialModels('claude', 'default')).rejects.toThrow('control failed')
   expect(fake.close).toHaveBeenCalledTimes(2)
 })
+
+it('keeps the capability failure when closing the probe also fails', async () => {
+  fake.models.mockRejectedValue(new Error('models failed'))
+  fake.close.mockImplementationOnce(() => {
+    throw new Error('close failed')
+  })
+  await expect(officialModels('claude', 'default')).rejects.toThrow('models failed')
+})
 it('verifies before and after control, retains only profile reference and enforces billing confirmation', async () => {
   const s = new StateStore(':memory:')
   try {
