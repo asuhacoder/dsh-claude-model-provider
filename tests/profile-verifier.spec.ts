@@ -50,6 +50,23 @@ describe('DSH profile dump verifier', () => {
     })
   })
 
+  it('rejects adding or dropping a !!js tag on a protected value', () => {
+    const tagDropped = installed.replace(
+      'root: !!js process.env.DSH_HOME',
+      'root: process.env.DSH_HOME',
+    )
+    expect(verifyProfileTransition(before, tagDropped).issues.map((entry) => entry.code)).toEqual([
+      'PROFILE_ROW_CHANGED',
+    ])
+    const restoreDropped = before.replace('root: !!js', 'root:')
+    expect(
+      verifyProfileTransition(before, installed, restoreDropped).issues.map((entry) => entry.code),
+    ).toEqual(['PROFILE_REMOVE_ROW_CHANGED'])
+    expect(verifyProfileTransition(restoreDropped, installed).issues.map((e) => e.code)).toEqual([
+      'PROFILE_ROW_CHANGED',
+    ])
+  })
+
   it('rejects changes to security, tool, session, or unexpected rows', () => {
     const policyChanged = installed.replace('gate: strict', 'gate: disabled')
     expect(verifyProfileTransition(before, policyChanged).issues).toEqual(

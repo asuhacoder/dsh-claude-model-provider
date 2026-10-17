@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { parseDocument } from 'yaml'
-const parse = (source) => parseDocument(source).toJS()
+import { taggedValue } from '../lib/profile-verifier.js'
+const parse = (source) => taggedValue(parseDocument(source))
 const root = resolve('.'),
   temp = mkdtempSync(join(tmpdir(), 'dsh-provider-install-'))
 const coexist = process.argv.includes('--coexist')

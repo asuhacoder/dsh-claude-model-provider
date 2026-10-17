@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer'
-import { parseDocument } from 'yaml'
+import { isScalar, parseDocument, visit, type Document } from 'yaml'
 import { canonicalToolJson } from './json.js'
 
 export const PROFILE_VERIFIER_SCHEMA_VERSION = 1
@@ -36,6 +36,21 @@ function hasControlCharacter(value: string): boolean {
   return false
 }
 
+const JS_TAG = 'tag:yaml.org,2002:js'
+
+/** Plain JS value that keeps `!!js` tags visible, since DSH evaluates tagged scalars. */
+export function taggedValue(document: Document): unknown {
+  visit(document, {
+    Node(_key, node) {
+      if (node.tag !== JS_TAG) return
+      if (!isScalar(node)) throw new Error('Unsupported !!js node')
+      node.value = { '!!js': String(node.value) }
+      delete node.tag
+    },
+  })
+  return document.toJS({ mapAsMap: false, maxAliasCount: 0 })
+}
+
 function parseRows(label: string, source: string): ConfigRow[] {
   if (Buffer.byteLength(source, 'utf8') > MAX_PROFILE_DUMP_BYTES) {
     throw new Error(`${label} exceeds the ${MAX_PROFILE_DUMP_BYTES}-byte profile dump bound`)
@@ -51,7 +66,7 @@ function parseRows(label: string, source: string): ConfigRow[] {
   if (unsupportedWarning !== undefined) {
     throw new Error(`${label} contains an unsupported YAML warning`)
   }
-  const value: unknown = document.toJS({ mapAsMap: false, maxAliasCount: 0 })
+  const value = taggedValue(document)
   if (!Array.isArray(value)) throw new Error(`${label} must be a top-level YAML array`)
   const rows: ConfigRow[] = []
   const ids = new Set<string>()
