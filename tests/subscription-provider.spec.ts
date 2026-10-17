@@ -137,6 +137,45 @@ describe('subscription provider request boundary', () => {
       await p.dispose()
     }
   })
+  it('does not start generation when the account is revoked while its auth check is pending', async () => {
+    const p = provider()
+    new StickyRouter(p.store).register(account('A'))
+    fake.authenticate.mockImplementation(() => {
+      const revoked = p.store.get<Account>('accounts', 'A')!
+      delete revoked.extraUsageOffConfirmedAt
+      revoked.state = 'AUTH_REQUIRED'
+      p.store.set('accounts', 'A', revoked)
+      return Promise.resolve()
+    })
+    try {
+      expect(await collect(p)).toMatchObject([
+        {
+          type: 'finish',
+          reason: { kind: 'error', failure: { code: 'EXTRA_USAGE_OFF_UNCONFIRMED' } },
+        },
+      ])
+      expect(fake.streams).not.toHaveBeenCalled()
+      expect(p.store.list('reservations')).toEqual([])
+    } finally {
+      await p.dispose()
+    }
+  })
+  it('does not start generation when a login begins while its auth check is pending', async () => {
+    const p = provider()
+    new StickyRouter(p.store).register(account('A'))
+    fake.authenticate.mockImplementation(() => {
+      p.store.set('meta', 'auth-mutation', true)
+      return Promise.resolve()
+    })
+    try {
+      expect(await collect(p)).toMatchObject([
+        { type: 'finish', reason: { kind: 'error', failure: { code: 'AUTH_BUSY' } } },
+      ])
+      expect(fake.streams).not.toHaveBeenCalled()
+    } finally {
+      await p.dispose()
+    }
+  })
   it('releases a reservation when official identity verification rejects', async () => {
     const p = provider()
     new StickyRouter(p.store).register(account('A'))

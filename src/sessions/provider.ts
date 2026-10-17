@@ -417,6 +417,16 @@ export class SubscriptionProvider {
             this.#closeIfIdle()
           })
         await abortable(authPromise, signal)
+        // A concurrent request or login may have revoked the account while this one awaited auth.
+        const current = store.get<Account>('accounts', account.identity)
+        if (store.get('meta', 'auth-mutation')) throw new RouteBlocked('AUTH_BUSY')
+        if (!current?.extraUsageOffConfirmedAt)
+          throw new RouteBlocked('EXTRA_USAGE_OFF_UNCONFIRMED')
+        if (
+          !['READY', 'DRAINING', 'COOLDOWN'].includes(current.state) ||
+          current.profileRef !== account.profileRef
+        )
+          throw new RouteBlocked('ACCOUNT_STATE_CHANGED')
         this.#pending.set(requestId, { phase: 'generating', identity: account.identity })
         let holder = this.#managers.get(key)
         if (holder && holder.generation !== binding.generation) {
@@ -510,9 +520,12 @@ export class SubscriptionProvider {
             state.failure === 'suspended' ||
             state.failure === 'billing'
           ) {
-            account.state = state.failure === 'suspended' ? 'SUSPENDED' : 'AUTH_REQUIRED'
-            if (state.failure === 'billing') delete account.extraUsageOffConfirmedAt
-            store.set('accounts', account.identity, account)
+            const latest = store.get<Account>('accounts', account.identity)
+            if (latest) {
+              latest.state = state.failure === 'suspended' ? 'SUSPENDED' : 'AUTH_REQUIRED'
+              if (state.failure === 'billing') delete latest.extraUsageOffConfirmedAt
+              store.set('accounts', latest.identity, latest)
+            }
           }
           if (
             state.failure === 'server' ||
