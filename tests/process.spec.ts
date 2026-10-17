@@ -12,6 +12,7 @@ import {
   sdkEnvironment,
 } from '../src/process.js'
 import { resolveConfig } from '../src/index.js'
+import { profileEnvironment } from '../src/auth/official.js'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -162,6 +163,36 @@ describe('managed Claude process adapter', () => {
       },
     })
     fixture.done.resolve({ exitCode: 0, signal: null })
+  })
+
+  it('resolves the default profile like the auth check, ignoring an ambient CLAUDE_CONFIG_DIR', () => {
+    const previous = process.env.CLAUDE_CONFIG_DIR
+    process.env.CLAUDE_CONFIG_DIR = '/ambient/other-profile'
+    try {
+      const spawned = (profileRef: string): Record<string, string | undefined> => {
+        const fixture = handleFixture()
+        const spawn = vi.fn((_spec: SubprocessSpawnSpec) => fixture.handle)
+        const factory = new ClaudeProcessFactory(
+          { spawn } as unknown as SubprocessRuntime,
+          resolveConfig({ profileRef, passEnv: ['CLAUDE_CONFIG_DIR'] }),
+        )
+        factory.spawn({
+          command: 'claude',
+          args: [],
+          env: sdkEnvironment(['CLAUDE_CONFIG_DIR']),
+          signal: new AbortController().signal,
+        })
+        fixture.done.resolve({ exitCode: 0, signal: null })
+        return spawn.mock.calls[0]![0].env as Record<string, string | undefined>
+      }
+      expect(spawned('default').CLAUDE_CONFIG_DIR).toBeUndefined()
+      expect(profileEnvironment('default').CLAUDE_CONFIG_DIR).toBeUndefined()
+      expect(spawned('/profiles/b').CLAUDE_CONFIG_DIR).toBe('/profiles/b')
+      expect(profileEnvironment('/profiles/b').CLAUDE_CONFIG_DIR).toBe('/profiles/b')
+    } finally {
+      if (previous === undefined) delete process.env.CLAUDE_CONFIG_DIR
+      else process.env.CLAUDE_CONFIG_DIR = previous
+    }
   })
 
   it('terminates and waits for every tracked process at disposal', async () => {

@@ -26,7 +26,6 @@ export const CLAUDE_RUNTIME_ENV = new Set([
   'LOGNAME',
   'USER',
   'USERNAME',
-  'CLAUDE_CONFIG_DIR',
   'USERPROFILE',
 ])
 
@@ -50,6 +49,8 @@ export function filterClaudeEnvironment(
       filtered.CLAUDE_CODE_MAX_OUTPUT_TOKENS = value
       continue
     }
+    // The profile comes only from config.profileRef, matching the auth check's environment.
+    if (folded === 'CLAUDE_CONFIG_DIR') continue
     if (folded.startsWith('DSH_') || SENSITIVE_ENV_PATTERN.test(name)) continue
     if (!REQUIRED_SDK_ENV.has(folded) && !CLAUDE_RUNTIME_ENV.has(folded) && !optedIn.has(folded)) {
       continue
