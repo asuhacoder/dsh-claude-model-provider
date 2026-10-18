@@ -61,6 +61,18 @@ DSH receives conservative 200k context metadata for known Claude families until 
 
 Defaults are `queueTimeoutMs=120000`, `requestTimeoutMs=600000` after account admission, and `maxGenerations=50`. Queue time no longer consumes the execution deadline. These are bounded operational defaults, not empirically optimal settings.
 
+## Configuration for long-running sessions
+
+`maxGenerations` controls the maximum SDK turns (tool call rounds) before the session requires a continuation prompt. The default of 50 may be insufficient for computer-use plugins or other scenarios requiring many tool actions. Configure it via the plugin config:
+
+```typescript
+{
+  maxGenerations: 200  // Allow up to 200 turns per session; range 1-1000
+}
+```
+
+For computer-use workflows, values of 100-500 are typical. Higher values increase the risk of runaway sessions; consider using explicit continuation prompts for extended tasks. The Claude SDK does not currently support automatic continuation; when `CLAUDE_MAX_TURNS` is reached, the user must send a continuation message. Implementing automatic continuation is technically feasible but carries safety risks and is deferred.
+
 The management CLI preserves executable permissions, supports bin symlinks, and bundles its JavaScript peers so it can start outside the DSH host loader. It resolves its installed/current DSH profile's composed state directory. Use `--dsh-profile web` from elsewhere, or `--state /absolute/private/state` to override it. Failed profile resolution never silently opens another store. `accounts list` reports the selected directory.
 
 `test:live:interruption` requires `--live`, `--state` pointing to an account with existing Extra usage OFF confirmation, and a private `--report` destination. It uses isolated state and no-op tools. A 14-request real test covered mixed notifications, compaction-purpose generation, restart recovery, a 281 KB replay, 128-token truncation, and max-turn recovery. Long-running stability, all GUI automatic-compaction paths, and multiple real accounts are outside that test.

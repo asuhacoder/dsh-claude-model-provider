@@ -112,7 +112,7 @@ export const Config: z<Config> = z.object({
   debug: z.boolean().default(false),
   profileRef: z.string().default('default'),
   portableColdStart: z.boolean().default(false),
-  maxGenerations: z.number().min(1).max(100).default(50),
+  maxGenerations: z.number().min(1).max(1000).default(50),
   stateDirectory: z.string().default(''),
   requestTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(600000),
   queueTimeoutMs: z.number().min(1).max(MAX_TIMER_DELAY_MS).default(120000),
