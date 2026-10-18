@@ -8,6 +8,7 @@ import {
   toMcpToolResult,
 } from '../src/pending-tools.js'
 import type { ClaudePluginError } from '../src/errors.js'
+import { describeFailureDetail } from '../src/failure-evidence.js'
 
 function call(id: string, name: string, args = '{}'): ToolCallBlock {
   return { type: 'tool-call', id: id as never, name, arguments: args }
@@ -123,6 +124,68 @@ describe('pending DSH tool correlation', () => {
     await expect(a).rejects.toThrow()
     await expect(b).rejects.toThrow()
     expect(failures).toHaveLength(1)
+  })
+
+  it('records diagnostic details for ID mismatch when count matches', async () => {
+    const { failures, pending } = fixture()
+    const registered = pending.register({
+      id: 'toolu_original',
+      name: 'read',
+      arguments: {},
+      generation: 1,
+    })
+
+    let thrown: unknown
+    try {
+      await pending.assertBoundary([call('toolu_retried', 'read')], 1)
+    } catch (error) {
+      thrown = error
+    }
+
+    await expect(registered).rejects.toThrow()
+    expect(thrown).toBeDefined()
+    expect(failures).toHaveLength(1)
+
+    const detail = describeFailureDetail(thrown)
+    expect(detail).toBeDefined()
+    expect(detail).toMatchObject({
+      expectedCount: 1,
+      registeredCount: 1,
+      mismatchedIds: 1,
+    })
+  })
+
+  it('records diagnostic details for multi-tool ID mismatch scenario', async () => {
+    const { failures, pending } = fixture()
+    const regA = pending.register({ id: 'a', name: 'read', arguments: {}, generation: 1 })
+    const regB = pending.register({ id: 'b', name: 'write', arguments: {}, generation: 1 })
+    const regC = pending.register({ id: 'c', name: 'edit', arguments: {}, generation: 1 })
+
+    let thrown: unknown
+    try {
+      // 'a' matches, but 'x' is the first unknown ID (fails immediately)
+      await pending.assertBoundary(
+        [call('a', 'read'), call('x', 'write'), call('y', 'edit')],
+        1,
+      )
+    } catch (error) {
+      thrown = error
+    }
+
+    await expect(regA).rejects.toThrow()
+    await expect(regB).rejects.toThrow()
+    await expect(regC).rejects.toThrow()
+    expect(thrown).toBeDefined()
+    expect(failures).toHaveLength(1)
+
+    // mismatchedIds is 1 because error throws at first unknown ID (fail-fast)
+    const detail = describeFailureDetail(thrown)
+    expect(detail).toBeDefined()
+    expect(detail).toMatchObject({
+      expectedCount: 3,
+      registeredCount: 3,
+      mismatchedIds: 1,
+    })
   })
 
   it('rejects duplicate Claude IDs and stale, duplicate, unknown, or missing DSH results', async () => {

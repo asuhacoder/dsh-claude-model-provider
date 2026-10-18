@@ -932,4 +932,39 @@ describe('Claude output translation', () => {
       acceptAll(new ClaudeOutputTranslator(new UsageTracker()), messages as SDKMessage[]),
     ).toThrow()
   })
+
+  it('ignores unknown stream event types to tolerate new SDK events like ping', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    const unknownEvent = envelope({ type: 'ping', timestamp: Date.now() })
+    const chunks = translator.accept(unknownEvent)
+    expect(chunks).toEqual([])
+    expect(translator.complete).toBe(false)
+
+    const anotherUnknown = envelope({ type: 'heartbeat', interval: 1000 })
+    const moreChunks = translator.accept(anotherUnknown)
+    expect(moreChunks).toEqual([])
+
+    const finalChunks = acceptAll(translator, [
+      envelope({
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'text', text: 'after unknown', citations: null },
+      }),
+      envelope({ type: 'content_block_stop', index: 0 }),
+      assistant([{ type: 'text', text: 'after unknown', citations: null }]),
+      result(),
+    ])
+    expect(finalChunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'stop' } })
+    expect(translator.complete).toBe(true)
+  })
+
+  it('tracks ignored event types in the usage record for diagnostics', () => {
+    const usage = new UsageTracker()
+    const translator = new ClaudeOutputTranslator(usage)
+    translator.accept(envelope({ type: 'ping', timestamp: 1 }))
+    translator.accept(envelope({ type: 'ping', timestamp: 2 }))
+    translator.accept(envelope({ type: 'heartbeat', interval: 1000 }))
+
+    expect(usage.snapshot.ignoredEventTypes).toEqual({ ping: 2, heartbeat: 1 })
+  })
 })

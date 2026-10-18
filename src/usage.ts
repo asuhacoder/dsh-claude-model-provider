@@ -25,6 +25,8 @@ export interface UsageSnapshot {
   readonly costUsd?: number
   readonly queryCostUsd?: number
   readonly models?: readonly ModelUsageSnapshot[]
+  /** Event types seen at runtime but not handled, for diagnostic trace. */
+  readonly ignoredEventTypes?: Readonly<Record<string, number>>
 }
 
 export interface UsageTelemetryDelta {
@@ -191,6 +193,7 @@ export class UsageTracker {
   #call: CallUsage = zeroCall()
   #unreported: CallUsage = zeroCall()
   #streamed = false
+  #ignoredEventTypes: Record<string, number> = {}
 
   /** `message_start` opens a call; `message_delta` carries its cumulative counts. */
   observeCall(usage: StreamUsage | undefined, start: boolean): void {
@@ -228,7 +231,21 @@ export class UsageTracker {
   }
 
   get snapshot(): UsageSnapshot {
-    return this.#previous
+    const ignoredEventTypes =
+      Object.keys(this.#ignoredEventTypes).length > 0
+        ? Object.freeze({ ...this.#ignoredEventTypes })
+        : undefined
+    return ignoredEventTypes === undefined
+      ? this.#previous
+      : Object.freeze({ ...this.#previous, ignoredEventTypes })
+  }
+
+  /** Record an event type received at runtime that the translator does not handle. */
+  noteIgnoredEventType(eventType: string): void {
+    const sanitized = typeof eventType === 'string' && /^[\w.:-]{1,64}$/.test(eventType)
+      ? eventType
+      : 'unrecognized'
+    this.#ignoredEventTypes[sanitized] = (this.#ignoredEventTypes[sanitized] ?? 0) + 1
   }
 
   get telemetryDelta(): UsageTelemetryDelta {
