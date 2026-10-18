@@ -1,5 +1,8 @@
 import {readFileSync} from 'node:fs'
+import { createRequire } from 'node:module'
 import { describe, expect, it, vi } from 'vitest'
+
+const require = createRequire(import.meta.url)
 import {
   MAX_DOCTOR_OUTPUT_BYTES,
   type DoctorCommandResult,
@@ -331,6 +334,40 @@ describe('dsh-claude-plugin doctor', () => {
       status: 'fail',
       details: { failure: 'reply-mismatch', resultSubtype: 'success' },
     })
+  })
+
+  it('validates peer range accepts 0.2.x prereleases under default npm semver', () => {
+    const peerRange =
+      '>=0.2.0-rc.2 <0.2.1-0 || >=0.2.1-0 <0.2.2-0 || >=0.2.2-0 <0.2.3-0 || ' +
+      '>=0.2.3-0 <0.2.4-0 || >=0.2.4-0 <0.2.5-0 || >=0.2.5-0 <0.2.6-0 || ' +
+      '>=0.2.6-0 <0.2.7-0 || >=0.2.7-0 <0.2.8-0 || >=0.2.8-0 <0.2.9-0 || >=0.2.9-0 <0.3.0-0'
+    const semver = require('semver') as { satisfies: (v: string, r: string) => boolean }
+    const acceptedByBoth = [
+      '0.2.0-rc.2',
+      '0.2.0-rc.3',
+      '0.2.0',
+      '0.2.1-0',
+      '0.2.1-alpha.1',
+      '0.2.1-rc.2',
+      '0.2.1',
+      '0.2.2-alpha.1',
+      '0.2.5-rc.1',
+      '0.2.9-rc.1',
+      '0.2.9',
+      '0.2.10',
+      '0.2.99',
+    ]
+    const rejectedByBoth = ['0.2.0-rc.1', '0.1.9', '0.3.0-0', '0.3.0-alpha.1', '0.3.0']
+    for (const version of acceptedByBoth) {
+      expect(satisfiesVersionRange(version, peerRange)).toBe(true)
+      expect(semver.satisfies(version, peerRange)).toBe(true)
+    }
+    for (const version of rejectedByBoth) {
+      expect(satisfiesVersionRange(version, peerRange)).toBe(false)
+      expect(semver.satisfies(version, peerRange)).toBe(false)
+    }
+    expect(satisfiesVersionRange('0.2.10-rc.1', peerRange)).toBe(true)
+    expect(semver.satisfies('0.2.10-rc.1', peerRange)).toBe(false)
   })
 
   it('validates configuration and semver including prerelease lower bounds', async () => {
