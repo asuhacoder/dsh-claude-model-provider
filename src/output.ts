@@ -349,6 +349,14 @@ export class ClaudeOutputTranslator {
         chunks.push(...this.#finishTools())
         return chunks
       }
+      default: {
+        // Unknown event types (e.g. 'ping', new SDK events) are tolerated:
+        // record for diagnostics but don't crash the turn. Type assertion
+        // ensures known types above are exhaustive at compile time.
+        const unknownType: string = (event as { type: string }).type
+        this.usage.noteIgnoredEventType(unknownType)
+        return []
+      }
     }
   }
 

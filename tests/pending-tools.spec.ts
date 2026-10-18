@@ -163,6 +163,7 @@ describe('pending DSH tool correlation', () => {
 
     let thrown: unknown
     try {
+      // 'a' matches, but 'x' is the first unknown ID (fails immediately)
       await pending.assertBoundary(
         [call('a', 'read'), call('x', 'write'), call('y', 'edit')],
         1,
@@ -177,12 +178,13 @@ describe('pending DSH tool correlation', () => {
     expect(thrown).toBeDefined()
     expect(failures).toHaveLength(1)
 
+    // mismatchedIds is 1 because error throws at first unknown ID (fail-fast)
     const detail = describeFailureDetail(thrown)
     expect(detail).toBeDefined()
     expect(detail).toMatchObject({
       expectedCount: 3,
       registeredCount: 3,
-      mismatchedIds: 2,
+      mismatchedIds: 1,
     })
   })
 

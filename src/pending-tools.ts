@@ -3,6 +3,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import type { ToolCallId as CallId, ToolCallBlock } from '@deepseek-ai/dsh-llm'
 import { ClaudeContentEncoder } from './content.js'
 import { ClaudePluginError, toolProtocolError, toolTimeout } from './errors.js'
+import { noteFailureDetail } from './failure-evidence.js'
 import { canonicalToolJson, matchesEmittedToolArguments } from './json.js'
 
 export { canonicalToolJson } from './json.js'
@@ -214,13 +215,23 @@ export class PendingTools {
       await this.#waitForRegistration(calls.length, signal)
       if (this.#failure !== undefined) throw this.#failure
       const emitted = new Set<string>()
+      const mismatchedIds: string[] = []
       for (const call of calls) {
         const id = String(call.id)
         if (emitted.has(id)) throw toolProtocolError(`DSH emitted duplicate tool-call ID ${id}`)
         emitted.add(id)
         const pending = this.#pending.get(id)
         if (pending === undefined) {
-          throw toolProtocolError(`DSH tool boundary contains unknown Claude tool-use ID ${id}`)
+          mismatchedIds.push(id)
+          const error = toolProtocolError(
+            `DSH tool boundary contains unknown Claude tool-use ID ${id}`,
+          )
+          noteFailureDetail(error, {
+            expectedCount: calls.length,
+            registeredCount: this.#pending.size,
+            mismatchedIds: mismatchedIds.length,
+          })
+          throw error
         }
         if (pending.generation !== generation) {
           throw toolProtocolError(`DSH tool boundary contains a stale catalog generation for ${id}`)
@@ -233,7 +244,15 @@ export class PendingTools {
         }
       }
       if (emitted.size !== this.#pending.size) {
-        throw toolProtocolError('Claude MCP registered tool calls absent from the DSH boundary')
+        const error = toolProtocolError(
+          'Claude MCP registered tool calls absent from the DSH boundary',
+        )
+        noteFailureDetail(error, {
+          expectedCount: calls.length,
+          registeredCount: this.#pending.size,
+          mismatchedIds: this.#pending.size - emitted.size,
+        })
+        throw error
       }
     } catch (error: unknown) {
       if (error instanceof ClaudePluginError) throw this.#fail(error)
