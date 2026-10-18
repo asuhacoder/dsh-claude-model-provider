@@ -27,9 +27,6 @@ importers:
       '@deepseek-ai/dsh-attachment':
         specifier: 0.2.0-rc.2
         version: 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-brand@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))
-      '@deepseek-ai/dsh-invariants':
-        specifier: 0.2.0-rc.2
-        version: 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
       '@deepseek-ai/dsh-llm':
         specifier: 0.2.0-rc.2
         version: 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
@@ -201,11 +198,6 @@ packages:
 
   '@deepseek-ai/dsh-http-proxy@0.2.0-rc.2':
     resolution: {integrity: sha512-zIGscCHeW6MUIKrksxhW03McWtKKpaDVVMf877bt51ZPP8p4UG8KmBUqJmX2l3eVoHeuuEyqM5zJSCj5NtSBGg==}
-    peerDependencies:
-      '@deepseek-ai/cordis': ~4.0.4
-
-  '@deepseek-ai/dsh-invariants@0.2.0-rc.2':
-    resolution: {integrity: sha512-QOVc0HpRsS8ekvprb45FlxieDvgR/cAMaxW289HASjMoV/U/B54FpbkHuPBw4EnTw07/sPkjx2B/23+YqE0cbg==}
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
 
@@ -1679,11 +1671,6 @@ snapshots:
     dependencies:
       '@deepseek-ai/cordis': 4.0.4
       undici: 8.11.2
-
-  '@deepseek-ai/dsh-invariants@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)':
-    dependencies:
-      '@deepseek-ai/cordis': 4.0.4
-      '@deepseek-ai/schemastery': 3.18.4
 
   '@deepseek-ai/dsh-lazy-require@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)':
     dependencies:
