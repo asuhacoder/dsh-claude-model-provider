@@ -48,6 +48,8 @@ const result = () =>
     modelUsage: {},
   })
 const recovering = () => new ClaudeOutputTranslator(new UsageTracker(), false, true)
+const recoveringWithCatalog = (tools: string[]) =>
+  new ClaudeOutputTranslator(new UsageTracker(), false, true, new Set(tools))
 
 describe('SDK rejection of unavailable tools', () => {
   it('lets the SDK reject a bare tool, then exposes only the corrected DSH MCP call', () => {
@@ -116,5 +118,61 @@ describe('SDK rejection of unavailable tools', () => {
         .filter((block) => block.type === 'tool-call')
         .map((call) => call.id),
     ).toEqual(['good'])
+  })
+})
+
+describe('Unknown DSH tool recovery', () => {
+  it('ignores a DSH-prefixed tool not in the catalog and marks it as already denied', () => {
+    const translator = recoveringWithCatalog(['bash', 'read'])
+    const unknownChunks = tool(translator, 'bad', 'mcp__dsh__press_key')
+    expect(unknownChunks).toEqual([])
+    expect(translator.complete).toBe(false)
+    expect(translator.toolCalls).toHaveLength(0)
+  })
+
+  it('processes known DSH tools normally alongside unknown ones', () => {
+    const translator = recoveringWithCatalog(['bash'])
+    const unknownChunks = tool(translator, 'bad', 'mcp__dsh__press_key')
+    expect(unknownChunks).toEqual([])
+    const knownChunks = tool(translator, 'good', 'mcp__dsh__bash', 1)
+    expect(knownChunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'tool-calls' } })
+    expect(translator.toolCalls.map((call) => [call.id, call.name])).toEqual([['good', 'bash']])
+  })
+
+  it('completes immediately for unknown DSH tools without waiting for denial', () => {
+    const translator = recoveringWithCatalog(['bash'])
+    tool(translator, 'unknown', 'mcp__dsh__press_key')
+    const knownChunks = tool(translator, 'good', 'mcp__dsh__bash', 1)
+    expect(knownChunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'tool-calls' } })
+    expect(translator.complete).toBe(true)
+  })
+
+  it('still requires SDK denial for non-DSH unavailable tools even with catalog', () => {
+    const translator = recoveringWithCatalog(['bash'])
+    const bareChunks = tool(translator, 'bare', 'write')
+    expect(bareChunks).toEqual([])
+    const knownChunks = tool(translator, 'good', 'mcp__dsh__bash', 1)
+    expect(knownChunks.some((c) => c.type === 'finish')).toBe(false)
+    expect(translator.complete).toBe(false)
+    const afterDenial = translator.accept(
+      denial('bare', '<tool_use_error>Error: No such tool available: write</tool_use_error>'),
+    )
+    expect(afterDenial).toEqual([{ type: 'finish', reason: { kind: 'tool-calls' } }])
+  })
+
+  it('treats all DSH-prefixed tools as known when no catalog is provided', () => {
+    const translator = recovering()
+    const chunks = tool(translator, 'any', 'mcp__dsh__anything')
+    expect(chunks.some((c) => c.type === 'tool-call-delta')).toBe(true)
+    expect(translator.toolCalls.map((c) => c.name)).toEqual(['anything'])
+  })
+
+  it('regression: unknown DSH tool does not brick the session', () => {
+    const translator = recoveringWithCatalog(['bash'])
+    tool(translator, 'unknown', 'mcp__dsh__press_key')
+    const knownChunks = tool(translator, 'good', 'mcp__dsh__bash', 1)
+    expect(knownChunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'tool-calls' } })
+    expect(translator.toolCalls).toHaveLength(1)
+    expect(translator.toolCalls[0]?.name).toBe('bash')
   })
 })

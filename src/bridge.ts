@@ -297,10 +297,12 @@ class SessionBridge {
 
       // Native tools are disabled above. Let the SDK correct an unavailable
       // name only after its own receipt confirms that no tool was executed.
+      // Pass catalog names so unknown DSH tools can be detected and recovered.
       const translator = new ClaudeOutputTranslator(
         this.#usage,
         options.maxTokens !== undefined,
         true,
+        this.#toolServer.catalogNames,
       )
       while (!translator.complete) {
         const next = await this.#output.next()
