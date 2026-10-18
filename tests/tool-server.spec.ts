@@ -144,14 +144,17 @@ describe('raw-schema DSH MCP tool server', () => {
     expect(missing.failures.at(-1)?.code).toBe('CLAUDE_TOOL_PROTOCOL_ERROR')
 
     const unknown = await connected([tool('read')])
-    await expect(
-      unknown.client.callTool({
-        name: 'write',
-        arguments: {},
-        _meta: { [CLAUDE_TOOL_USE_ID_META]: 'toolu_unknown' },
-      }),
-    ).rejects.toThrow()
-    expect(unknown.failures.at(-1)?.code).toBe('CLAUDE_TOOL_PROTOCOL_ERROR')
+    const unknownResult = await unknown.client.callTool({
+      name: 'write',
+      arguments: {},
+      _meta: { [CLAUDE_TOOL_USE_ID_META]: 'toolu_unknown' },
+    })
+    expect(unknownResult).toMatchObject({
+      content: [{ type: 'text', text: 'Error: No such tool available: write' }],
+      isError: true,
+    })
+    expect(unknown.server.isUnknownToolId('toolu_unknown')).toBe(true)
+    expect(unknown.failures).toHaveLength(0)
   })
 
   it('replaces a settled catalog and fails closed on mutation while a call is pending', async () => {

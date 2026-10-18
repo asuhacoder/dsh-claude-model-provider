@@ -71,6 +71,7 @@ export class DshToolServer {
   readonly pending: PendingTools
   #catalog: Catalog = prepareCatalog([], 0)
   #closed = false
+  readonly #unknownToolIds = new Set<string>()
 
   constructor(
     timeoutMs: number,
@@ -84,12 +85,14 @@ export class DshToolServer {
     this.instance.server.setRequestHandler(CallToolRequestSchema, (request, extra) => {
       if (this.#closed) throw toolProtocolError('DSH MCP tool server is closed')
       const name = request.params.name
-      if (!this.#catalog.names.has(name)) {
-        throw this.pending.fail(
-          toolProtocolError(`Claude requested unknown DSH tool ${JSON.stringify(name)}`),
-        )
-      }
       const rawId = request.params._meta?.[CLAUDE_TOOL_USE_ID_META]
+      if (!this.#catalog.names.has(name)) {
+        if (typeof rawId === 'string') this.#unknownToolIds.add(rawId)
+        return Promise.resolve({
+          content: [{ type: 'text' as const, text: `Error: No such tool available: ${name}` }],
+          isError: true,
+        })
+      }
       if (typeof rawId !== 'string') {
         throw this.pending.fail(
           toolProtocolError('Claude MCP request omitted its provider tool-use ID'),
@@ -107,6 +110,14 @@ export class DshToolServer {
 
   get generation(): number {
     return this.#catalog.generation
+  }
+
+  get catalogNames(): ReadonlySet<string> {
+    return this.#catalog.names
+  }
+
+  isUnknownToolId(id: string): boolean {
+    return this.#unknownToolIds.has(id)
   }
 
   install(tools: readonly DshToolSchema[]): number {

@@ -158,6 +158,7 @@ export class ClaudeOutputTranslator {
     readonly usage: UsageTracker,
     readonly stopAtOutputLimit = false,
     readonly recoverUnavailableTools = false,
+    readonly knownDshTools?: ReadonlySet<string>,
   ) {}
 
   get truncatedAtBoundary(): boolean {
@@ -411,9 +412,20 @@ export class ClaudeOutputTranslator {
   }
 
   #unavailableTool(id: string, name: string): boolean {
-    if (!this.recoverUnavailableTools || name.startsWith(DSH_MCP_TOOL_PREFIX)) return false
+    if (!this.recoverUnavailableTools) return false
     if (id.length === 0 || id.length > 512)
       throw toolProtocolError('Claude unavailable tool-use ID is invalid')
+
+    if (name.startsWith(DSH_MCP_TOOL_PREFIX)) {
+      const dshName = name.slice(DSH_MCP_TOOL_PREFIX.length)
+      if (this.knownDshTools === undefined || this.knownDshTools.has(dshName)) return false
+      const previous = this.#unavailableTools.get(id)
+      if (previous !== undefined && previous.name !== dshName)
+        throw toolProtocolError('Claude changed an unavailable tool name')
+      if (previous === undefined) this.#unavailableTools.set(id, { name: dshName, denied: true })
+      return true
+    }
+
     const previous = this.#unavailableTools.get(id)
     if (previous !== undefined && previous.name !== name)
       throw toolProtocolError('Claude changed an unavailable tool name')
