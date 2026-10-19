@@ -10,7 +10,7 @@ const root = resolve('.'),
   temp = mkdtempSync(join(tmpdir(), 'dsh-provider-install-'))
 const coexist = process.argv.includes('--coexist')
 const tuple=process.env.DSH_CANDIDATE_TUPLE?JSON.parse(readFileSync(process.env.DSH_CANDIDATE_TUPLE,'utf8')):undefined
-const dshVersion=tuple?.packages?.['@deepseek-ai/dsh']?.version??'0.2.0-rc.2',subscriptionsVersion=tuple?.packages?.['dsh-plugin-subscriptions']?.version??'0.9.7'
+const dshVersion=tuple?.packages?.['@deepseek-ai/dsh']?.version??'0.2.1-rc.2',subscriptionsVersion=tuple?.packages?.['dsh-plugin-subscriptions']?.version??'0.9.10'
 const env = {
   PATH: process.env.PATH,
   HOME: join(temp, 'home'),
