@@ -37,9 +37,10 @@ export class StateStore {
         const fd = openSync(this.lock, 'wx', 0o600)
         writeFileSync(fd, JSON.stringify({ pid: process.pid, owner: this.owner }))
         closeSync(fd)
-      } catch {
+      } catch (error) {
         throw new Error(
           'STATE_IN_USE: close the other writer; doctor recovery requires a confirmed dead PID',
+          { cause: error },
         )
       }
     }
@@ -121,8 +122,8 @@ export function recoverStateLock(directory: string): { status: string } {
   let old: { pid: number; owner: string }
   try {
     old = JSON.parse(readFileSync(lock, 'utf8'))
-  } catch {
-    throw new Error('RECOVERY_LOCK_UNREADABLE')
+  } catch (error) {
+    throw new Error('RECOVERY_LOCK_UNREADABLE', { cause: error })
   }
   if (!Number.isInteger(old.pid) || old.pid <= 0 || typeof old.owner !== 'string')
     throw new Error('RECOVERY_LOCK_INVALID')

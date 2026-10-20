@@ -12,6 +12,7 @@ import { resolveConfig } from '../src/index.js'
 import { StickyRouter } from '../src/routing/router.js'
 import { RouteBlocked, type Account, type Binding } from '../src/routing/types.js'
 import { transportError } from '../src/errors.js'
+import { assertAccount, billingConflicts } from '../src/auth/official.js'
 import { StateStore } from '../src/storage/store.js'
 import { UsageHistory, addUsage } from '../src/metrics/history.js'
 import { ProviderCircuit, KeyedQueue, CapacitySignal, abortable } from '../src/routing/control.js'
@@ -617,6 +618,33 @@ it('returns missing terminal, preserves generic error redaction and blocks auth 
     expect((await collect(p)).at(-1)).toMatchObject({ reason: { failure: { code: 'AUTH_BUSY' } } })
   } finally {
     await p.dispose()
+  }
+})
+it('stores why the official login check failed in the usage record', async () => {
+  for (const key of billingConflicts(process.env)) vi.stubEnv(key, '')
+  const p = provider({
+    authenticate: (store, _command, account) =>
+      assertAccount(store, '/nonexistent/claude-auth-status-fixture', account),
+    createManager: () => ({ dispose: async () => {}, async *stream() {} }),
+  })
+  try {
+    expect((await collect(p)).at(-1)).toMatchObject({
+      reason: { failure: { code: 'AUTH_STATUS_COMMAND_FAILED' } },
+    })
+    const failed = new UsageHistory(p.store).recent().find((x) => x.outcome === 'error')
+    expect(failed!.failure).toMatchObject({
+      code: 'AUTH_STATUS_COMMAND_FAILED',
+      phase: 'checking-official-login',
+      chain: [
+        { name: 'RouteBlocked', code: 'AUTH_STATUS_COMMAND_FAILED' },
+        { name: 'Error', code: 'ENOENT' },
+      ],
+      detail: { stderrBytes: 0 },
+    })
+    expect(failed!.failure!.detail!.elapsedMs).toBeGreaterThanOrEqual(0)
+  } finally {
+    await p.dispose()
+    vi.unstubAllEnvs()
   }
 })
 it.each([{ errorCode: 'credits_required' }, { rateLimitType: 'overage' }, { overageInUse: true }])(

@@ -179,6 +179,9 @@ describe('subscription routing acceptance', () => {
       r.register(account('A'))
       r.route(req('session'))
       expect(() => new StateStore(dir)).toThrow('STATE_IN_USE')
+      expect(() => new StateStore(dir)).toThrow(
+        expect.objectContaining({ cause: expect.objectContaining({ code: 'EEXIST' }) }),
+      )
       s.close()
       const reopened = new StateStore(dir)
       expect(reopened.get<Binding>('bindings', 'session')?.identity).toBe('A')

@@ -10,6 +10,7 @@ import {
   type DoctorPackageFacts,
   type DoctorSdkProbeResult,
 } from './doctor-runtime.js'
+import { describeError, type FailureLink } from './failure-evidence.js'
 
 export {
   DOCTOR_REPLY,
@@ -565,9 +566,13 @@ export async function runDoctor(
             : 'The SDK diagnostic child required forced termination',
         ),
       )
-    } catch {
+    } catch (error) {
+      const thrown: Partial<FailureLink> = describeError(error)[0] ?? {}
       checks.push(
-        check('sdk.startup', 'fail', 'Claude Agent SDK startup threw a diagnostic failure'),
+        check('sdk.startup', 'fail', 'Claude Agent SDK startup threw a diagnostic failure', {
+          errorName: thrown.name ?? typeof error,
+          ...(thrown.code === undefined ? {} : { errorCode: thrown.code }),
+        }),
         check('mcp.handshake', 'skip', 'MCP handshake requires SDK startup'),
         check('generation.live', 'skip', 'Live generation requires SDK startup'),
         check('process.cleanup', 'fail', 'SDK process cleanup could not be confirmed'),

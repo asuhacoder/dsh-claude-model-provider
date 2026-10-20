@@ -1,8 +1,10 @@
+import { Buffer } from 'node:buffer'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { isAbsolute } from 'node:path'
 import { query, type ModelInfo } from '@anthropic-ai/claude-agent-sdk'
 import { AsyncQueue } from '../async-queue.js'
+import { noteFailureDetail } from '../failure-evidence.js'
 import { type Account, RouteBlocked } from '../routing/types.js'
 import { StateStore } from '../storage/store.js'
 const execute = promisify(execFile)
@@ -46,20 +48,53 @@ export interface OfficialStatus {
   orgId?: string
   subscriptionType?: string
 }
+function statusCommandFailure(error: unknown, elapsedMs: number): RouteBlocked {
+  const failure: { killed?: unknown; code?: unknown; signal?: unknown; stderr?: unknown } =
+    typeof error === 'object' && error !== null ? error : {}
+  const blocked = new RouteBlocked(
+    failure.killed === true ? 'AUTH_STATUS_TIMEOUT' : 'AUTH_STATUS_COMMAND_FAILED',
+    undefined,
+    { cause: error },
+  )
+  noteFailureDetail(blocked, {
+    elapsedMs,
+    ...(typeof failure.code === 'number' ? { exitCode: failure.code } : {}),
+    ...(typeof failure.signal === 'string' ? { signal: failure.signal } : {}),
+    ...(typeof failure.stderr === 'string'
+      ? { stderrBytes: Buffer.byteLength(failure.stderr) }
+      : {}),
+  })
+  return blocked
+}
 export async function officialStatus(command: string, profileRef: string): Promise<OfficialStatus> {
   if (billingConflicts(process.env).length) throw new RouteBlocked('BILLING_ENV_CONFLICT')
-  let parsed: OfficialStatus
+  const env = profileEnvironment(profileRef)
+  const startedAt = Date.now()
+  let stdout: string
   try {
-    const { stdout } = await execute(command, ['auth', 'status'], {
-      env: profileEnvironment(profileRef),
+    ;({ stdout } = await execute(command, ['auth', 'status'], {
+      env,
       timeout: 15000,
       maxBuffer: 65536,
-    })
-    parsed = JSON.parse(stdout) as OfficialStatus
-  } catch {
-    throw new RouteBlocked('AUTH_STATUS_UNAVAILABLE')
+    }))
+  } catch (error) {
+    throw statusCommandFailure(error, Date.now() - startedAt)
   }
-  if (!parsed.loggedIn || parsed.authMethod !== 'claude.ai' || parsed.apiProvider !== 'firstParty')
+  let parsed: OfficialStatus
+  try {
+    const value: unknown = JSON.parse(stdout)
+    if (typeof value !== 'object' || value === null) throw new TypeError('not a JSON object')
+    parsed = value as OfficialStatus
+  } catch (error) {
+    const blocked = new RouteBlocked('AUTH_STATUS_INVALID_OUTPUT', undefined, { cause: error })
+    noteFailureDetail(blocked, {
+      elapsedMs: Date.now() - startedAt,
+      stdoutBytes: Buffer.byteLength(stdout),
+    })
+    throw blocked
+  }
+  if (!parsed.loggedIn) throw new RouteBlocked('SUBSCRIPTION_LOGIN_REQUIRED')
+  if (parsed.authMethod !== 'claude.ai' || parsed.apiProvider !== 'firstParty')
     throw new RouteBlocked('SUBSCRIPTION_AUTH_REQUIRED')
   if (!parsed.orgId) throw new RouteBlocked('STABLE_SUBSCRIPTION_IDENTITY_UNAVAILABLE')
   return parsed

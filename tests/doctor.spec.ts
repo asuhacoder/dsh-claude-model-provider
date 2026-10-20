@@ -297,13 +297,21 @@ describe('dsh-claude-plugin doctor', () => {
 
     const sdkException = await runDoctor(
       { live: 'always' },
-      healthyDependencies({ probeSdk: vi.fn(() => Promise.reject(new Error('secret payload'))) }),
+      healthyDependencies({
+        probeSdk: vi.fn(() =>
+          Promise.reject(Object.assign(new Error('secret payload'), { code: 'ECONNRESET' })),
+        ),
+      }),
     )
     expect(statuses(sdkException)).toMatchObject({
       'sdk.startup': 'fail',
       'mcp.handshake': 'skip',
       'generation.live': 'skip',
       'process.cleanup': 'fail',
+    })
+    expect(sdkException.checks.find((c) => c.id === 'sdk.startup')?.details).toEqual({
+      errorName: 'Error',
+      errorCode: 'ECONNRESET',
     })
     expect(JSON.stringify(sdkException)).not.toContain('secret payload')
 

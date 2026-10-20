@@ -176,6 +176,9 @@ it('supports safe read-only diagnostics during a live writer and explicit dead-l
     writeFileSync(join(dir, 'writer.lock'), JSON.stringify({ pid: 2147483647, owner: 'dead' }))
     expect(recoverStateLock(dir).status).toBe('STALE_LOCK_RECOVERED')
     expect(() => recoverStateLock(dir)).toThrow('RECOVERY_LOCK_UNREADABLE')
+    expect(() => recoverStateLock(dir)).toThrow(
+      expect.objectContaining({ cause: expect.objectContaining({ code: 'ENOENT' }) }),
+    )
     writeFileSync(join(dir, 'writer.lock'), '{}')
     expect(() => recoverStateLock(dir)).toThrow('RECOVERY_LOCK_INVALID')
   } finally {
