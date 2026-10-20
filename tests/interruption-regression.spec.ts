@@ -174,14 +174,15 @@ describe('interruption regressions', () => {
     expect(
       await resolveCliState(['--dsh-profile', 'web'], { ...base, cwd: '/outside', dump }),
     ).toBe('/fixture/web-state')
+    const dumpFailure = new Error('secret')
     await expect(
       resolveCliState([], {
         ...base,
         dump: async () => {
-          throw new Error('secret')
+          throw dumpFailure
         },
       }),
-    ).rejects.toMatchObject({ code: 'PROFILE_STATE_UNRESOLVED' })
+    ).rejects.toMatchObject({ code: 'PROFILE_STATE_UNRESOLVED', cause: dumpFailure })
     await expect(resolveCliState(['--state'], base)).rejects.toMatchObject({
       code: 'CLI_OPTION_VALUE_REQUIRED',
     })
