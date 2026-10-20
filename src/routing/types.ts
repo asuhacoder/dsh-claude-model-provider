@@ -60,8 +60,9 @@ export class RouteBlocked extends Error {
   constructor(
     readonly code: string,
     readonly retryAt?: number,
+    options?: ErrorOptions,
   ) {
-    super(code)
+    super(code, options)
     this.name = 'RouteBlocked'
   }
 }

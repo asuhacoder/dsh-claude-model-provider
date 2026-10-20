@@ -68,8 +68,8 @@ export async function resolveCliState(
     if (state === undefined || state === '') return defaultStateDirectory()
     if (typeof state !== 'string' || !isAbsolute(state)) throw new Error('invalid state directory')
     return state
-  } catch {
+  } catch (error) {
     // No fallback to another database on an ambiguous/failed profile lookup.
-    throw new RouteBlocked('PROFILE_STATE_UNRESOLVED')
+    throw new RouteBlocked('PROFILE_STATE_UNRESOLVED', undefined, { cause: error })
   }
 }

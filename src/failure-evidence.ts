@@ -91,10 +91,13 @@ function frame(line: string): string {
 function link(error: unknown): FailureLink {
   if (!(error instanceof Error)) return { name: typeof error, frames: [] }
   const code = 'code' in error ? identifier(error.code) : undefined
+  const stack = error.stack ?? ''
+  // The stack starts with the message, which can quote child stderr lines shaped like frames.
+  const header = stack.indexOf(error.message)
   return {
     name: identifier(error.name) ?? 'Error',
     ...(code === undefined ? {} : { code }),
-    frames: (error.stack ?? '')
+    frames: (header < 0 ? stack : stack.slice(header + error.message.length))
       .split('\n')
       .filter((line) => /^\s+at /.test(line))
       .slice(0, MAX_FRAMES)
