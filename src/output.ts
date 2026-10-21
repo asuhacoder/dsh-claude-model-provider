@@ -84,6 +84,18 @@ function resultFailure(error: SDKAssistantMessageError | undefined, result: SDKR
   }
 }
 
+interface Refusal {
+  readonly category?: string | null | undefined
+  readonly explanation?: string | null | undefined
+}
+
+function refusalFailure({ category, explanation }: Refusal) {
+  return claudeError(
+    CLAUDE_ERROR_CODES.modelRefusal,
+    `Claude declined this request${category ? ` (refusal category: ${category})` : ''}${explanation ? `: ${explanation}` : ''}`,
+  ).failure
+}
+
 function sameBlocks(left: readonly ContentBlock[], right: readonly ContentBlock[]): boolean {
   return firstBlockDifference(left, right) === undefined
 }
@@ -274,6 +286,8 @@ export class ClaudeOutputTranslator {
             arguments: initial,
             startedWithArguments: initial.length > 0,
           }
+        } else if (content.type === 'fallback') {
+          return this.#refuse({ category: content.trigger.category })
         } else {
           throw protocolError(
             `Claude emitted unsupported ${JSON.stringify(content.type)} content while only DSH MCP tools were enabled`,
@@ -402,6 +416,8 @@ export class ClaudeOutputTranslator {
           name: dshToolName(block.name),
           arguments: completedToolArguments(block.input),
         })
+      } else if (block.type === 'fallback') {
+        return this.#refuse({ category: block.trigger.category })
       } else if (message.error === undefined) {
         throw protocolError(
           `Claude completed unsupported ${JSON.stringify(block.type)} content while only DSH MCP tools were enabled`,
@@ -446,6 +462,15 @@ export class ClaudeOutputTranslator {
     this.#complete = true
     this.#terminalReason = { kind: 'tool-calls' }
     const usage = this.usage.takeStepUsage()
+    return usage === undefined
+      ? [finish(this.#terminalReason)]
+      : [{ type: 'usage', usage }, finish(this.#terminalReason)]
+  }
+
+  // A refusal ends the turn. Content a fallback model would produce afterwards is never read.
+  #refuse(refusal: Refusal, usage = this.usage.takeStepUsage()): StreamChunk[] {
+    this.#complete = true
+    this.#terminalReason = { kind: 'error', failure: refusalFailure(refusal) }
     return usage === undefined
       ? [finish(this.#terminalReason)]
       : [{ type: 'usage', usage }, finish(this.#terminalReason)]
@@ -497,14 +522,11 @@ export class ClaudeOutputTranslator {
 
   #result(message: SDKResultMessage): StreamChunk[] {
     if (this.#open.size > 0) throw protocolError('Claude result arrived with open content blocks')
-    const chunks: StreamChunk[] = [
-      {
-        type: 'usage',
-        usage: this.usage.settle(
-          this.usage.delta(message.modelUsage, message.usage, message.total_cost_usd),
-        ),
-      },
-    ]
+    const usage = this.usage.settle(
+      this.usage.delta(message.modelUsage, message.usage, message.total_cost_usd),
+    )
+    if (message.stop_reason === 'refusal') return this.#refuse({}, usage)
+    const chunks: StreamChunk[] = [{ type: 'usage', usage }]
     const maxTokens =
       this.#assistantError === 'max_output_tokens' || message.stop_reason === 'max_tokens'
     if (maxTokens) {
@@ -543,9 +565,16 @@ export class ClaudeOutputTranslator {
     if (this.#complete) throw protocolError('Claude emitted output after the terminal result')
     if (message.type === 'system' && message.subtype === 'compact_boundary')
       throw protocolError('SDK_COMPACTION_REQUIRES_DSH_RESYNC')
-    if (message.type === 'system' && message.subtype === 'model_refusal_fallback')
-      throw protocolError('UNREQUESTED_MODEL_FALLBACK')
     this.#observeSession(message)
+    if (
+      message.type === 'system' &&
+      (message.subtype === 'model_refusal_fallback' ||
+        message.subtype === 'model_refusal_no_fallback')
+    )
+      return this.#refuse({
+        category: message.api_refusal_category,
+        explanation: message.api_refusal_explanation,
+      })
     if (message.type === 'stream_event') return this.#partial(message)
     if (message.type === 'assistant') return this.#assistant(message)
     if (message.type === 'user') return this.#unavailableReceipt(message)

@@ -10,6 +10,7 @@ export const CLAUDE_ERROR_CODES = {
   invalidProvider: 'CLAUDE_INVALID_PROVIDER',
   inFlightRecoveryUnsupported: 'CLAUDE_IN_FLIGHT_RECOVERY_UNSUPPORTED',
   modelNotFound: 'CLAUDE_MODEL_NOT_FOUND',
+  modelRefusal: 'CLAUDE_MODEL_REFUSAL',
   protocolError: 'CLAUDE_PROTOCOL_ERROR',
   rateLimited: 'CLAUDE_RATE_LIMITED',
   maxTurns: 'CLAUDE_MAX_TURNS',
