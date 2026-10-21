@@ -499,6 +499,44 @@ describe('per-session Claude bridge', () => {
     await recovered.manager.dispose()
   })
 
+  it('reports a refusal on an exact resume without retrying it as degraded replay', async () => {
+    const seed = harness((query) => query.emit(textTurn('one', 1, 1)))
+    const u1 = user('u1', 'remember this')
+    const seedChunks = await collect(seed.adapter.stream(request([u1], 'session-a')))
+    const replayState = seedChunks.find((chunk) => chunk.type === 'finish')?.replayState
+    await seed.manager.dispose()
+
+    const refused = harness((query) =>
+      query.emit([
+        sdk({
+          type: 'system',
+          subtype: 'model_refusal_no_fallback',
+          original_model: 'claude-opus-4-1',
+          request_id: null,
+          api_refusal_category: 'cyber',
+          api_refusal_explanation: null,
+          content: 'Claude declined',
+          uuid: crypto.randomUUID(),
+          session_id: sdkSession,
+        }),
+      ]),
+    )
+    const chunks = await collect(
+      refused.adapter.stream(
+        request(
+          [u1, assistant('a1', 'one', 'default', replayState), user('u2', 'continue')],
+          'session-a',
+        ),
+      ),
+    )
+    expect(refused.queries).toHaveLength(1)
+    expect(chunks.at(-1)).toMatchObject({
+      type: 'finish',
+      reason: { kind: 'error', failure: { code: 'CLAUDE_MODEL_REFUSAL' } },
+    })
+    await refused.manager.dispose()
+  })
+
   it('evicts only settled idle sessions and closes their live query', async () => {
     vi.useFakeTimers()
     try {

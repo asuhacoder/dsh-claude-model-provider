@@ -15,7 +15,13 @@ import { AsyncQueue } from './async-queue.js'
 import { type AttachmentReader, ClaudeContentEncoder } from './content.js'
 import { ClaudeDiagnostics } from './diagnostics.js'
 import { noteCleanupFailure, type ProcessExit } from './failure-evidence.js'
-import { abortError, ClaudePluginError, protocolError, transportError } from './errors.js'
+import {
+  abortError,
+  CLAUDE_ERROR_CODES,
+  ClaudePluginError,
+  protocolError,
+  transportError,
+} from './errors.js'
 import {
   assertSdkUserInput,
   type ClaudeStartPlan,
@@ -311,6 +317,7 @@ class SessionBridge {
         if (
           translator.complete &&
           translator.terminalReason?.kind === 'error' &&
+          translator.terminalReason.failure.code !== CLAUDE_ERROR_CODES.modelRefusal &&
           plan.kind === 'prompt' &&
           plan.start?.mode === 'exact' &&
           translator.outputBlocks.length === 0

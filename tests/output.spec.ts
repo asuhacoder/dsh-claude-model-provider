@@ -968,3 +968,71 @@ describe('Claude output translation', () => {
     expect(usage.snapshot.ignoredEventTypes).toEqual({ ping: 2, heartbeat: 1 })
   })
 })
+
+describe('Claude model refusal', () => {
+  const explanation = 'This request looks like it targets systems you do not own.'
+  const fallbackBlock = {
+    type: 'fallback',
+    from: { model: 'claude-opus-4-1' },
+    to: { model: 'claude-sonnet-4-5' },
+    trigger: { type: 'refusal', category: 'cyber' },
+  }
+  const refusalNotice = (subtype: string) =>
+    sdk({
+      type: 'system',
+      subtype,
+      trigger: 'refusal',
+      direction: 'retry',
+      original_model: 'claude-opus-4-1',
+      fallback_model: 'claude-sonnet-4-5',
+      request_id: null,
+      api_refusal_category: 'cyber',
+      api_refusal_explanation: explanation,
+      content: 'Switched to a fallback model',
+      uuid: crypto.randomUUID(),
+      session_id: session,
+    })
+
+  it.each([
+    ['a refusal-fallback notice', [refusalNotice('model_refusal_fallback')], explanation],
+    ['a no-fallback refusal notice', [refusalNotice('model_refusal_no_fallback')], explanation],
+    [
+      'a streamed fallback block',
+      [
+        envelope({
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'text', text: 'Let me look at', citations: null },
+        }),
+        envelope({ type: 'content_block_stop', index: 0 }),
+        envelope({ type: 'content_block_start', index: 1, content_block: fallbackBlock }),
+      ],
+      'cyber',
+    ],
+    ['a completed fallback block', [assistant([fallbackBlock])], 'cyber'],
+    ['a refusal stop reason', [result({ stop_reason: 'refusal' })], 'declined'],
+  ])('ends the turn as a visible refusal on %s', (_name, messages, visible) => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    const chunks = acceptAll(translator, messages)
+    expect(chunks.at(-1)).toMatchObject({
+      type: 'finish',
+      reason: {
+        kind: 'error',
+        failure: { code: 'CLAUDE_MODEL_REFUSAL', message: expect.stringContaining(visible) },
+      },
+    })
+    expect(translator.complete).toBe(true)
+  })
+
+  it('keeps other unknown content types as protocol errors', () => {
+    const mystery = { type: 'mystery' }
+    for (const messages of [
+      [envelope({ type: 'content_block_start', index: 0, content_block: mystery })],
+      [assistant([mystery])],
+    ]) {
+      expect(() => acceptAll(new ClaudeOutputTranslator(new UsageTracker()), messages)).toThrow(
+        expect.objectContaining({ code: 'CLAUDE_PROTOCOL_ERROR' }),
+      )
+    }
+  })
+})
