@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { verifyProfileTransition } from '../lib/profile-verifier.js'
 
-const EXPECTED_DSH_VERSION = '0.2.1-rc.2'
+const EXPECTED_DSH_VERSION = '0.2.1-rc.3'
 const MAX_COMMAND_OUTPUT_BYTES = 16 * 1_024 * 1_024
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const keep = process.argv.includes('--keep')
