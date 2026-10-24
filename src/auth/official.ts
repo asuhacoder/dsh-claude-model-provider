@@ -66,7 +66,11 @@ function statusCommandFailure(error: unknown, elapsedMs: number): RouteBlocked {
   })
   return blocked
 }
-export async function officialStatus(command: string, profileRef: string): Promise<OfficialStatus> {
+export async function officialStatus(
+  command: string,
+  profileRef: string,
+  limits?: { readonly timeoutMs?: number },
+): Promise<OfficialStatus> {
   if (billingConflicts(process.env).length) throw new RouteBlocked('BILLING_ENV_CONFLICT')
   const env = profileEnvironment(profileRef)
   const startedAt = Date.now()
@@ -74,7 +78,7 @@ export async function officialStatus(command: string, profileRef: string): Promi
   try {
     ;({ stdout } = await execute(command, ['auth', 'status'], {
       env,
-      timeout: 15000,
+      timeout: limits?.timeoutMs ?? 15000,
       maxBuffer: 65536,
     }))
   } catch (error) {
