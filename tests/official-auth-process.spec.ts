@@ -60,8 +60,9 @@ setInterval(() => {}, 1000)
         signal: 'SIGKILL',
         stderrBytes: Buffer.byteLength(stderrText),
       })
-      expect(detail?.startedAt).toEqual(expect.any(Number))
+      expect(detail?.startedAt).toBeGreaterThan(1_700_000_000_000)
       expect(detail?.elapsedMs).toBeGreaterThanOrEqual(limits.timeoutMs)
+      expect(detail?.elapsedMs).toBeLessThan(5_000)
       expect(JSON.stringify(detail)).not.toContain(stderrText)
       expect(JSON.stringify(describeError(error))).not.toContain(stderrText)
       expect(runs(dir)).toBe(2)
@@ -95,8 +96,9 @@ process.stdout.write('not-json')
         stdoutBytes: Buffer.byteLength('not-json'),
         stderrBytes: Buffer.byteLength(stderrText),
       })
-      expect(detail?.startedAt).toEqual(expect.any(Number))
-      expect(detail?.elapsedMs).toEqual(expect.any(Number))
+      expect(detail?.startedAt).toBeGreaterThan(1_700_000_000_000)
+      expect(detail?.elapsedMs).toBeGreaterThanOrEqual(0)
+      expect(detail?.elapsedMs).toBeLessThan(5_000)
       expect(JSON.stringify(detail)).not.toContain(stderrText)
       expect(JSON.stringify(describeError(error))).not.toContain(stderrText)
       expect(runs(dir)).toBe(1)

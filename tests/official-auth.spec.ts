@@ -59,6 +59,12 @@ it('isolates profile environment and rejects billing conflicts without leaking v
 })
 it('validates official subscription status and stable identity', async () => {
   expect(await officialStatus('claude', 'default')).toEqual(status)
+  expect(fake.exec).toHaveBeenCalledWith(
+    'claude',
+    ['auth', 'status'],
+    expect.objectContaining({ timeout: 45_000, killSignal: 'SIGKILL', maxBuffer: 65536 }),
+    expect.any(Function),
+  )
   for (const [reply, code] of [
     [{ ...status, loggedIn: false }, 'SUBSCRIPTION_LOGIN_REQUIRED'],
     [{ ...status, authMethod: 'api_key' }, 'SUBSCRIPTION_AUTH_REQUIRED'],
@@ -88,25 +94,25 @@ it.each([
     'a timeout',
     execFailure({ code: null, killed: true, signal: 'SIGTERM' }),
     'AUTH_STATUS_TIMEOUT',
-    { elapsedMs: 15000, signal: 'SIGTERM', stderrBytes: 39 },
+    { startedAt: 31_000, elapsedMs: 15000, signal: 'SIGTERM', stderrBytes: 39 },
   ],
   [
     'a non-zero exit',
     execFailure({ code: 3, killed: false, signal: null }),
     'AUTH_STATUS_COMMAND_FAILED',
-    { elapsedMs: 15000, exitCode: 3, stderrBytes: 39 },
+    { startedAt: 1_000, elapsedMs: 15000, exitCode: 3, stderrBytes: 39 },
   ],
   [
     'a SIGTERM the provider did not send',
     execFailure({ code: null, killed: false, signal: 'SIGTERM' }),
     'AUTH_STATUS_COMMAND_FAILED',
-    { elapsedMs: 15000, signal: 'SIGTERM', stderrBytes: 39 },
+    { startedAt: 1_000, elapsedMs: 15000, signal: 'SIGTERM', stderrBytes: 39 },
   ],
   [
     'a launch failure',
     Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT', stdout: '', stderr: '' }),
     'AUTH_STATUS_COMMAND_FAILED',
-    { elapsedMs: 15000, stderrBytes: 0 },
+    { startedAt: 1_000, elapsedMs: 15000, stderrBytes: 0 },
   ],
   [
     'an output overflow',
@@ -116,10 +122,11 @@ it.each([
       stderr: '',
     }),
     'AUTH_STATUS_COMMAND_FAILED',
-    { elapsedMs: 15000, stderrBytes: 0 },
+    { startedAt: 1_000, elapsedMs: 15000, stderrBytes: 0 },
   ],
 ])('reports %s of claude auth status with its cause', async (_name, failure, code, detail) => {
-  vi.spyOn(Date, 'now').mockReturnValueOnce(1_000).mockReturnValueOnce(16_000)
+  const times = [1_000, 16_000, 31_000, 46_000]
+  vi.spyOn(Date, 'now').mockImplementation(() => times.shift() ?? 0)
   fake.exec.mockImplementation((_c, _a, _o, cb) => cb(failure))
   const error = await officialStatus('claude', 'default').catch((e: unknown) => e)
   vi.restoreAllMocks()

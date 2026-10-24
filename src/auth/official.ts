@@ -48,7 +48,17 @@ export interface OfficialStatus {
   orgId?: string
   subscriptionType?: string
 }
-function statusCommandFailure(error: unknown, elapsedMs: number): RouteBlocked {
+const AUTH_STATUS_TIMEOUT_MS = 45_000
+const AUTH_STATUS_ATTEMPTS = 2
+const AUTH_STATUS_RETRY_DELAY_MS = 200
+
+interface AuthStatusLimits {
+  readonly timeoutMs?: number
+  readonly attempts?: number
+  readonly retryDelayMs?: number
+}
+
+function statusCommandFailure(error: unknown, startedAt: number): RouteBlocked {
   const failure: { killed?: unknown; code?: unknown; signal?: unknown; stderr?: unknown } =
     typeof error === 'object' && error !== null ? error : {}
   const blocked = new RouteBlocked(
@@ -57,7 +67,8 @@ function statusCommandFailure(error: unknown, elapsedMs: number): RouteBlocked {
     { cause: error },
   )
   noteFailureDetail(blocked, {
-    elapsedMs,
+    startedAt,
+    elapsedMs: Date.now() - startedAt,
     ...(typeof failure.code === 'number' ? { exitCode: failure.code } : {}),
     ...(typeof failure.signal === 'string' ? { signal: failure.signal } : {}),
     ...(typeof failure.stderr === 'string'
@@ -66,23 +77,24 @@ function statusCommandFailure(error: unknown, elapsedMs: number): RouteBlocked {
   })
   return blocked
 }
-export async function officialStatus(
+async function readOfficialStatus(
   command: string,
-  profileRef: string,
-  limits?: { readonly timeoutMs?: number },
+  env: NodeJS.ProcessEnv,
+  timeoutMs: number,
 ): Promise<OfficialStatus> {
-  if (billingConflicts(process.env).length) throw new RouteBlocked('BILLING_ENV_CONFLICT')
-  const env = profileEnvironment(profileRef)
   const startedAt = Date.now()
   let stdout: string
+  let stderr: string | undefined
   try {
-    ;({ stdout } = await execute(command, ['auth', 'status'], {
+    // execFile treats a trapped SIGTERM that exits 0 as success and drops the killed flag.
+    ;({ stdout, stderr } = await execute(command, ['auth', 'status'], {
       env,
-      timeout: limits?.timeoutMs ?? 15000,
+      timeout: timeoutMs,
+      killSignal: 'SIGKILL',
       maxBuffer: 65536,
     }))
   } catch (error) {
-    throw statusCommandFailure(error, Date.now() - startedAt)
+    throw statusCommandFailure(error, startedAt)
   }
   let parsed: OfficialStatus
   try {
@@ -92,8 +104,10 @@ export async function officialStatus(
   } catch (error) {
     const blocked = new RouteBlocked('AUTH_STATUS_INVALID_OUTPUT', undefined, { cause: error })
     noteFailureDetail(blocked, {
+      startedAt,
       elapsedMs: Date.now() - startedAt,
       stdoutBytes: Buffer.byteLength(stdout),
+      ...(typeof stderr === 'string' ? { stderrBytes: Buffer.byteLength(stderr) } : {}),
     })
     throw blocked
   }
@@ -102,6 +116,30 @@ export async function officialStatus(
     throw new RouteBlocked('SUBSCRIPTION_AUTH_REQUIRED')
   if (!parsed.orgId) throw new RouteBlocked('STABLE_SUBSCRIPTION_IDENTITY_UNAVAILABLE')
   return parsed
+}
+export async function officialStatus(
+  command: string,
+  profileRef: string,
+  limits?: AuthStatusLimits,
+): Promise<OfficialStatus> {
+  if (billingConflicts(process.env).length) throw new RouteBlocked('BILLING_ENV_CONFLICT')
+  const env = profileEnvironment(profileRef)
+  const timeoutMs = limits?.timeoutMs ?? AUTH_STATUS_TIMEOUT_MS
+  const attempts = limits?.attempts ?? AUTH_STATUS_ATTEMPTS
+  const retryDelayMs = limits?.retryDelayMs ?? AUTH_STATUS_RETRY_DELAY_MS
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await readOfficialStatus(command, env, timeoutMs)
+    } catch (error) {
+      if (
+        !(error instanceof RouteBlocked) ||
+        error.code !== 'AUTH_STATUS_TIMEOUT' ||
+        attempt >= attempts
+      )
+        throw error
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
+    }
+  }
 }
 export async function officialModels(command: string, profileRef: string): Promise<ModelInfo[]> {
   const input = new AsyncQueue<import('@anthropic-ai/claude-agent-sdk').SDKUserMessage>()
