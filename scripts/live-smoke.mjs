@@ -45,7 +45,7 @@ try {
  await turn('Reply exactly DSH_OK.','DSH_OK')
  await turn('Call dsh_ping with nonce "PING_OK" exactly once, then output only its result.','PING_OK')
  if(checks[1].toolCalls!==1)throw new Error('TOOL_NOT_CALLED_EXACTLY_ONCE')
- const report={status:'PASSED',level:'L2',pooled:process.argv.includes('--pooled'),scope:'real DSH LlmRuntime + managed subprocess + official SDK, text/warm/tool roundtrip',dsh:'0.2.1-rc.3',sdk:'0.3.286',cli:'2.1.283',checks,modelSteps:calls,warmQueries:manager.activeBridgeCount,usage}
+ const report={status:'PASSED',level:'L2',pooled:process.argv.includes('--pooled'),scope:'real DSH LlmRuntime + managed subprocess + official SDK, text/warm/tool roundtrip',dsh:'0.2.1-rc.4',sdk:'0.3.286',cli:'2.1.283',checks,modelSteps:calls,warmQueries:manager.activeBridgeCount,usage}
  mkdirSync('.artifacts',{recursive:true});writeFileSync(process.argv.includes('--pooled')?'.artifacts/live-pooled.json':'.artifacts/live-smoke.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report))
 }catch(e){console.log(JSON.stringify({status:'FAILED',code:e.message,checks,modelSteps:calls}));process.exitCode=1}
 finally{await manager?.dispose();for(const f of fibers.reverse())await f.dispose()}

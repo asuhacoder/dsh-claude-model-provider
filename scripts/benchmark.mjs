@@ -41,7 +41,7 @@ import { MCP_ALWAYS_LOAD_META } from '../lib/tool-server.js'
 import { sdkEnvironment } from '../lib/process.js'
 import * as claudePlugin from '../lib/index.js'
 
-const EXPECTED_DSH_VERSION = '0.2.1-rc.3'
+const EXPECTED_DSH_VERSION = '0.2.1-rc.4'
 const MAX_ITERATIONS = 12
 const DEFAULT_TIMEOUT_MS = 180_000
 const MAX_TIMEOUT_MS = 15 * 60_000
