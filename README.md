@@ -48,7 +48,7 @@ Profiles may be added with `accounts add <alias> --profile <absolute-directory> 
 ## Behavior
 
 - Healthy sessions remain on their account. Local reservations spread new sessions; quota windows are intersected. Unknown usage remains unknown. No 95% cutoff or artificial cache pings.
-- SDK tools and settings are restricted to the DSH MCP bridge. Tool calls are correlated by exact provider IDs and return to DSH. A persistent ledger refuses duplicate IDs and stops on an uncertain outcome; general exactly-once external side effects are not promised.
+- SDK tools and settings are restricted to the DSH MCP bridge. Tool calls are correlated by exact provider IDs and return to DSH. A persistent ledger refuses a duplicate call ID while that receipt is still stored, and it stops on an uncertain outcome. The ledger keeps every unsettled call and at most 1024 settled receipts. Older settled receipts are deleted. General exactly-once external side effects are not promised.
 - A warm query persists across tool steps. Changed system/history/tool catalogs rebuild from DSH's canonical history. Portable cold replay is a user-role JSON envelope; it is not native role-equivalent replay. Reasoning is not transplanted across cold accounts/models.
 - Offline diagnostics queue no model prompt. Live probes require explicit flags. Tokens/cache counters remain separate from actual subscription balances and monetary charges.
 - The baseline router is active. The advanced predictive optimizer and live calibration are incomplete; no efficiency improvement is advertised.

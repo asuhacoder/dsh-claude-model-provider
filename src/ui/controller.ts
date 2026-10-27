@@ -6,6 +6,20 @@ import { verifyAccount, profileEnvironment } from '../auth/official.js'
 import { UsageHistory } from '../metrics/history.js'
 import { KeyedQueue } from '../routing/control.js'
 
+function routeBindings(store: StateStore): (identity: string) => string | null {
+  if (!store.indexed || store.missingIndexKey('bindings')) {
+    const bindings = store.list<Binding>('bindings')
+    return (identity) =>
+      bindings.filter((binding) => binding.identity === identity).at(-1)?.reason ?? null
+  }
+  return (identity) =>
+    store.queryValues<Binding>(
+      `SELECT value FROM state INDEXED BY state_binding_identity
+       WHERE collection = 'bindings' AND k1 = ? ORDER BY key DESC LIMIT 1`,
+      identity,
+    )[0]?.reason ?? null
+}
+
 export async function officialLogin(command: string, profile: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, ['auth', 'login', '--claudeai'], {
@@ -34,7 +48,7 @@ export class AccountController {
   status() {
     const s = this.state(),
       reservations = s.list<Reservation>('reservations'),
-      bindings = s.list<Binding>('bindings')
+      bindings = routeBindings(s)
     return {
       pending: this.deps.pending?.() ?? [],
       defaultModel: s.get<string>('preferences', 'default-model') ?? this.defaults.model,
@@ -55,7 +69,7 @@ export class AccountController {
               ? null
               : Math.max(0, 1 - w.utilization),
         })),
-        lastRouteReason: bindings.filter((b) => b.identity === a.identity).at(-1)?.reason ?? null,
+        lastRouteReason: bindings(a.identity),
       })),
       usage: new UsageHistory(s).summary(),
     }

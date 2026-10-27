@@ -34,7 +34,6 @@ export function addUsage(left: TokenUsage, right: TokenUsage): TokenUsage {
   }
   return result
 }
-/** Stores final SDK usage deltas once per request, including consumed failed work. */
 export class UsageHistory {
   constructor(
     readonly store: StateStore,
@@ -60,11 +59,15 @@ export class UsageHistory {
       else totals.failed++
       totals.usage = addUsage(totals.usage, entry.usage)
       this.store.set('metrics', entry.identity, totals)
-      const entries = this.store
-        .list<UsageRecord>('usage')
-        .sort((a, b) => a.finishedAt - b.finishedAt)
-      for (const old of entries.slice(0, Math.max(0, entries.length - this.limit)))
-        this.store.delete('usage', old.id)
+      const overflow = this.store.count('usage') - this.limit
+      if (overflow > 0) {
+        const stale = this.store.db
+          .prepare(
+            `SELECT key FROM state WHERE collection = 'usage' ORDER BY k1, key LIMIT ?`,
+          )
+          .all(overflow)
+        for (const row of stale) this.store.delete('usage', String(row.key))
+      }
     })
   }
   recent(): UsageRecord[] {
