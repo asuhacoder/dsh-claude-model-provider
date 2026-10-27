@@ -31,7 +31,6 @@ export async function runProviderCli(args: string[], deps: CliDependencies = {})
       readOnly,
     ))
   try {
-    // Help needs neither an installed DSH executable nor a profile database.
     if (['doctor', 'accounts', 'explain-route', 'diagnostics'].includes(args[0] ?? ''))
       state = await (deps.resolveState ?? resolveCliState)(args)
     if (args[0] === 'doctor') {
@@ -73,12 +72,12 @@ export async function runProviderCli(args: string[], deps: CliDependencies = {})
         )
       }
     } else if (args[0] === 'explain-route') {
-      output(
-        open(true)
-          .list<Binding>('bindings')
-          .filter((b) => !args[1] || b.key === args[1])
-          .map((b) => ({ ...b, identity: b.identity.slice(0, 12) })),
-      )
+      const selected = args[1]
+        ? [open(true).get<Binding>('bindings', args[1])].filter(
+            (binding): binding is Binding => binding !== undefined,
+          )
+        : open(true).list<Binding>('bindings')
+      output(selected.map((binding) => ({ ...binding, identity: binding.identity.slice(0, 12) })))
     } else if (args[0] === 'diagnostics' && args[1] === 'export' && args.includes('--redacted')) {
       const s = open(true)
       output({
@@ -88,7 +87,7 @@ export async function runProviderCli(args: string[], deps: CliDependencies = {})
           state: a.state,
           quotaKnown: a.windows.length > 0,
         })),
-        bindings: s.list<Binding>('bindings').length,
+        bindings: s.count('bindings'),
         containsCredentials: false,
       })
     } else
