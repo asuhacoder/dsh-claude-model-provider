@@ -11,6 +11,7 @@ import {
 import { join } from 'node:path'
 import { createHmac, randomBytes, randomUUID } from 'node:crypto'
 
+export const STATE_SCHEMA_VERSION = 2
 export const SETTLED_LEDGER_LIMIT = 1024
 
 export const OPEN_LEDGER = `collection = 'ledger' AND IFNULL(k3, '') NOT IN ('COMMITTED', 'FAILED')`
@@ -53,7 +54,11 @@ export class StateStore {
     if (options.readOnly) {
       this.db = new DatabaseSync(join(directory, 'state.sqlite'), { readOnly: true })
       this.indexed = this.#hasIndexColumns()
-      if (this.get<number>('meta', 'schema') !== 1) {
+      const version = this.get<number>('meta', 'schema')
+      if (
+        (version !== 1 && version !== STATE_SCHEMA_VERSION) ||
+        (version === STATE_SCHEMA_VERSION && !this.indexed)
+      ) {
         this.db.close()
         throw new Error('UNSUPPORTED_STATE_SCHEMA')
       }
@@ -74,18 +79,20 @@ export class StateStore {
         )
       }
     }
+    let opened: DatabaseSync | undefined
     try {
-      this.db = new DatabaseSync(
-        directory === ':memory:' ? directory : join(directory, 'state.sqlite'),
-      )
+      opened = new DatabaseSync(directory === ':memory:' ? directory : join(directory, 'state.sqlite'))
+      this.db = opened
       this.db.exec(
         'PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS state (collection TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, k1 TEXT, k2 TEXT, k3 TEXT, PRIMARY KEY(collection,key));',
       )
       const version = this.get<number>('meta', 'schema')
-      if (version !== undefined && version !== 1) throw new Error('UNSUPPORTED_STATE_SCHEMA')
+      if (version !== undefined && version !== 1 && version !== STATE_SCHEMA_VERSION) {
+        throw new Error('UNSUPPORTED_STATE_SCHEMA')
+      }
       this.transaction(() => {
         this.#ensureIndexColumns()
-        this.set('meta', 'schema', 1)
+        this.set('meta', 'schema', STATE_SCHEMA_VERSION)
         if (!this.get('meta', 'salt')) this.set('meta', 'salt', randomBytes(32).toString('hex'))
         this.delete('meta', 'auth-mutation')
         const circuit = this.get<Record<string, unknown>>('meta', 'provider-circuit')
@@ -99,6 +106,7 @@ export class StateStore {
       this.indexed = true
       if (directory !== ':memory:') chmodSync(join(directory, 'state.sqlite'), 0o600)
     } catch (error) {
+      opened?.close()
       if (this.lock) unlinkSync(this.lock)
       throw error
     }

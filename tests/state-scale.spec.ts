@@ -9,7 +9,7 @@ import { UsageHistory } from '../src/metrics/history.js'
 import type { Account, Binding } from '../src/routing/types.js'
 import { ToolLedger } from '../src/sessions/ledger.js'
 import type { ToolState } from '../src/sessions/ledger.js'
-import { SETTLED_LEDGER_LIMIT, StateStore } from '../src/storage/store.js'
+import { SETTLED_LEDGER_LIMIT, STATE_SCHEMA_VERSION, StateStore } from '../src/storage/store.js'
 import { AccountController } from '../src/ui/controller.js'
 import { runProviderCli } from '../src/provider-cli.js'
 
@@ -58,8 +58,10 @@ function legacyDirectory(
     'CREATE TABLE state (collection TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(collection, key))',
   )
   const insert = db.prepare('INSERT INTO state(collection, key, value) VALUES(?, ?, ?)')
+  db.exec('BEGIN')
   insert.run('meta', 'schema', JSON.stringify(1))
   for (const row of rows) insert.run(row.collection, row.key, JSON.stringify(row.value))
+  db.exec('COMMIT')
   db.close()
   return dir
 }
@@ -95,7 +97,7 @@ describe('legacy state files', () => {
       const ledger = new ToolLedger(writer)
       const openIds = openStates.map((state) => `open-${state}`).sort()
       expect(ledger.unresolved('hot').map((entry) => entry.callId).sort()).toEqual(openIds)
-      expect(writer.get('meta', 'schema')).toBe(1)
+      expect(writer.get('meta', 'schema')).toBe(STATE_SCHEMA_VERSION)
       expect(
         writer.list<{ state: string }>('ledger').filter((entry) => entry.state === 'PROPOSED'),
       ).toEqual([expect.objectContaining({ callId: 'open-PROPOSED', state: 'PROPOSED' })])
@@ -139,6 +141,7 @@ describe('legacy state files', () => {
     ])
     try {
       const reader = new StateStore(dir, { readOnly: true })
+      expect(reader.get('meta', 'schema')).toBe(1)
       expect(reader.indexed).toBe(false)
       expect(reader.count('ledger')).toBe(3)
       expect(new ToolLedger(reader).unresolved('hot').map((entry) => entry.callId)).toEqual([
@@ -177,6 +180,81 @@ describe('legacy state files', () => {
         'unindexed',
       )
       reader.close()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('reads a migrated file and leaves it unchanged when the previous insert runs', () => {
+    const proposed = tool('hot', 'pending', 'PROPOSED')
+    const dir = legacyDirectory([proposed])
+    try {
+      const writer = new StateStore(dir)
+      expect(writer.get('meta', 'schema')).toBe(STATE_SCHEMA_VERSION)
+      writer.close()
+      const reader = new StateStore(dir, { readOnly: true })
+      expect(new ToolLedger(reader).unresolved('hot').map((entry) => entry.callId)).toEqual([
+        'pending',
+      ])
+      reader.close()
+      const db = new DatabaseSync(join(dir, 'state.sqlite'))
+      const count = () =>
+        db.prepare(`SELECT COUNT(*) AS n FROM state WHERE collection = 'ledger'`).get() as { n: number }
+      const before = count()
+      expect(() =>
+        db
+          .prepare(
+            'INSERT INTO state VALUES(?,?,?) ON CONFLICT(collection,key) DO UPDATE SET value=excluded.value',
+          )
+          .run('ledger', 'extra', '{}'),
+      ).toThrow(/6 columns but 3 values/)
+      expect(count()).toEqual(before)
+      db.close()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('finishes index columns for schema 2 and does not read that file without them', () => {
+    const dir = legacyDirectory([tool('hot', 'pending', 'PROPOSED')])
+    try {
+      const raw = new DatabaseSync(join(dir, 'state.sqlite'))
+      raw.prepare(`UPDATE state SET value = ? WHERE collection = 'meta' AND key = 'schema'`).run(
+        JSON.stringify(STATE_SCHEMA_VERSION),
+      )
+      raw.close()
+      expect(() => new StateStore(dir, { readOnly: true })).toThrow('UNSUPPORTED_STATE_SCHEMA')
+      const writer = new StateStore(dir)
+      expect(new ToolLedger(writer).unresolved('hot').map((entry) => entry.callId)).toEqual(['pending'])
+      expect(writer.get('meta', 'schema')).toBe(STATE_SCHEMA_VERSION)
+      writer.close()
+      const reader = new StateStore(dir, { readOnly: true })
+      expect(reader.indexed).toBe(true)
+      expect(new ToolLedger(reader).unresolved('hot').map((entry) => entry.callId)).toEqual(['pending'])
+      reader.close()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects a schema other than 1 or 2 without deleting rows', () => {
+    const dir = legacyDirectory([tool('hot', 'pending', 'PROPOSED')])
+    try {
+      const raw = new DatabaseSync(join(dir, 'state.sqlite'))
+      raw.prepare(`UPDATE state SET value = ? WHERE collection = 'meta' AND key = 'schema'`).run(
+        JSON.stringify(3),
+      )
+      raw.close()
+      expect(() => new StateStore(dir)).toThrow('UNSUPPORTED_STATE_SCHEMA')
+      expect(() => new StateStore(dir, { readOnly: true })).toThrow('UNSUPPORTED_STATE_SCHEMA')
+      const check = new DatabaseSync(join(dir, 'state.sqlite'), { readOnly: true })
+      expect(check.prepare(`SELECT value FROM state WHERE collection = 'meta' AND key = 'schema'`).get()).toMatchObject({
+        value: '3',
+      })
+      expect(check.prepare(`SELECT COUNT(*) AS n FROM state WHERE collection = 'ledger'`).get()).toMatchObject({
+        n: 1,
+      })
+      check.close()
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
