@@ -2,7 +2,7 @@
 
 DSHの履歴・ツール・権限を使いながら、改変しない公式Claude SDK/CLIで推論する非公式プラグインです。MITの既存実装を土台に、最新版DSHへの対応とアカウント管理を追加しました。
 
-**実験版です。** DSH 0.2.0-rc.2、SDK 0.3.286、公式CLI 2.1.283、Node 24.14.0、macOS arm64でテキスト応答・DSHツール往復・同一queryの維持を確認しました。すべての受入条件が完了した製品とは扱っていません。[実装報告](IMPLEMENTATION_REPORT.md)で実測・未検証を区別しています。
+**実験版です。** 開発時の確認対象は DSH 0.2.1-rc.5、SDK 0.3.286、公式CLI 2.1.283、Node 24.14.0 です。テキスト応答、DSHツール往復、同一queryの維持を確認した記録は DSH 0.2.0-rc.2、macOS arm64 のものです。すべての受入条件が完了した製品とは扱っていません。[実装報告](IMPLEMENTATION_REPORT.md)で実測・未検証を区別しています。
 
 ```sh
 dsh plugin --profile web add @asuha/dsh-claude-model-provider@next --ignore-scripts
