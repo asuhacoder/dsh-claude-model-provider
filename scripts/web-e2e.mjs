@@ -22,7 +22,7 @@ import {
 } from '../lib/web-e2e.js'
 import { verifyProfileTransition } from '../lib/profile-verifier.js'
 
-const EXPECTED_DSH_VERSION = '0.2.2-alpha.2'
+const EXPECTED_DSH_VERSION = '0.2.1-rc.5'
 const EXPECTED_PLAYWRIGHT_VERSION = '1.61.1'
 const MAX_COMMAND_OUTPUT_BYTES = 16 * 1_024 * 1_024
 const MAX_SERVER_OUTPUT_BYTES = 256 * 1_024
