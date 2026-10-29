@@ -89,7 +89,6 @@ try {
   const before = parse(dsh(['--profile', 'web', '--dump-config']))
   dsh(['plugin', '--profile', 'web', 'add', tarball, '--ignore-scripts'])
   const after = parse(dsh(['--profile', 'web', '--dump-config']))
-  // Exercise the shipped bin through its real package-manager symlink/shim.
   const cliHelp = JSON.parse(dsh(['plugin', '--profile', 'web', 'exec', 'dsh-claude-model-provider', '--help']))
   if (!cliHelp.options?.includes('--dsh-profile <profile-name>')) throw new Error('INSTALLED_CLI_FAILED')
   const inserted = after.filter((x) => !before.some((b) => b.id === x.id))
@@ -97,7 +96,6 @@ try {
     throw new Error('BAD_COMPOSITION')
   if (JSON.stringify(after.filter((x) => x.id !== inserted[0].id)) !== JSON.stringify(before))
     throw new Error('EXISTING_CONFIG_CHANGED')
-  // Resolve the host and provider from the same installed profile, checking service identity.
   const profile = join(env.DSH_HOME, 'profiles/web')
   const probe = join(profile, 'identity-probe.mjs')
   const anchor = join(temp, 'cli/node_modules/@deepseek-ai/dsh/package.json')
