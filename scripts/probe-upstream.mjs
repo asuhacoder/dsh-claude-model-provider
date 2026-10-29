@@ -1,18 +1,54 @@
-import { readFileSync,writeFileSync,mkdirSync,appendFileSync } from 'node:fs'
-import { createHash } from 'node:crypto'
-const names=['@deepseek-ai/dsh','@anthropic-ai/claude-agent-sdk','dsh-plugin-subscriptions']
-const packages={}
-for(const name of names){const res=await fetch('https://registry.npmjs.org/'+encodeURIComponent(name));if(!res.ok)throw new Error('REGISTRY_UNAVAILABLE');const p=await res.json();const latest=p['dist-tags'].latest;const next=p['dist-tags'].next;packages[name]={version:latest,next:next??null,distTags:p['dist-tags'],integrity:p.versions[latest].dist.integrity,nextIntegrity:next&&p.versions[next]?p.versions[next].dist.integrity:null}}
-const token=process.env.GH_TOKEN??process.env.GITHUB_TOKEN
-const headers={'User-Agent':'dsh-session-provider-compat',...(token?{Authorization:'Bearer '+token}:{})}
-async function github(path){const response=await fetch('https://api.github.com/'+path,{headers,signal:AbortSignal.timeout(15000)});if(!response.ok)throw new Error('GITHUB_METADATA_HTTP_'+response.status);return response.json()}
-const repo=await github('repos/deepseek-ai/deepseek-harness')
-const ref=await github('repos/deepseek-ai/deepseek-harness/commits/'+encodeURIComponent(repo.default_branch))
-if(!/^[0-9a-f]{40}$/.test(ref.sha??''))throw new Error('UPSTREAM_SHA_UNAVAILABLE')
-const result={schema:1,observedAt:new Date().toISOString(),packages,defaultBranch:repo.default_branch,defaultBranchSha:ref.sha}
-let old;try{old=JSON.parse(readFileSync('compatibility.lock.json','utf8'))}catch{}
-result.changed=names.some(n=>old?.packages?.[n]?.version!==packages[n].version||old?.packages?.[n]?.next!==packages[n].next)||old?.defaultBranchSha!==ref.sha
-result.fingerprint=createHash('sha256').update(JSON.stringify([packages,ref.sha])).digest('hex')
-mkdirSync('.artifacts',{recursive:true});writeFileSync('.artifacts/upstream.json',JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result))
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { assessUpstream, fingerprint } from './upstream-line.mjs'
 
-if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'changed='+result.changed+'\ntuple='+JSON.stringify(result)+'\n')
+const names = ['@deepseek-ai/dsh', '@anthropic-ai/claude-agent-sdk', 'dsh-plugin-subscriptions']
+
+async function registry(name) {
+  const res = await fetch('https://registry.npmjs.org/' + encodeURIComponent(name))
+  if (!res.ok) throw new Error('REGISTRY_UNAVAILABLE')
+  return res.json()
+}
+
+const packuments = {}
+for (const name of names) packuments[name] = await registry(name)
+
+const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN
+const headers = {
+  'User-Agent': 'dsh-session-provider-compat',
+  ...(token ? { Authorization: 'Bearer ' + token } : {}),
+}
+async function github(path) {
+  const response = await fetch('https://api.github.com/' + path, {
+    headers,
+    signal: AbortSignal.timeout(15000),
+  })
+  if (!response.ok) throw new Error('GITHUB_METADATA_HTTP_' + response.status)
+  return response.json()
+}
+const repo = await github('repos/deepseek-ai/deepseek-harness')
+const ref = await github('repos/deepseek-ai/deepseek-harness/commits/' + encodeURIComponent(repo.default_branch))
+if (!/^[0-9a-f]{40}$/.test(ref.sha ?? '')) throw new Error('UPSTREAM_SHA_UNAVAILABLE')
+
+let lock
+try {
+  lock = JSON.parse(readFileSync('compatibility.lock.json', 'utf8'))
+} catch {
+  lock = undefined
+}
+const assessed = assessUpstream({ lock, packuments, defaultBranchSha: ref.sha })
+const result = {
+  schema: 1,
+  observedAt: new Date().toISOString(),
+  packages: assessed.packages,
+  lines: assessed.lines,
+  defaultBranch: repo.default_branch,
+  defaultBranchSha: ref.sha,
+  changed: assessed.changed,
+  fingerprint: fingerprint(assessed),
+}
+mkdirSync('.artifacts', { recursive: true })
+writeFileSync('.artifacts/upstream.json', JSON.stringify(result, null, 2) + '\n')
+console.log(JSON.stringify(result))
+if (process.env.GITHUB_OUTPUT) {
+  appendFileSync(process.env.GITHUB_OUTPUT, 'changed=' + result.changed + '\ntuple=' + JSON.stringify(result) + '\n')
+}
