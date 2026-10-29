@@ -87,7 +87,7 @@
     "bench:routing": "pnpm build && node scripts/bench-routing.mjs",
     "compat:probe": "node scripts/probe-upstream.mjs",
     "release:dry-run": "pnpm build && node scripts/check-pack.mjs && node scripts/release-dry-run.mjs",
-    "test:ops": "node --test ops/*.test.mjs scripts/upstream-line.test.mjs && node ops/fixture-e2e.mjs",
+    "test:ops": "node --test ops/*.test.mjs scripts/*.test.mjs && node ops/fixture-e2e.mjs",
     "test:live:matrix": "pnpm build && node scripts/live-matrix.mjs",
     "test:live:hybrid": "pnpm build && node scripts/live-hybrid.mjs",
     "bench:forecast": "pnpm build && node scripts/bench-forecast.mjs",
