@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs'
+import { appendFileSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { parseDocument } from 'yaml'
 import { taggedValue } from '../lib/profile-verifier.js'
+import { decidePartnerFailure } from './coexist-partner.mjs'
 const parse = (source) => taggedValue(parseDocument(source))
 const root = resolve('.'),
   temp = mkdtempSync(join(tmpdir(), 'dsh-provider-install-'))
@@ -62,8 +63,29 @@ try {
   const dsh = (args) => run(bin, args)
   if (dsh(['--version']).trim() !== dshVersion) throw new Error('WRONG_DSH_VERSION')
   dsh(['--profile', 'web', '--dump-config'])
-  if (coexist)
-    dsh(['plugin', '--profile', 'web', 'add', 'dsh-plugin-subscriptions@'+subscriptionsVersion, '--ignore-scripts'])
+  let partner = null
+  if (coexist) {
+    const spec = 'dsh-plugin-subscriptions@' + subscriptionsVersion
+    try {
+      dsh(['plugin', '--profile', 'web', 'add', spec, '--ignore-scripts'])
+      partner = { action: 'installed', detail: null }
+    } catch (error) {
+      const stderr = error.stderr?.toString() ?? ''
+      const decision = decidePartnerFailure({
+        output: stderr.includes('installation rejected:') ? stderr : `${stderr}\n${error.message ?? ''}`,
+        pluginSpec: spec,
+        candidate: tuple != null,
+      })
+      if (decision.action !== 'defer') throw error
+      partner = decision
+      const notice = `coexist partner ${spec} does not accept dsh ${dshVersion} yet`
+      console.error(JSON.stringify({ coexistPartner: 'deferred', detail: decision.detail }))
+      console.error(`::warning::${notice}`)
+      const summary = process.env.GITHUB_STEP_SUMMARY
+      if (typeof summary === 'string' && summary.length > 0)
+        appendFileSync(summary, `## Coexist partner deferred\n\n${notice}.\n\n${decision.detail}\n`)
+    }
+  }
   const before = parse(dsh(['--profile', 'web', '--dump-config']))
   dsh(['plugin', '--profile', 'web', 'add', tarball, '--ignore-scripts'])
   const after = parse(dsh(['--profile', 'web', '--dump-config']))
@@ -108,6 +130,12 @@ try {
     artifact_sha256: digest,
     coexist,
     subscriptionVersion: coexist ? subscriptionsVersion : null,
+    ...(coexist
+      ? {
+          coexistPartner: partner.action === 'defer' ? 'deferred' : 'installed',
+          coexistPartnerDetail: partner.action === 'defer' ? partner.detail : null,
+        }
+      : {}),
     checks: [
       'empty-HOME-public-install-command',
       'composition-unchanged',
@@ -116,6 +144,9 @@ try {
       'actual-LLM-registration',
       'unverified-accounts-not-advertised',
       'uninstall-restores-baseline',
+      ...(coexist
+        ? [partner.action === 'defer' ? 'coexist-partner-deferred' : 'coexist-partner-installed']
+        : []),
     ],
     generationVerified: false,
     otherProviderNetworkVerified: false,
