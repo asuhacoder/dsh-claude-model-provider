@@ -10,8 +10,9 @@ import { ClaudeDiagnostics, type DiagnosticLogger } from '../diagnostics.js'
 import type { ResolvedConfig } from '../index.js'
 import type { AttachmentReader } from '../content.js'
 import { StateStore } from '../storage/store.js'
+import { profileLoginHeld } from '../login-exchange.js'
 import { StickyRouter, blockedUntil, type RouteRequest } from '../routing/router.js'
-import { RouteBlocked, type Account, type Binding } from '../routing/types.js'
+import { RouteBlocked, type Account, type Binding, type Reservation } from '../routing/types.js'
 import { ToolLedger } from './ledger.js'
 import { assertAccount } from '../auth/official.js'
 import { canonicalToolJson } from '../json.js'
@@ -201,6 +202,23 @@ export class SubscriptionProvider {
     this.#managers.delete(key)
     await holder?.manager.dispose()
   }
+  /** Drop idle managers for one profile. A reserved session keeps its generation and its manager. */
+  retireIdle(profileRef: string): void {
+    const reservations = this.store.list<Reservation>('reservations')
+    for (const session of [...this.#managers.keys()]) {
+      const binding = this.store.get<Binding>('bindings', session)
+      const account = binding ? this.store.get<Account>('accounts', binding.identity) : undefined
+      if (!binding || !account || account.profileRef !== profileRef) continue
+      if (reservations.some((reservation) => reservation.session === session)) continue
+      binding.generation += 1
+      binding.reason = 'profile-relogin'
+      delete binding.sdkSessionId
+      this.store.set('bindings', session, binding)
+      void this.#drop(session).catch(() => {
+        // The generation bump is already stored. A dead child must not fail the login.
+      })
+    }
+  }
   async #route(
     router: StickyRouter,
     req: RouteRequest,
@@ -237,6 +255,7 @@ export class SubscriptionProvider {
             this.accounts().some(
               (a) =>
                 ['READY', 'DRAINING', 'COOLDOWN'].includes(a.state) &&
+                !profileLoginHeld(this.store, a.profileRef) &&
                 a.models[req.model] !== undefined &&
                 (req.effort === undefined || a.models[req.model]!.includes(req.effort)) &&
                 blockedUntil(a, req.model, req.now) === undefined,
@@ -349,7 +368,6 @@ export class SubscriptionProvider {
     try {
       this.#pending.set(requestId, { phase: 'waiting-for-session' })
       unlock = await this.#sessions.acquire(key, signal)
-      if (store.get('meta', 'auth-mutation')) throw new RouteBlocked('AUTH_BUSY')
       circuit.enter(requestId, this.now())
       for (const m of options.messages)
         if (
@@ -423,7 +441,6 @@ export class SubscriptionProvider {
         await abortable(authPromise, signal)
         // A concurrent request or login may have revoked the account while this one awaited auth.
         const current = store.get<Account>('accounts', account.identity)
-        if (store.get('meta', 'auth-mutation')) throw new RouteBlocked('AUTH_BUSY')
         if (!current?.extraUsageOffConfirmedAt)
           throw new RouteBlocked('EXTRA_USAGE_OFF_UNCONFIRMED')
         if (
@@ -614,7 +631,14 @@ export class SubscriptionProvider {
       // Read the child exit before cleanup stops it, and keep cleanup from replacing `error`.
       const failure = collectEvidence(code, error)
       evidence = failure
-      if (unlock)
+      const pinned = store.get<Binding>('bindings', key)
+      const pinnedAccount = pinned ? store.get<Account>('accounts', pinned.identity) : undefined
+      const observedLogin =
+        error instanceof RouteBlocked &&
+        error.code === 'SUBSCRIPTION_LOGIN_REQUIRED' &&
+        pinnedAccount !== undefined &&
+        profileLoginHeld(store, pinnedAccount.profileRef)
+      if (unlock && !observedLogin)
         await this.#drop(key).catch((cleanup: unknown) => {
           failure.cleanup = describeError(cleanup)
         })

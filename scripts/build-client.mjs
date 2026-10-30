@@ -19,7 +19,7 @@ await build({
   format: 'esm',
   platform: 'node',
   target: 'node22',
-  external: ['@anthropic-ai/claude-agent-sdk', '@modelcontextprotocol/sdk/*', 'yaml'],
+  external: ['@anthropic-ai/claude-agent-sdk', '@modelcontextprotocol/sdk/*', 'yaml', 'node-pty'],
   define: { __DSH_CLI_PEER_VERSIONS__: JSON.stringify(peerVersions) },
   sourcemap: true,
 })

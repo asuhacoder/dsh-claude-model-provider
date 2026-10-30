@@ -1,5 +1,4 @@
 import { it, expect, vi, beforeEach } from 'vitest'
-import { EventEmitter } from 'node:events'
 const fake = vi.hoisted(() => ({
   exec: vi.fn(),
   models: vi.fn(),
@@ -17,7 +16,6 @@ import {
   billingConflicts,
   profileEnvironment,
 } from '../src/auth/official.js'
-import { officialLogin } from '../src/ui/controller.js'
 import { StateStore } from '../src/storage/store.js'
 import { RouteBlocked } from '../src/routing/types.js'
 import { describeError, describeFailureDetail } from '../src/failure-evidence.js'
@@ -273,22 +271,4 @@ it('verifies before and after control, retains only profile reference and enforc
   } finally {
     s.close()
   }
-})
-it('launches only official Claude login and handles cancellation or startup errors', async () => {
-  for (const event of ['success', 'exit', 'error']) {
-    const child = new EventEmitter()
-    fake.spawn.mockReturnValue(child)
-    const p = officialLogin('claude', 'default')
-    queueMicrotask(() =>
-      child.emit(event === 'error' ? 'error' : 'exit', event === 'success' ? 0 : 1),
-    )
-    if (event === 'success') await p
-    else
-      await expect(p).rejects.toThrow(event === 'error' ? 'LOGIN_START_FAILED' : 'LOGIN_INCOMPLETE')
-  }
-  expect(fake.spawn).toHaveBeenCalledWith(
-    'claude',
-    ['auth', 'login', '--claudeai'],
-    expect.objectContaining({ stdio: 'inherit', timeout: 180000 }),
-  )
 })

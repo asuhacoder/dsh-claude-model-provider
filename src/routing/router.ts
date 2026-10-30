@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto'
+import { profileLoginHeld } from '../login-exchange.js'
 import { StateStore } from '../storage/store.js'
 import {
+  preferredAccountLabel,
   RouteBlocked,
+  subscriptionLoginRequired,
   type Account,
   type Binding,
   type QuotaWindow,
@@ -60,11 +63,13 @@ export function choose(
   req: RouteRequest,
   reservations: readonly Reservation[],
   excluded = new Set<string>(),
+  profileHeld: (profileRef: string) => boolean = () => false,
 ): Account {
   const unique = [...new Map(accounts.map((a) => [a.identity, a])).values()]
   const candidates = unique.filter(
     (a) =>
       !excluded.has(a.identity) &&
+      !profileHeld(a.profileRef) &&
       ['READY', 'DRAINING', 'COOLDOWN'].includes(a.state) &&
       a.models[req.model] !== undefined &&
       (req.effort === undefined || a.models[req.model]!.includes(req.effort)) &&
@@ -127,6 +132,10 @@ export class StickyRouter {
           (req.effort !== undefined && !account.models[req.model]!.includes(req.effort))
         )
           throw new RouteBlocked('MODEL_CAPABILITY_UNAVAILABLE')
+        if (profileLoginHeld(this.store, account.profileRef))
+          throw subscriptionLoginRequired(
+            preferredAccountLabel(account.aliases, account.profileRef),
+          )
         if (reservations.some((r) => r.session === req.session))
           throw new RouteBlocked('SESSION_BUSY')
         if (
@@ -146,7 +155,13 @@ export class StickyRouter {
               }
         if (req.effort === undefined) delete binding.effort
       } else {
-        const account = choose(this.store.list<Account>('accounts'), req, reservations)
+        const account = choose(
+          this.store.list<Account>('accounts'),
+          req,
+          reservations,
+          new Set<string>(),
+          (profileRef) => profileLoginHeld(this.store, profileRef),
+        )
         binding = {
           key: req.session,
           identity: account.identity,
@@ -159,6 +174,8 @@ export class StickyRouter {
         }
       }
       const account = this.store.get<Account>('accounts', binding.identity)!
+      if (profileLoginHeld(this.store, account.profileRef))
+        throw subscriptionLoginRequired(preferredAccountLabel(account.aliases, account.profileRef))
       this.store.set('bindings', req.session, binding)
       this.store.set('reservations', req.requestId, {
         requestId: req.requestId,
@@ -218,6 +235,7 @@ export class StickyRouter {
         req,
         this.store.list<Reservation>('reservations'),
         new Set([old.identity]),
+        (profileRef) => profileLoginHeld(this.store, profileRef),
       )
       const next: Binding = {
         ...old,

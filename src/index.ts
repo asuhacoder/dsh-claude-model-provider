@@ -299,18 +299,23 @@ export function apply(ctx: Context, config: Config = {}): void {
   const bridges = new SubscriptionProvider(ctx.subprocess, resolved, ctx.attachments, {
     logger: ctx.logger,
   })
-  ctx.effect(() => () => bridges.dispose(), 'dsh-claude-plugin: bridge teardown')
-  registerAccountUi(
-    ctx,
-    new AccountController(
-      () => bridges.store,
-      resolved.claudeCommand,
-      {
-        model: resolved.defaultModel,
-      },
-      { pending: () => bridges.pendingRequests() },
-    ),
+  const accounts = new AccountController(
+    () => bridges.store,
+    resolved.claudeCommand,
+    { model: resolved.defaultModel },
+    {
+      pending: () => bridges.pendingRequests(),
+      retireIdle: (profileRef) => bridges.retireIdle(profileRef),
+    },
   )
+  ctx.effect(
+    () => () => {
+      accounts.dispose()
+      return bridges.dispose()
+    },
+    'dsh-claude-plugin: bridge teardown',
+  )
+  registerAccountUi(ctx, accounts)
   const hostPathMapper = (hostPath: string): string | undefined => {
     const fs: unknown = ctx.get('fs')
     if (fs === null || typeof fs !== 'object' || !('processPathFromHostPath' in fs))
