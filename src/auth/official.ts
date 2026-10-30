@@ -5,7 +5,7 @@ import { isAbsolute } from 'node:path'
 import { query, type ModelInfo } from '@anthropic-ai/claude-agent-sdk'
 import { AsyncQueue } from '../async-queue.js'
 import { noteFailureDetail } from '../failure-evidence.js'
-import { type Account, RouteBlocked, visibleAccountLabel } from '../routing/types.js'
+import { type Account, RouteBlocked, subscriptionLoginRequired } from '../routing/types.js'
 import { StateStore } from '../storage/store.js'
 const execute = promisify(execFile)
 const BILLING =
@@ -85,12 +85,6 @@ function statusObject(stdout: string): OfficialStatus {
   const value: unknown = JSON.parse(stdout)
   if (typeof value !== 'object' || value === null) throw new TypeError('not a JSON object')
   return value as OfficialStatus
-}
-function subscriptionLoginRequired(profileRef: string): RouteBlocked {
-  const blocked = new RouteBlocked('SUBSCRIPTION_LOGIN_REQUIRED')
-  const label = visibleAccountLabel(profileRef)
-  if (label !== undefined) blocked.accountLabel = label
-  return blocked
 }
 function officialSubscription(parsed: OfficialStatus, profileRef: string): OfficialStatus {
   if (!parsed.loggedIn) throw subscriptionLoginRequired(profileRef)
