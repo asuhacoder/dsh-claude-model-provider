@@ -131,6 +131,61 @@ describe('subscription routing acceptance', () => {
     expect(() => r.migrate(req('s'), 'suspension' as 'quota', true)).toThrow('UNSAFE_MIGRATION')
     s.close()
   })
+  it('replaces a missing or disabled pin and refuses a suspended pin or an unfinished tool', () => {
+    const open = () => {
+      const s = new StateStore(':memory:')
+      const r = new StickyRouter(s)
+      r.register(account('A'))
+      r.register(account('B'))
+      const first = r.route(req('s'))
+      r.release('s')
+      return { s, r, first }
+    }
+    const missing = open()
+    missing.s.delete('accounts', missing.first.identity)
+    const replaced = missing.r.migrate(req('s'), 'unavailable', true)
+    expect(replaced.identity).not.toBe(missing.first.identity)
+    expect(replaced.generation).toBe(missing.first.generation + 1)
+    expect(replaced.sdkSessionId).toBeUndefined()
+    expect(replaced.reason).toBe('bound-account-replaced')
+    expect(missing.r.route(req('s')).identity).toBe(replaced.identity)
+    missing.s.close()
+    const disabled = open()
+    const bound = disabled.s.get<Account>('accounts', disabled.first.identity)!
+    bound.state = 'DISABLED'
+    disabled.s.set('accounts', bound.identity, bound)
+    expect(disabled.r.migrate(req('s'), 'unavailable', true).identity).not.toBe(
+      disabled.first.identity,
+    )
+    disabled.s.close()
+    const alone = open()
+    alone.s.delete('accounts', alone.first.identity === 'A' ? 'B' : 'A')
+    const remaining = alone.s.get<Account>('accounts', alone.first.identity)!
+    remaining.state = 'DISABLED'
+    alone.s.set('accounts', remaining.identity, remaining)
+    expect(() => alone.r.migrate(req('s'), 'unavailable', true)).toThrow('POOL_UNAVAILABLE')
+    alone.s.close()
+    for (const state of ['SUSPENDED', 'AUTH_REQUIRED'] as const) {
+      const held = open()
+      const account = held.s.get<Account>('accounts', held.first.identity)!
+      account.state = state
+      held.s.set('accounts', account.identity, account)
+      expect(() => held.r.migrate(req('s'), 'unavailable', true)).toThrow(
+        'BOUND_ACCOUNT_UNAVAILABLE',
+      )
+      expect(held.s.get<Binding>('bindings', 's')!.identity).toBe(held.first.identity)
+      held.s.close()
+    }
+    const unfinished = open()
+    const binding = unfinished.s.get<Binding>('bindings', 's')!
+    binding.pendingTools = ['call-1']
+    unfinished.s.set('bindings', 's', binding)
+    unfinished.s.delete('accounts', unfinished.first.identity)
+    expect(() => unfinished.r.migrate(req('s'), 'unavailable', true)).toThrow('OUTCOME_UNKNOWN')
+    expect(unfinished.s.get<Binding>('bindings', 's')!.identity).toBe(unfinished.first.identity)
+    expect(() => unfinished.r.migrate(req('s'), 'unavailable', false)).toThrow('UNSAFE_MIGRATION')
+    unfinished.s.close()
+  })
   it('A-031 records distinct IDs separately, refuses duplicate effects and reconciles authoritative receipts', () => {
     const s = new StateStore(':memory:')
     const l = new ToolLedger(s)

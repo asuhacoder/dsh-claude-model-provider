@@ -250,6 +250,76 @@ describe('subscription provider request boundary', () => {
       await p.dispose()
     }
   })
+  it.each(['disabled', 'missing'] as const)(
+    'continues a resumed session when its pinned account is %s',
+    async (kind) => {
+      const p = provider(),
+        r = new StickyRouter(p.store)
+      r.register(account('A'))
+      r.register(account('B'))
+      try {
+        await collect(p)
+        const first = p.store.list<Binding>('bindings')[0]!
+        if (kind === 'disabled') {
+          const bound = p.store.get<Account>('accounts', first.identity)!
+          bound.state = 'DISABLED'
+          p.store.set('accounts', bound.identity, bound)
+        } else p.store.delete('accounts', first.identity)
+        expect(await collect(p)).toMatchObject([{ reason: { kind: 'stop' } }])
+        const second = p.store.list<Binding>('bindings')[0]!
+        expect(second.identity).not.toBe(first.identity)
+        expect(second.generation).toBe(first.generation + 1)
+        expect(second.sdkSessionId).toBeUndefined()
+        expect(second.reason).toBe('bound-account-replaced')
+        expect(fake.streams).toHaveBeenCalledTimes(2)
+        expect(p.store.list('reservations')).toEqual([])
+      } finally {
+        await p.dispose()
+      }
+    },
+  )
+  it('reports the pinned account unavailable when no other account can continue', async () => {
+    const p = provider()
+    new StickyRouter(p.store).register(account('A'))
+    try {
+      await collect(p)
+      const bound = p.store.list<Account>('accounts')[0]!
+      bound.state = 'DISABLED'
+      p.store.set('accounts', bound.identity, bound)
+      expect(await collect(p)).toMatchObject([
+        { reason: { failure: { code: 'BOUND_ACCOUNT_UNAVAILABLE' } } },
+      ])
+      expect(fake.streams).toHaveBeenCalledOnce()
+    } finally {
+      await p.dispose()
+    }
+  })
+  it('does not move a disabled pin while a tool call is unfinished', async () => {
+    const p = provider(),
+      r = new StickyRouter(p.store)
+    r.register(account('A'))
+    r.register(account('B'))
+    try {
+      fake.chunks = [
+        {
+          type: 'block-end',
+          index: 0,
+          block: { type: 'tool-call', id: 'call-1' as never, name: 'ping', arguments: '{}' },
+        },
+        { type: 'finish', reason: { kind: 'tool-calls' } },
+      ]
+      await collect(p)
+      const first = p.store.list<Binding>('bindings')[0]!
+      const bound = p.store.get<Account>('accounts', first.identity)!
+      bound.state = 'DISABLED'
+      p.store.set('accounts', bound.identity, bound)
+      expect(await collect(p)).toMatchObject([{ reason: { failure: { code: 'OUTCOME_UNKNOWN' } } }])
+      expect(p.store.list<Binding>('bindings')[0]!.identity).toBe(first.identity)
+      expect(fake.streams).toHaveBeenCalledOnce()
+    } finally {
+      await p.dispose()
+    }
+  })
   it('does not migrate after authentication suspension or cancellation', async () => {
     const p = provider(),
       r = new StickyRouter(p.store)

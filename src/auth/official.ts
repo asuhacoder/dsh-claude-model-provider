@@ -5,7 +5,7 @@ import { isAbsolute } from 'node:path'
 import { query, type ModelInfo } from '@anthropic-ai/claude-agent-sdk'
 import { AsyncQueue } from '../async-queue.js'
 import { noteFailureDetail } from '../failure-evidence.js'
-import { type Account, RouteBlocked } from '../routing/types.js'
+import { type Account, RouteBlocked, visibleAccountLabel } from '../routing/types.js'
 import { StateStore } from '../storage/store.js'
 const execute = promisify(execFile)
 const BILLING =
@@ -77,10 +77,33 @@ function statusCommandFailure(error: unknown, startedAt: number): RouteBlocked {
   })
   return blocked
 }
+function childStdout(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('stdout' in error)) return undefined
+  return typeof error.stdout === 'string' ? error.stdout : undefined
+}
+function statusObject(stdout: string): OfficialStatus {
+  const value: unknown = JSON.parse(stdout)
+  if (typeof value !== 'object' || value === null) throw new TypeError('not a JSON object')
+  return value as OfficialStatus
+}
+function subscriptionLoginRequired(profileRef: string): RouteBlocked {
+  const blocked = new RouteBlocked('SUBSCRIPTION_LOGIN_REQUIRED')
+  const label = visibleAccountLabel(profileRef)
+  if (label !== undefined) blocked.accountLabel = label
+  return blocked
+}
+function officialSubscription(parsed: OfficialStatus, profileRef: string): OfficialStatus {
+  if (!parsed.loggedIn) throw subscriptionLoginRequired(profileRef)
+  if (parsed.authMethod !== 'claude.ai' || parsed.apiProvider !== 'firstParty')
+    throw new RouteBlocked('SUBSCRIPTION_AUTH_REQUIRED')
+  if (!parsed.orgId) throw new RouteBlocked('STABLE_SUBSCRIPTION_IDENTITY_UNAVAILABLE')
+  return parsed
+}
 async function readOfficialStatus(
   command: string,
   env: NodeJS.ProcessEnv,
   timeoutMs: number,
+  profileRef: string,
 ): Promise<OfficialStatus> {
   const startedAt = Date.now()
   let stdout: string
@@ -94,13 +117,23 @@ async function readOfficialStatus(
       maxBuffer: 65536,
     }))
   } catch (error) {
-    throw statusCommandFailure(error, startedAt)
+    const failure: { killed?: unknown } = typeof error === 'object' && error !== null ? error : {}
+    if (failure.killed === true) throw statusCommandFailure(error, startedAt)
+    const captured = childStdout(error)
+    if (captured === undefined) throw statusCommandFailure(error, startedAt)
+    let parsed: OfficialStatus
+    try {
+      parsed = statusObject(captured)
+    } catch {
+      throw statusCommandFailure(error, startedAt)
+    }
+    if (parsed.loggedIn === false) throw subscriptionLoginRequired(profileRef)
+    if (parsed.loggedIn !== true) throw statusCommandFailure(error, startedAt)
+    return officialSubscription(parsed, profileRef)
   }
   let parsed: OfficialStatus
   try {
-    const value: unknown = JSON.parse(stdout)
-    if (typeof value !== 'object' || value === null) throw new TypeError('not a JSON object')
-    parsed = value as OfficialStatus
+    parsed = statusObject(stdout)
   } catch (error) {
     const blocked = new RouteBlocked('AUTH_STATUS_INVALID_OUTPUT', undefined, { cause: error })
     noteFailureDetail(blocked, {
@@ -111,11 +144,7 @@ async function readOfficialStatus(
     })
     throw blocked
   }
-  if (!parsed.loggedIn) throw new RouteBlocked('SUBSCRIPTION_LOGIN_REQUIRED')
-  if (parsed.authMethod !== 'claude.ai' || parsed.apiProvider !== 'firstParty')
-    throw new RouteBlocked('SUBSCRIPTION_AUTH_REQUIRED')
-  if (!parsed.orgId) throw new RouteBlocked('STABLE_SUBSCRIPTION_IDENTITY_UNAVAILABLE')
-  return parsed
+  return officialSubscription(parsed, profileRef)
 }
 export async function officialStatus(
   command: string,
@@ -129,7 +158,7 @@ export async function officialStatus(
   const retryDelayMs = limits?.retryDelayMs ?? AUTH_STATUS_RETRY_DELAY_MS
   for (let attempt = 1; ; attempt += 1) {
     try {
-      return await readOfficialStatus(command, env, timeoutMs)
+      return await readOfficialStatus(command, env, timeoutMs, profileRef)
     } catch (error) {
       if (
         !(error instanceof RouteBlocked) ||
@@ -228,7 +257,16 @@ export async function assertAccount(
   account: Account,
 ): Promise<void> {
   if (!account.extraUsageOffConfirmedAt) throw new RouteBlocked('EXTRA_USAGE_OFF_UNCONFIRMED')
-  const status = await officialStatus(command, account.profileRef)
+  let status: OfficialStatus
+  try {
+    status = await officialStatus(command, account.profileRef)
+  } catch (error) {
+    if (error instanceof RouteBlocked && error.code === 'SUBSCRIPTION_LOGIN_REQUIRED') {
+      const alias = account.aliases.find((item) => /^[A-Za-z0-9_-]{1,48}$/.test(item))
+      if (alias !== undefined) error.accountLabel = alias
+    }
+    throw error
+  }
   if (store.hash('subscription-org:' + status.orgId) !== account.identity)
     throw new RouteBlocked('PROFILE_IDENTITY_CHANGED')
 }

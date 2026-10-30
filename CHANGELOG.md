@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+A non-zero `claude auth status` that prints JSON with `loggedIn: false` now reports `SUBSCRIPTION_LOGIN_REQUIRED` and names the account alias or profile path. Broken output, a launch failure, and a timeout keep their existing codes. The public message does not include command output.
+
+A session whose pinned account is missing or `DISABLED` moves to another ready account when no tool call is unfinished, through the same migration used for a confirmed usage limit. A suspended account, an account that still needs login, and an unfinished tool call stay where they are.
+
 A hung `claude auth status` now reports `AUTH_STATUS_TIMEOUT`. The 15-second SIGTERM limit let the CLI trap the signal and exit 0. Node then resolved `execFile` with empty stdout, and `JSON.parse` reported `AUTH_STATUS_INVALID_OUTPUT`. The check kills the process with SIGKILL, waits 45 seconds, and runs the command once more after 200 milliseconds. Only a timeout is retried. The failure record includes `startedAt` plus the elapsed time and the stderr byte count. Stderr text is not stored.
 
 Report why the official login check failed. `AUTH_STATUS_UNAVAILABLE` is replaced by `AUTH_STATUS_TIMEOUT` (the 15-second limit stopped `claude auth status`), `AUTH_STATUS_COMMAND_FAILED` (it did not start, exited non-zero, was signalled or overflowed its output buffer) and `AUTH_STATUS_INVALID_OUTPUT` (its stdout is not a JSON object). A logged-out profile now reports `SUBSCRIPTION_LOGIN_REQUIRED`; `SUBSCRIPTION_AUTH_REQUIRED` remains for a login that is not claude.ai first-party. A relative profile path reports `PROFILE_MUST_BE_ABSOLUTE` instead of an unavailable status. The usage record evidence keeps the underlying error as a cause and adds the elapsed time, exit code, signal and stdout/stderr byte counts; stderr text is still not stored. Evidence stack locations are now read only after the exception message, so a message that quotes stderr lines shaped like stack frames no longer reaches the stored chain. A doctor `sdk.startup` failure now names the exception type and code.

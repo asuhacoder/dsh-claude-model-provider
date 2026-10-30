@@ -183,16 +183,34 @@ export class StickyRouter {
     a.windows.push(window)
     this.store.set('accounts', identity, a)
   }
-  migrate(req: RouteRequest, reason: 'quota', safeBoundary: boolean): Binding {
-    if (reason !== 'quota' || !safeBoundary) throw new RouteBlocked('UNSAFE_MIGRATION')
+  migrate(req: RouteRequest, reason: 'quota' | 'unavailable', safeBoundary: boolean): Binding {
+    if (!safeBoundary) throw new RouteBlocked('UNSAFE_MIGRATION')
     return this.store.transaction(() => {
       const old = this.store.get<Binding>('bindings', req.session)
       if (!old || old.pendingTools.length) throw new RouteBlocked('OUTCOME_UNKNOWN')
       const previousAccount = this.store.get<Account>('accounts', old.identity)
-      if (!previousAccount || !['READY', 'DRAINING', 'COOLDOWN'].includes(previousAccount.state))
-        throw new RouteBlocked('BOUND_ACCOUNT_UNAVAILABLE')
-      if (blockedUntil(previousAccount, req.model, req.now) === undefined)
-        throw new RouteBlocked('QUOTA_MIGRATION_UNCONFIRMED')
+      let bindingReason: string
+      switch (reason) {
+        case 'quota':
+          if (
+            !previousAccount ||
+            !['READY', 'DRAINING', 'COOLDOWN'].includes(previousAccount.state)
+          )
+            throw new RouteBlocked('BOUND_ACCOUNT_UNAVAILABLE')
+          if (blockedUntil(previousAccount, req.model, req.now) === undefined)
+            throw new RouteBlocked('QUOTA_MIGRATION_UNCONFIRMED')
+          bindingReason = 'confirmed-quota-migration'
+          break
+        case 'unavailable':
+          if (previousAccount !== undefined && previousAccount.state !== 'DISABLED')
+            throw new RouteBlocked('BOUND_ACCOUNT_UNAVAILABLE')
+          bindingReason = 'bound-account-replaced'
+          break
+        default: {
+          const unexpected: never = reason
+          throw new RouteBlocked('UNSAFE_MIGRATION', undefined, { cause: unexpected })
+        }
+      }
       if (this.store.list<Reservation>('reservations').some((r) => r.session === req.session))
         throw new RouteBlocked('SESSION_BUSY')
       const account = choose(
@@ -205,7 +223,7 @@ export class StickyRouter {
         ...old,
         identity: account.identity,
         generation: old.generation + 1,
-        reason: 'confirmed-quota-migration',
+        reason: bindingReason,
       }
       delete next.sdkSessionId
       this.store.set('bindings', req.session, next)
