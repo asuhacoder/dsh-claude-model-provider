@@ -1,7 +1,7 @@
 import { createElement as h, useEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { LoginTarget, LoginView, ParsedLoginFailure } from '../login-view.js'
-import { parseAuthorizationCode, parseLoginRequiredMessage } from '../login-view.js'
+import { parseAuthorizationCode, parseLoginLabel, parseLoginRequiredMessage } from '../login-view.js'
 import { RouteBlocked } from '../routing/types.js'
 
 export interface LoginRpc {
@@ -14,7 +14,6 @@ export interface LoginRpc {
   >
 }
 
-// One browser open per attempt survives a remount of the same exchange.
 const openedAttempts = new Set<string>()
 
 function targetFields(target: ParsedLoginFailure | LoginTarget): Record<string, string> {
@@ -27,6 +26,21 @@ function targetFields(target: ParsedLoginFailure | LoginTarget): Record<string, 
         : { profile: target.profile }
     case 'identity':
       return { id: target.identity, alias: target.alias }
+    default: {
+      const _exhaustive: never = target
+      return _exhaustive
+    }
+  }
+}
+
+function targetKey(target: ParsedLoginFailure | LoginTarget): string {
+  switch (target.kind) {
+    case 'alias':
+      return `alias:${target.alias}`
+    case 'profile':
+      return `profile:${target.profile}:${'alias' in target ? (target.alias ?? '') : ''}`
+    case 'identity':
+      return `identity:${target.identity}:${target.alias}`
     default: {
       const _exhaustive: never = target
       return _exhaustive
@@ -48,8 +62,7 @@ export function LoginExchangePanel(props: {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const fields = targetFields(props.target)
-  // A fresh object would restart the one-second poll on every keystroke.
-  const fieldKey = JSON.stringify(fields)
+  const fieldKey = targetKey(props.target)
   const polling =
     view?.phase === 'opening' || view?.phase === 'needs_code' || view?.phase === 'finishing'
 
@@ -182,7 +195,12 @@ export function LoginExchangePanel(props: {
   )
 }
 
-/** The host already draws the failure text. This adds the login control beside that text. */
+export function ClaudeLoginCard(props: { rpc: LoginRpc; node?: { args?: string | null } }) {
+  const target = parseLoginLabel((props.node?.args ?? '').trim())
+  if (!target) return h('p', { role: 'alert' }, 'INVALID_PAYLOAD')
+  return h(LoginExchangePanel, { rpc: props.rpc, target })
+}
+
 export function ClaudeTurnError(props: { message: string; code?: string; rpc: LoginRpc }) {
   if (props.code !== 'SUBSCRIPTION_LOGIN_REQUIRED') return null
   const parsed = parseLoginRequiredMessage(props.message)

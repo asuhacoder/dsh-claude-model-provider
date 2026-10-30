@@ -197,12 +197,20 @@ export class SubscriptionProvider {
       this.#store = undefined
     }
   }
-  async #drop(key: string): Promise<void> {
+  async #release(key: string): Promise<{ ok: true } | { ok: false; error: unknown }> {
     const holder = this.#managers.get(key)
     this.#managers.delete(key)
-    await holder?.manager.dispose()
+    try {
+      await holder?.manager.dispose()
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error }
+    }
   }
-  /** Drop idle managers for one profile. A reserved session keeps its generation and its manager. */
+  async #drop(key: string): Promise<void> {
+    const released = await this.#release(key)
+    if (!released.ok) throw released.error
+  }
   retireIdle(profileRef: string): void {
     const reservations = this.store.list<Reservation>('reservations')
     for (const session of [...this.#managers.keys()]) {
@@ -214,9 +222,7 @@ export class SubscriptionProvider {
       binding.reason = 'profile-relogin'
       delete binding.sdkSessionId
       this.store.set('bindings', session, binding)
-      void this.#drop(session).catch(() => {
-        // The generation bump is already stored. A dead child must not fail the login.
-      })
+      void this.#release(session)
     }
   }
   async #route(
@@ -439,7 +445,6 @@ export class SubscriptionProvider {
             this.#closeIfIdle()
           })
         await abortable(authPromise, signal)
-        // A concurrent request or login may have revoked the account while this one awaited auth.
         const current = store.get<Account>('accounts', account.identity)
         if (!current?.extraUsageOffConfirmedAt)
           throw new RouteBlocked('EXTRA_USAGE_OFF_UNCONFIRMED')
@@ -628,7 +633,6 @@ export class SubscriptionProvider {
             : error instanceof Error && 'code' in error && typeof error.code === 'string'
               ? error.code
               : 'SUBSCRIPTION_PROVIDER_FAILED'
-      // Read the child exit before cleanup stops it, and keep cleanup from replacing `error`.
       const failure = collectEvidence(code, error)
       evidence = failure
       const pinned = store.get<Binding>('bindings', key)
@@ -638,10 +642,10 @@ export class SubscriptionProvider {
         error.code === 'SUBSCRIPTION_LOGIN_REQUIRED' &&
         pinnedAccount !== undefined &&
         profileLoginHeld(store, pinnedAccount.profileRef)
-      if (unlock && !observedLogin)
-        await this.#drop(key).catch((cleanup: unknown) => {
-          failure.cleanup = describeError(cleanup)
-        })
+      if (unlock && !observedLogin) {
+        const released = await this.#release(key)
+        if (!released.ok) failure.cleanup = describeError(released.error)
+      }
       const retryAfterMs =
         error instanceof RouteBlocked &&
         error.retryAt !== undefined &&

@@ -157,7 +157,7 @@ it('treats non-zero auth status JSON as login state instead of a command failure
     accountLabel: '/tmp/claude-primary',
   })
   expect(publicFailureMessage(loggedOutError, 'SUBSCRIPTION_LOGIN_REQUIRED')).toBe(
-    'SUBSCRIPTION_LOGIN_REQUIRED: /tmp/claude-primary',
+    'SUBSCRIPTION_LOGIN_REQUIRED: /tmp/claude-primary · /claude-login /tmp/claude-primary',
   )
   expect(JSON.stringify(describeError(loggedOutError))).not.toContain(secret)
   expect(publicFailureMessage(loggedOutError, 'SUBSCRIPTION_LOGIN_REQUIRED')).not.toContain(secret)
@@ -190,7 +190,7 @@ it('treats non-zero auth status JSON as login state instead of a command failure
     const named = await assertAccount(store, 'claude', account).catch((error: unknown) => error)
     expect(named).toMatchObject({ code: 'SUBSCRIPTION_LOGIN_REQUIRED', accountLabel: 'asuhasub' })
     expect(publicFailureMessage(named, 'SUBSCRIPTION_LOGIN_REQUIRED')).toBe(
-      'SUBSCRIPTION_LOGIN_REQUIRED: asuhasub',
+      'SUBSCRIPTION_LOGIN_REQUIRED: asuhasub · /claude-login asuhasub',
     )
     expect(publicFailureMessage(named, 'SUBSCRIPTION_LOGIN_REQUIRED')).not.toContain(secret)
     expect(publicFailureMessage(named, 'SUBSCRIPTION_LOGIN_REQUIRED')).not.toContain(

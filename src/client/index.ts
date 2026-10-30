@@ -5,7 +5,7 @@ import { listedAccountModels, modelPresentation } from '../model-presentation.js
 import type { Alias, LoginView, ProfileRef } from '../login-view.js'
 import { ACCOUNT_ALIAS } from '../routing/types.js'
 import type { AccountController } from '../ui/controller.js'
-import { LoginExchangePanel } from './login-panel.js'
+import { ClaudeLoginCard, LoginExchangePanel } from './login-panel.js'
 type Status = ReturnType<AccountController['status']>
 type Screen = Status & { exchange?: LoginView }
 interface Rpc {
@@ -232,11 +232,9 @@ export function Section({ rpc }: { rpc: Rpc }) {
   )
 }
 export function apply(ctx: Context) {
-  // A keyed conversation.chat.node replaces the host turn-error renderer and
-  // receives no previous view, so this plugin does not register that key.
   const slots = ctx.get('slots') as {
       inject: (name: string, fn: () => unknown) => void
-      register: (options: unknown, component: typeof Section) => unknown
+      register: (options: unknown, component: unknown) => unknown
     },
     connection = ctx.get('connection') as { rpc: Rpc }
   slots.inject('settings.section', () =>
@@ -249,6 +247,16 @@ export function apply(ctx: Context) {
         inject: () => ({ rpc: connection.rpc }),
       },
       Section,
+    ),
+  )
+  slots.inject('conversation.chat.commandview', () =>
+    slots.register(
+      {
+        name: 'conversation.chat.commandview',
+        key: 'claude-login',
+        inject: () => ({ rpc: connection.rpc }),
+      },
+      ClaudeLoginCard,
     ),
   )
 }

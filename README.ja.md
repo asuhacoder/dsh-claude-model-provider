@@ -17,6 +17,8 @@ dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-prov
 
 DSHを再起動し、設定の「Claude サブスクリプション」で既存の公式ログインを接続してください。CLIで登録する場合はDSH停止中に `dsh plugin --profile web exec dsh-claude-model-provider accounts add primary --extra-usage-off` を実行します。
 
+ログインが切れたターンには、アカウント名と `/claude-login` が出ます。チャットで `/claude-login アカウント名` を送るか、設定の「公式ログインを開始」を押してください。承認ページが開いたら、出たコードをその欄に貼ります。DSHの再起動と、ほかのセッションの停止は要りません。`accounts add --login` は、これまでどおりDSHを止めたときだけ使えます。
+
 `0.1.0-next.4` では、公式のモデル名・バージョン・説明・並び順を表示し、重複した既定モデルの行を削除しました。`0.1.0-next.3` の推論強度がないモデルへの対応も維持しています。
 
 `--extra-usage-off`は追加使用量がOFFであることを本人が確認してから指定します。トークンを読み出したり、従量APIへ切り替えたりしません。DSHを再起動し、`Claude Subscription / Claude Opus 5.5`を選んでください。モデル名・バージョン・説明・並び順は公式モデル一覧に従います。更新後は設定の「接続を確認」で保存済みのモデル情報を更新できます。旧 `default` の会話は引き続き使えますが、選択一覧の重複行は表示しません。導入だけでは既存のモデル設定やSubscription Pluginを変更しません。

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { publicFailureMessage } from '../src/errors.js'
+import { claudeLoginResult } from '../src/login-command.js'
 import {
   admitLogin,
   accountAllowsLogin,
@@ -148,8 +149,15 @@ describe('login payload parsers', () => {
     const named = blocked('SUBSCRIPTION_LOGIN_REQUIRED')
     named.accountLabel = 'asuhasub'
     const namedMessage = publicFailureMessage(named, 'SUBSCRIPTION_LOGIN_REQUIRED')
+    expect(namedMessage).toBe(
+      'SUBSCRIPTION_LOGIN_REQUIRED: asuhasub · /claude-login asuhasub',
+    )
     expect(namedMessage).toBe(formatLoginRequiredMessage('asuhasub'))
     expect(parseLoginRequiredMessage(namedMessage)).toEqual({ kind: 'alias', alias: 'asuhasub' })
+    expect(parseLoginRequiredMessage('SUBSCRIPTION_LOGIN_REQUIRED: asuhasub')).toEqual({
+      kind: 'alias',
+      alias: 'asuhasub',
+    })
 
     const path = blocked('SUBSCRIPTION_LOGIN_REQUIRED')
     path.accountLabel = '/tmp/claude-primary'
@@ -165,6 +173,9 @@ describe('login payload parsers', () => {
     })
     expect(parseLoginRequiredMessage('POOL_UNAVAILABLE: primary')).toBeUndefined()
     expect(parseLoginRequiredMessage('SUBSCRIPTION_LOGIN_REQUIRED: relative/path')).toBeUndefined()
+    expect(claudeLoginResult(' primary')).toEqual({ kind: 'success' })
+    expect(claudeLoginResult('not a label')).toEqual({ kind: 'error', text: 'INVALID_PAYLOAD' })
+    expect(JSON.stringify(claudeLoginResult('sk-ant-fixture pasted'))).not.toContain('sk-ant')
     expect(failureCode(blocked('ALIAS_IDENTITY_CHANGED'))).toBe('ALIAS_IDENTITY_CHANGED')
     expect(failureCode(new Error(SAMPLE_CODE))).toBe('LOGIN_INCOMPLETE')
     expect(String(failureCode(new Error(SAMPLE_URL)))).not.toContain('fixture')

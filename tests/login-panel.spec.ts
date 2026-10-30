@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
 import { Section } from '../src/client/index.js'
-import { ClaudeTurnError, LoginExchangePanel } from '../src/client/login-panel.js'
+import { ClaudeLoginCard, ClaudeTurnError, LoginExchangePanel } from '../src/client/login-panel.js'
 import type { LoginRpc } from '../src/client/login-panel.js'
 import type { LoginTarget, LoginView } from '../src/login-view.js'
 import { RouteBlocked } from '../src/routing/types.js'
@@ -106,6 +106,35 @@ it('leaves a non-login failure unchanged and waits for a click on login required
     expect.objectContaining({ op: 'open', alias: 'primary', extraUsageOff: false }),
   )
   tree.unmount()
+
+  const cardRpc = { call: vi.fn(async () => ({ ok: true as const, value: {} })) }
+  let card!: ReactTestRenderer
+  await act(async () => {
+    card = create(
+      createElement(ClaudeLoginCard, {
+        rpc: cardRpc,
+        node: { args: ' primary' },
+      }),
+    )
+  })
+  expect(
+    card.root.findAllByType('button').some((button) => button.children.includes('公式ログインを開始')),
+  ).toBe(true)
+  expect(cardRpc.call).not.toHaveBeenCalled()
+  card.unmount()
+
+  let rejected!: ReactTestRenderer
+  await act(async () => {
+    rejected = create(
+      createElement(ClaudeLoginCard, {
+        rpc: cardRpc,
+        node: { args: ' sk-ant-fixture pasted' },
+      }),
+    )
+  })
+  expect(JSON.stringify(rejected.toJSON())).toContain('INVALID_PAYLOAD')
+  expect(JSON.stringify(rejected.toJSON())).not.toContain('sk-ant-fixture')
+  rejected.unmount()
 })
 
 it('opens the login page once, keeps the address out of storage and errors, and polls', async () => {

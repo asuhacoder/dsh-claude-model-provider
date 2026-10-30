@@ -409,11 +409,7 @@ export class AccountController {
   }
 
   #kill(record: ExchangeRecord): void {
-    try {
-      record.child?.kill('SIGKILL')
-    } catch {
-      // The pty throws once the child has already exited.
-    }
+    record.child?.kill()
   }
 
   #requestVerify(record: ExchangeRecord): void {

@@ -43,6 +43,8 @@ dsh plugin --profile web exec dsh-claude-model-provider doctor --offline
 
 `--extra-usage-off` records your confirmation that Extra usage is OFF; verify it in Claude settings before using the flag. API keys, alternate gateways/backends and unidentified authentication routes are rejected. No API fallback or account rotation after a policy refusal is supported. After a tarball install, the binary is `dsh-claude-model-provider` in the installed DSH profile; from source use `node lib/provider-cli.js`.
 
+When a turn fails because the Claude login expired, the failure text names the account and `/claude-login`. Send `/claude-login <account>` in the chat, or open Settings → Claude サブスクリプション and press **公式ログインを開始**. The control opens the Claude authorize page in your browser. Paste the code into the field on that card. DSH stays up, and other accounts keep running. `accounts add --login` still needs DSH stopped, because that command opens its own database writer.
+
 Profiles may be added with `accounts add <alias> --profile <absolute-directory> --login --extra-usage-off`. An official subscription organization identity, hashed with a local salt, deduplicates profiles conservatively; a shared organization does not multiply capacity. Separate Keychain identity isolation must be verified before relying on multiple real accounts.
 
 ## Behavior

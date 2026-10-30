@@ -1,4 +1,5 @@
 import { AccountController } from './ui/controller.js'
+import { registerClaudeLoginCommand, type ClaudeLoginCommands } from './login-command.js'
 import { registerAccountUi } from './ui/rpc.js'
 import { SubscriptionProvider, prepareDshRequest } from './sessions/provider.js'
 import { isAbsolute } from 'node:path'
@@ -316,6 +317,10 @@ export function apply(ctx: Context, config: Config = {}): void {
     'dsh-claude-plugin: bridge teardown',
   )
   registerAccountUi(ctx, accounts)
+  const commands = ctx.get('commands') as ClaudeLoginCommands | undefined
+  if (commands !== undefined && typeof commands.register === 'function') {
+    ctx.effect(() => registerClaudeLoginCommand(commands))
+  }
   const hostPathMapper = (hostPath: string): string | undefined => {
     const fs: unknown = ctx.get('fs')
     if (fs === null || typeof fs !== 'object' || !('processPathFromHostPath' in fs))

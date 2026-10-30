@@ -39,3 +39,12 @@ it('spawns claude auth login on a pty with only the profile environment', () => 
   expect(isolated.env).toEqual(profileEnvironment('/tmp/profile'))
   expect(isolated.env?.CLAUDE_CONFIG_DIR).toBe('/tmp/profile')
 })
+
+it('kills the login pty with SIGKILL', () => {
+  expect(process.platform).not.toBe('win32')
+  const kill = vi.fn()
+  fake.spawn.mockReturnValue({ onData() {}, onExit() {}, write() {}, kill })
+  spawnLoginPty('claude', parseProfileRef('default')).kill()
+  expect(kill).toHaveBeenCalledTimes(1)
+  expect(kill).toHaveBeenCalledWith('SIGKILL')
+})

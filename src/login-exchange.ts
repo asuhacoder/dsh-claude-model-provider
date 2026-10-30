@@ -84,7 +84,6 @@ export type LoginEffect =
 export interface LoginStep {
   readonly state: ExchangeState
   readonly effects: readonly LoginEffect[]
-  /** `reject_not_ready` is an RPC error. `ignore` keeps the current attempt. */
   readonly reaction: 'applied' | 'ignore' | 'reject_not_ready'
 }
 
@@ -157,7 +156,6 @@ function spawn(event: BeginEvent): LoginStep {
   }
 }
 
-/** The child timer must not fail a verify that outlives the CLI. */
 function beginVerify(state: Labeled): LoginStep {
   return {
     state: {
@@ -368,7 +366,6 @@ export function stepLogin(state: ExchangeState, event: LoginEvent): LoginStep {
   }
 }
 
-/** `idle` is the absence of a record, so it has no view. */
 export function toLoginView(state: ExchangeState): LoginView {
   switch (state.phase) {
     case 'idle':
@@ -435,10 +432,6 @@ export function accountAllowsLogin(state: AccountState): boolean {
   }
 }
 
-/**
- * Empty `rowStates` is a new profile and is admitted.
- * A reservation is refused only after every row is allowed to log in.
- */
 export function admitLogin(input: {
   readonly rowStates: readonly AccountState[]
   readonly reservationsForProfile: number
@@ -496,7 +489,6 @@ function resolved(
   }
 }
 
-/** An alias that already belongs to a different profileRef is refused before a child exists. */
 export function resolveLoginTarget(
   target: LoginTarget,
   accounts: readonly Account[],
@@ -551,7 +543,6 @@ export class ProfileLoginGate {
   }
 }
 
-/** Missing gate means the profile is not held. */
 export function profileLoginHeld(store: object, profileRef: string): boolean {
   return gates.get(store)?.holds(profileRef) ?? false
 }
@@ -589,10 +580,6 @@ function allowUrl(candidate: string): boolean {
   return allowHost(url.hostname.toLowerCase().replace(/\.$/, ''))
 }
 
-/**
- * A URL must be followed by whitespace so a split chunk is not treated as complete.
- * Localhost, userinfo, and raw addresses are not links.
- */
 export function extractAuthorizeUrl(buffered: string): AuthorizeUrl | undefined {
   const text = buffered.replace(CSI, '').replaceAll('\r', '')
   for (const match of text.matchAll(HTTP_URL)) {

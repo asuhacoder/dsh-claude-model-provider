@@ -76,7 +76,6 @@ export function visibleAccountLabel(value: string): string | undefined {
   return value
 }
 
-/** Alias when one is safe to show, otherwise the profile path when that path is safe to show. */
 export function preferredAccountLabel(aliases: readonly string[], profileRef: string): string {
   const alias = aliases.find((item) => ACCOUNT_ALIAS.test(item))
   if (alias !== undefined) return alias

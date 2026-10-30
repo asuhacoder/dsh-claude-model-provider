@@ -626,7 +626,7 @@ it('returns missing terminal and refuses a held profile without a reservation', 
       reason: {
         failure: {
           code: 'SUBSCRIPTION_LOGIN_REQUIRED',
-          message: 'SUBSCRIPTION_LOGIN_REQUIRED: A',
+          message: 'SUBSCRIPTION_LOGIN_REQUIRED: A · /claude-login A',
         },
       },
     })

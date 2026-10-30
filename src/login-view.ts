@@ -15,7 +15,6 @@ export type LoginTarget =
   | { readonly kind: 'profile'; readonly profile: ProfileRef; readonly alias?: Alias }
   | { readonly kind: 'identity'; readonly identity: string; readonly alias: Alias }
 
-/** Alias grammar, or an absolute profile label. `default` is an alias target. */
 export type ParsedLoginFailure =
   | { readonly kind: 'alias'; readonly alias: Alias }
   | { readonly kind: 'profile'; readonly profile: ProfileRef }
@@ -36,11 +35,6 @@ export type LoginIntent =
   | { readonly op: 'close'; readonly attempt: AttemptId; readonly target: LoginTarget }
   | { readonly op: 'read'; readonly target: LoginTarget }
 
-/**
- * What the browser is allowed to see.
- * `needs_code` is the only phase with `authorizeUrl`.
- * `failed` is the only phase with `failureCode`.
- */
 export type LoginView =
   | {
       readonly phase: 'opening'
@@ -95,7 +89,6 @@ function absoluteProfile(value: string): boolean {
   return value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value)
 }
 
-/** `default`, or an absolute path. Rejects relative paths and NUL. */
 export function parseProfileRef(value: unknown): ProfileRef {
   if (typeof value !== 'string' || value.length === 0 || value.length > 1024)
     throw new RouteBlocked('INVALID_PROFILE')
@@ -105,10 +98,6 @@ export function parseProfileRef(value: unknown): ProfileRef {
   return value as ProfileRef
 }
 
-/**
- * Printable ASCII, length 4 to 1024, no whitespace.
- * Reject `://` and `sk-ant-`.
- */
 export function parseAuthorizationCode(value: unknown): AuthorizationCode {
   if (
     typeof value !== 'string' ||
@@ -122,7 +111,6 @@ export function parseAuthorizationCode(value: unknown): AuthorizationCode {
   return value as AuthorizationCode
 }
 
-/** Copy a stable RouteBlocked code. Anything else becomes LOGIN_INCOMPLETE. */
 export function failureCode(value: unknown): FailureCode {
   if (value instanceof RouteBlocked && STABLE_CODE.test(value.code))
     return value.code as FailureCode
@@ -178,17 +166,25 @@ export function parseLoginPayload(payload: unknown): LoginIntent {
 }
 
 export const LOGIN_REQUIRED_PREFIX = 'SUBSCRIPTION_LOGIN_REQUIRED: '
+export const LOGIN_COMMAND = 'claude-login'
+const LOGIN_COMMAND_HINT = ` · /${LOGIN_COMMAND} `
 
 export function formatLoginRequiredMessage(label: string): string {
-  return LOGIN_REQUIRED_PREFIX + label
+  return `${LOGIN_REQUIRED_PREFIX}${label}${LOGIN_COMMAND_HINT}${label}`
 }
 
-export function parseLoginRequiredMessage(message: string): ParsedLoginFailure | undefined {
-  if (!message.startsWith(LOGIN_REQUIRED_PREFIX)) return undefined
-  const label = message.slice(LOGIN_REQUIRED_PREFIX.length)
+export function parseLoginLabel(label: string): ParsedLoginFailure | undefined {
   if (label === 'default' || ACCOUNT_ALIAS.test(label))
     return { kind: 'alias', alias: label as Alias }
   if (visibleAccountLabel(label) === label && absoluteProfile(label))
     return { kind: 'profile', profile: label as ProfileRef }
   return undefined
+}
+
+export function parseLoginRequiredMessage(message: string): ParsedLoginFailure | undefined {
+  if (!message.startsWith(LOGIN_REQUIRED_PREFIX)) return undefined
+  let label = message.slice(LOGIN_REQUIRED_PREFIX.length)
+  const hintAt = label.indexOf(LOGIN_COMMAND_HINT)
+  if (hintAt !== -1) label = label.slice(0, hintAt)
+  return parseLoginLabel(label)
 }

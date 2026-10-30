@@ -450,6 +450,15 @@ it('retires only an idle manager for the profile being logged in', async () => {
     p.retireIdle('default')
     expect(p.store.get<Binding>('bindings', boundA!.key)?.generation).toBe(2)
     expect(disposed.A).toHaveBeenCalledOnce()
+    gate.release('default')
+    disposed.A.mockImplementation(async () => {
+      throw new Error('child already gone')
+    })
+    for await (const _chunk of p.stream(request('a'), 'opus'));
+    p.retireIdle('default')
+    await expect(disposed.A.mock.results.at(-1)?.value).rejects.toThrow('child already gone')
+    expect(p.store.get<Binding>('bindings', boundA!.key)?.generation).toBe(3)
+    expect(disposed.A).toHaveBeenCalledTimes(2)
   } finally {
     await p.dispose()
   }
