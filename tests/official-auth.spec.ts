@@ -21,6 +21,8 @@ import { officialLogin } from '../src/ui/controller.js'
 import { StateStore } from '../src/storage/store.js'
 import { RouteBlocked } from '../src/routing/types.js'
 import { describeError, describeFailureDetail } from '../src/failure-evidence.js'
+import { publicFailureMessage } from '../src/errors.js'
+import type { Account } from '../src/routing/types.js'
 const status = {
   loggedIn: true,
   authMethod: 'claude.ai',
@@ -136,6 +138,69 @@ it.each([
   expect(JSON.stringify([describeError(error), describeFailureDetail(error)])).not.toContain(
     'secret',
   )
+})
+const commandFailure = (stdout: string, stderr = '') =>
+  Object.assign(new Error(`Command failed: claude auth status\n${stderr}`), {
+    code: 1,
+    killed: false,
+    signal: null,
+    stdout,
+    stderr,
+  })
+it('treats non-zero auth status JSON as login state instead of a command failure', async () => {
+  const secret = 'sk-ant-fixture-secret'
+  const loggedOut = commandFailure(JSON.stringify({ loggedIn: false, accessToken: secret }), secret)
+  fake.exec.mockImplementation((_c, _a, _o, cb) => cb(loggedOut))
+  const loggedOutError = await officialStatus('claude', '/tmp/claude-primary').catch(
+    (error: unknown) => error,
+  )
+  expect(loggedOutError).toMatchObject({
+    code: 'SUBSCRIPTION_LOGIN_REQUIRED',
+    accountLabel: '/tmp/claude-primary',
+  })
+  expect(publicFailureMessage(loggedOutError, 'SUBSCRIPTION_LOGIN_REQUIRED')).toBe(
+    'SUBSCRIPTION_LOGIN_REQUIRED: /tmp/claude-primary',
+  )
+  expect(JSON.stringify(describeError(loggedOutError))).not.toContain(secret)
+  expect(publicFailureMessage(loggedOutError, 'SUBSCRIPTION_LOGIN_REQUIRED')).not.toContain(secret)
+  expect(fake.exec).toHaveBeenCalledOnce()
+
+  fake.exec.mockImplementation((_c, _a, _o, cb) => cb(commandFailure('not-json', secret)))
+  const broken = await officialStatus('claude', 'default').catch((error: unknown) => error)
+  expect(broken).toMatchObject({ code: 'AUTH_STATUS_COMMAND_FAILED' })
+  expect(JSON.stringify(describeError(broken))).not.toContain(secret)
+
+  fake.exec.mockImplementation((_c, _a, _o, cb) =>
+    cb(commandFailure(JSON.stringify(status), secret)),
+  )
+  await expect(officialStatus('claude', 'default')).resolves.toEqual(status)
+
+  const store = new StateStore(':memory:')
+  const account: Account = {
+    identity: 'ignored',
+    aliases: ['asuhasub'],
+    profileRef: '/tmp/claude-asuhasub',
+    state: 'READY',
+    verifiedAt: 1,
+    extraUsageOffConfirmedAt: 1,
+    models: {},
+    windows: [],
+    parallelLimit: 1,
+  }
+  try {
+    fake.exec.mockImplementation((_c, _a, _o, cb) => cb(loggedOut))
+    const named = await assertAccount(store, 'claude', account).catch((error: unknown) => error)
+    expect(named).toMatchObject({ code: 'SUBSCRIPTION_LOGIN_REQUIRED', accountLabel: 'asuhasub' })
+    expect(publicFailureMessage(named, 'SUBSCRIPTION_LOGIN_REQUIRED')).toBe(
+      'SUBSCRIPTION_LOGIN_REQUIRED: asuhasub',
+    )
+    expect(publicFailureMessage(named, 'SUBSCRIPTION_LOGIN_REQUIRED')).not.toContain(secret)
+    expect(publicFailureMessage(named, 'SUBSCRIPTION_LOGIN_REQUIRED')).not.toContain(
+      '/tmp/claude-asuhasub',
+    )
+  } finally {
+    store.close()
+  }
 })
 it('reports auth status output that is not a JSON object with its cause', async () => {
   for (const stdout of ['secret banner', 'null']) {
