@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Re-login a Claude account from the settings screen. The control opens the official login page and stores the pasted code on that account's profile. `default` leaves `CLAUDE_CONFIG_DIR` unset. A disabled, suspended, logged-out, or auth-required row for the same organization becomes ready. Other accounts keep running. The chat failure keeps the host's own text. The turn-error slot replaces that renderer and cannot wrap it, so the login control stays on the settings screen.
+
 A non-zero `claude auth status` that prints JSON with `loggedIn: false` now reports `SUBSCRIPTION_LOGIN_REQUIRED` and names the account alias or profile path. Broken output, a launch failure, and a timeout keep their existing codes. The public message does not include command output.
 
 A session whose pinned account is missing or `DISABLED` moves to another ready account when no tool call is unfinished, through the same migration used for a confirmed usage limit. A suspended account, an account that still needs login, and an unfinished tool call stay where they are.
