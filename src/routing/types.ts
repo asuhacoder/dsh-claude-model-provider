@@ -57,6 +57,7 @@ export interface Reservation {
   createdAt: number
 }
 export class RouteBlocked extends Error {
+  accountLabel?: string
   constructor(
     readonly code: string,
     readonly retryAt?: number,
@@ -65,4 +66,12 @@ export class RouteBlocked extends Error {
     super(code, options)
     this.name = 'RouteBlocked'
   }
+}
+const ACCOUNT_ALIAS = /^[A-Za-z0-9_-]{1,48}$/
+
+export function visibleAccountLabel(value: string): string | undefined {
+  if (value === 'default' || ACCOUNT_ALIAS.test(value)) return value
+  const absolute = value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value)
+  if (!absolute || value.length > 256 || /[\u0000-\u001f\u007f]/.test(value)) return undefined
+  return value
 }

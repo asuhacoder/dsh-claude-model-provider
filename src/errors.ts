@@ -1,4 +1,5 @@
 import { IMAGE_OFFLOAD_REQUIRED_CODE, LlmError } from '@deepseek-ai/dsh-llm'
+import { visibleAccountLabel } from './routing/types.js'
 
 export const CLAUDE_ERROR_CODES = {
   aborted: 'CLAUDE_ABORTED',
@@ -82,6 +83,13 @@ export function protocolError(message: string, cause?: unknown): ClaudePluginErr
   return claudeError(CLAUDE_ERROR_CODES.protocolError, message, cause)
 }
 
+function loginAccountLabel(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('accountLabel' in error)) return undefined
+  return typeof error.accountLabel === 'string'
+    ? visibleAccountLabel(error.accountLabel)
+    : undefined
+}
+
 /** Only adapter-owned messages cross the boundary; SDK/OS exception text stays private. */
 export function publicFailureMessage(error: unknown, code: string, detail?: string): string {
   if (code === 'QUEUE_DEADLINE')
@@ -91,6 +99,10 @@ export function publicFailureMessage(error: unknown, code: string, detail?: stri
   if (code === 'OUTCOME_UNKNOWN')
     return 'A prior DSH tool has no completion receipt; verify its outcome before continuing'
   if (error instanceof ClaudePluginError) return error.message.slice(0, 1024)
+  if (code === 'SUBSCRIPTION_LOGIN_REQUIRED') {
+    const account = loginAccountLabel(error)
+    if (account !== undefined) return `${code}: ${account}`
+  }
   return detail === undefined ? code : `${code}: ${detail}`
 }
 

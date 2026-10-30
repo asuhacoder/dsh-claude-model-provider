@@ -218,9 +218,13 @@ export class SubscriptionProvider {
         return router.route(req)
       } catch (error) {
         if (!(error instanceof RouteBlocked)) throw error
-        if (error.code === 'BOUND_ACCOUNT_COOLDOWN') {
+        if (error.code === 'BOUND_ACCOUNT_COOLDOWN' || error.code === 'BOUND_ACCOUNT_UNAVAILABLE') {
           try {
-            router.migrate(req, 'quota', true)
+            router.migrate(
+              req,
+              error.code === 'BOUND_ACCOUNT_COOLDOWN' ? 'quota' : 'unavailable',
+              true,
+            )
             continue
           } catch (migration) {
             if (!(migration instanceof RouteBlocked) || migration.code !== 'POOL_UNAVAILABLE')
@@ -546,9 +550,7 @@ export class SubscriptionProvider {
             const migrationCode =
               thrown instanceof RouteBlocked
                 ? thrown.code
-                : thrown instanceof Error &&
-                    'code' in thrown &&
-                    typeof thrown.code === 'string'
+                : thrown instanceof Error && 'code' in thrown && typeof thrown.code === 'string'
                   ? thrown.code
                   : terminal?.reason.kind === 'error'
                     ? terminal.reason.failure.code
