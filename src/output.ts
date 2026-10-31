@@ -6,7 +6,7 @@ import type {
 import type { ContentBlock, FinishReason, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import { CLAUDE_ERROR_CODES, claudeError, protocolError, toolProtocolError } from './errors.js'
 import { noteFailureDetail } from './failure-evidence.js'
-import { matchesEmittedToolArguments } from './json.js'
+import { completesStringifiedJson, matchesEmittedToolArguments } from './json.js'
 import { asCallId, canonicalToolJson } from './pending-tools.js'
 import { DSH_MCP_TOOL_PREFIX, dshToolName } from './tool-server.js'
 import { UsageTracker } from './usage.js'
@@ -388,11 +388,21 @@ export class ClaudeOutputTranslator {
     if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
       throw protocolError('Claude completed non-object tool arguments')
     }
+    const completed = this.#completed.find(
+      (other) => other.type === 'tool-call' && other.id === block.id,
+    )
+    // Claude Code executes the parsed form, so DSH must execute it too.
+    const adopted =
+      completed?.type === 'tool-call' &&
+      completesStringifiedJson(
+        parsed as Record<string, unknown>,
+        JSON.parse(completed.arguments) as Record<string, unknown>,
+      )
     return {
       type: 'tool-call',
       id: asCallId(block.id),
       name: block.name,
-      arguments: rawArguments,
+      arguments: adopted ? completed.arguments : rawArguments,
     }
   }
 
