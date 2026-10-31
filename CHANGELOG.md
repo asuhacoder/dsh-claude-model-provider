@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Publish from a version tag. Pushing `v<version>` runs the release workflow, which checks that the tag matches `package.json`, that the version is a prerelease not yet on npm, that `CHANGELOG.md` has its section, and that the commit is on `main`. It then runs the full verification, publishes the exact rehearsed tarball to `next` with npm provenance through trusted publishing, and creates a GitHub prerelease with the tarball, the dry-run report and the SBOM. `latest` stays manual.
+
 Re-login a Claude account from the failure row, the settings screen, or `/claude-login`. The failure row shows 公式ログインを開始 for that account, and other failures still show their message and code. The login child runs against a staging directory with `BROWSER=true`, and the saved credentials are replaced only after the organization matches. A ready account keeps serving during the browser wait. The code wait is 15 minutes, with キャンセル and もう一度ログイン on the card. A matching profile in the other pool is marked ready when that pool's database is free. `default` leaves the live `CLAUDE_CONFIG_DIR` unset until the verified file is installed.
 
 A non-zero `claude auth status` that prints JSON with `loggedIn: false` now reports `SUBSCRIPTION_LOGIN_REQUIRED` and names the account alias or profile path. Broken output, a launch failure, and a timeout keep their existing codes. The public message does not include command output.
@@ -11,6 +13,10 @@ A session whose pinned account is missing or `DISABLED` moves to another ready a
 A hung `claude auth status` now reports `AUTH_STATUS_TIMEOUT`. The 15-second SIGTERM limit let the CLI trap the signal and exit 0. Node then resolved `execFile` with empty stdout, and `JSON.parse` reported `AUTH_STATUS_INVALID_OUTPUT`. The check kills the process with SIGKILL, waits 45 seconds, and runs the command once more after 200 milliseconds. Only a timeout is retried. The failure record includes `startedAt` plus the elapsed time and the stderr byte count. Stderr text is not stored.
 
 Report why the official login check failed. `AUTH_STATUS_UNAVAILABLE` is replaced by `AUTH_STATUS_TIMEOUT` (the 15-second limit stopped `claude auth status`), `AUTH_STATUS_COMMAND_FAILED` (it did not start, exited non-zero, was signalled or overflowed its output buffer) and `AUTH_STATUS_INVALID_OUTPUT` (its stdout is not a JSON object). A logged-out profile now reports `SUBSCRIPTION_LOGIN_REQUIRED`; `SUBSCRIPTION_AUTH_REQUIRED` remains for a login that is not claude.ai first-party. A relative profile path reports `PROFILE_MUST_BE_ABSOLUTE` instead of an unavailable status. The usage record evidence keeps the underlying error as a cause and adds the elapsed time, exit code, signal and stdout/stderr byte counts; stderr text is still not stored. Evidence stack locations are now read only after the exception message, so a message that quotes stderr lines shaped like stack frames no longer reaches the stored chain. A doctor `sdk.startup` failure now names the exception type and code.
+
+## 0.1.0-next.6 — 2026-10-17
+
+Published to npm `next` from a local maintainer build, without provenance or a recorded source commit. The repository version stayed at `0.1.0-next.5`.
 
 Repair reproducible Claude Code protocol stops. Reconcile completed tool inputs with the SDK's Unicode normalization while retaining the original streamed arguments for DSH execution and preserving ID/name/input mismatch checks. In the managed bridge, keep an unavailable tool outside DSH and continue only after the SDK returns its explicit `No such tool available` error receipt; remap subsequent SDK block indices so the corrected MCP call survives DSH assembly. Omit an elapsed retry delay instead of sending zero, which DSH rejects as an invalid failure. Native tools remain disabled and unconfirmed tool effects still stop the request.
 
