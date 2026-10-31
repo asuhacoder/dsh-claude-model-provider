@@ -195,7 +195,11 @@ describe('Claude output translation', () => {
     const finalStep = new ClaudeOutputTranslator(tracker)
     const second = acceptAll(finalStep, [
       // The tool-use call's trailing events arrive after DSH's tool boundary.
-      envelope({ type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 50 } }),
+      envelope({
+        type: 'message_delta',
+        delta: { stop_reason: 'tool_use' },
+        usage: { output_tokens: 50 },
+      }),
       envelope({ type: 'message_stop' }),
       envelope({
         type: 'message_start',
@@ -215,7 +219,11 @@ describe('Claude output translation', () => {
       }),
       envelope({ type: 'content_block_stop', index: 0 }),
       assistant([{ type: 'text', text: 'done', citations: null }]),
-      envelope({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 20 } }),
+      envelope({
+        type: 'message_delta',
+        delta: { stop_reason: 'end_turn' },
+        usage: { output_tokens: 20 },
+      }),
       envelope({ type: 'message_stop' }),
       result({
         modelUsage: {
@@ -527,6 +535,68 @@ describe('Claude output translation', () => {
     )
   })
 
+  function stringifiedObjectStream(completedInput: unknown, completedFirst = true): SDKMessage[] {
+    const start = envelope({
+      type: 'content_block_start',
+      index: 0,
+      content_block: {
+        type: 'tool_use',
+        id: 'toolu_untyped',
+        name: 'mcp__dsh__cordis_inspect_query',
+        input: {},
+      },
+    })
+    const delta = envelope({
+      type: 'content_block_delta',
+      index: 0,
+      delta: {
+        type: 'input_json_delta',
+        partial_json: String.raw`{"method": "listService", "input": "{\"service\":\"locale\"}"}`,
+      },
+    })
+    const completed = assistant([
+      {
+        type: 'tool_use',
+        id: 'toolu_untyped',
+        name: 'mcp__dsh__cordis_inspect_query',
+        input: completedInput,
+      },
+    ])
+    const stop = envelope({ type: 'content_block_stop', index: 0 })
+    return completedFirst ? [start, delta, completed, stop] : [start, delta, stop, completed]
+  }
+
+  it('executes the object Claude Code parsed from a stringified untyped tool argument', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    const chunks = acceptAll(
+      translator,
+      stringifiedObjectStream({ method: 'listService', input: { service: 'locale' } }),
+    )
+    expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'tool-calls' } })
+    expect(translator.toolCalls).toEqual([
+      {
+        type: 'tool-call',
+        id: 'toolu_untyped',
+        name: 'cordis_inspect_query',
+        arguments: '{"input":{"service":"locale"},"method":"listService"}',
+      },
+    ])
+  })
+
+  it.each([
+    ['a different object', { method: 'listService', input: { service: 'theme' } }, true],
+    [
+      'the parsed object after the stream stopped',
+      { method: 'listService', input: { service: 'locale' } },
+      false,
+    ],
+  ])('still rejects a stringified untyped argument completed as %s', (_name, input, first) => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    expect(() => acceptAll(translator, stringifiedObjectStream(input, first))).toThrow(
+      /did not reconcile/,
+    )
+  })
+
   it('describes the first reconciliation difference in failure evidence', () => {
     const translator = new ClaudeOutputTranslator(new UsageTracker())
     let thrown: unknown
@@ -543,7 +613,12 @@ describe('Claude output translation', () => {
           delta: { type: 'input_json_delta', partial_json: '{"command":"echo hi"}' },
         }),
         assistant([
-          { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__edit', input: { command: 'echo hi' } },
+          {
+            type: 'tool_use',
+            id: 'toolu_1',
+            name: 'mcp__dsh__edit',
+            input: { command: 'echo hi' },
+          },
         ]),
         envelope({ type: 'content_block_stop', index: 0 }),
       ])
@@ -574,7 +649,12 @@ describe('Claude output translation', () => {
           delta: { type: 'input_json_delta', partial_json: '{"command":"echo hi"}' },
         }),
         assistant([
-          { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__bash', input: { command: 'echo hi' } },
+          {
+            type: 'tool_use',
+            id: 'toolu_1',
+            name: 'mcp__dsh__bash',
+            input: { command: 'echo hi' },
+          },
           { type: 'tool_use', id: 'toolu_2', name: 'mcp__dsh__bash', input: {} },
         ]),
         envelope({ type: 'content_block_stop', index: 0 }),
@@ -615,7 +695,12 @@ describe('Claude output translation', () => {
           delta: { type: 'text_delta', text: 'streamed note' },
         }),
         assistant([
-          { type: 'tool_use', id: 'toolu_1', name: 'mcp__dsh__bash', input: { command: 'echo hi' } },
+          {
+            type: 'tool_use',
+            id: 'toolu_1',
+            name: 'mcp__dsh__bash',
+            input: { command: 'echo hi' },
+          },
           { type: 'text', text: 'altered note' },
         ]),
         envelope({ type: 'content_block_stop', index: 0 }),
@@ -658,7 +743,12 @@ describe('Claude output translation', () => {
         }),
         assistant([
           { type: 'text', text: 'note' },
-          { type: 'tool_use', id: 'toolu_9', name: 'mcp__dsh__bash', input: { command: 'echo hi' } },
+          {
+            type: 'tool_use',
+            id: 'toolu_9',
+            name: 'mcp__dsh__bash',
+            input: { command: 'echo hi' },
+          },
         ]),
         envelope({ type: 'content_block_stop', index: 0 }),
         envelope({ type: 'content_block_stop', index: 1 }),
