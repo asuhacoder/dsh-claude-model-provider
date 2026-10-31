@@ -1,24 +1,32 @@
-name: Release rehearsal and npm next
+name: Release
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
-    inputs:
-      publish:
-        description: Publish verified package to npm next with trusted publishing
-        type: boolean
-        default: false
 permissions:
   contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
 jobs:
-  dry-run:
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+      dist-tag: ${{ steps.tag.outputs.dist-tag }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '24.22.1'
+      - name: Check the version tag
+        id: tag
+        if: github.event_name == 'push'
+        run: node scripts/release-tag.mjs
       - run: npm install --global pnpm@11.1.2
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm verify && pnpm test:coverage && pnpm test:ops
@@ -32,15 +40,19 @@ jobs:
             dist/*.tgz
             .artifacts/
           include-hidden-files: true
+          if-no-files-found: error
   publish-next:
-    needs: dry-run
-    if: inputs.publish && github.ref == 'refs/heads/main'
+    needs: verify
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    environment: npm-next
+    timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '24.22.1'
@@ -50,5 +62,32 @@ jobs:
           name: release-rehearsal
           path: verified-release
       - name: Publish the exact rehearsed tarball
+        env:
+          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+          RELEASE_DIST_TAG: ${{ needs.verify.outputs.dist-tag }}
+        run: node scripts/publish-verified.mjs verified-release
+  github-release:
+    needs: publish-next
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-rehearsal
+          path: verified-release
+      - name: Create the GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
         run: |
-          node --input-type=module -e 'import{readFileSync}from"node:fs";import{resolve}from"node:path";import{createHash}from"node:crypto";import{execFileSync}from"node:child_process";const r=JSON.parse(readFileSync("verified-release/.artifacts/release-dry-run.json"));const file=resolve("verified-release",r.tarball);if(createHash("sha256").update(readFileSync(file)).digest("hex")!==r.artifactSha256)throw Error("ARTIFACT_MISMATCH");execFileSync("npm",["publish",file,"--provenance","--tag","next","--access","public","--ignore-scripts"],{stdio:"inherit"});'
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --prerelease \
+            --title "$TAG" \
+            --notes-file verified-release/.artifacts/release-notes.md \
+            verified-release/dist/*.tgz \
+            verified-release/.artifacts/release-dry-run.json \
+            verified-release/.artifacts/sbom.cdx.json
