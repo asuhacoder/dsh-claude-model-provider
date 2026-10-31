@@ -1,4 +1,5 @@
 import { AccountController } from './ui/controller.js'
+import { registerClaudeLoginCommand, type ClaudeLoginCommands } from './login-command.js'
 import { registerAccountUi } from './ui/rpc.js'
 import { SubscriptionProvider, prepareDshRequest } from './sessions/provider.js'
 import { isAbsolute } from 'node:path'
@@ -299,18 +300,27 @@ export function apply(ctx: Context, config: Config = {}): void {
   const bridges = new SubscriptionProvider(ctx.subprocess, resolved, ctx.attachments, {
     logger: ctx.logger,
   })
-  ctx.effect(() => () => bridges.dispose(), 'dsh-claude-plugin: bridge teardown')
-  registerAccountUi(
-    ctx,
-    new AccountController(
-      () => bridges.store,
-      resolved.claudeCommand,
-      {
-        model: resolved.defaultModel,
-      },
-      { pending: () => bridges.pendingRequests() },
-    ),
+  const accounts = new AccountController(
+    () => bridges.store,
+    resolved.claudeCommand,
+    { model: resolved.defaultModel },
+    {
+      pending: () => bridges.pendingRequests(),
+      retireIdle: (profileRef) => bridges.retireIdle(profileRef),
+    },
   )
+  ctx.effect(
+    () => () => {
+      accounts.dispose()
+      return bridges.dispose()
+    },
+    'dsh-claude-plugin: bridge teardown',
+  )
+  registerAccountUi(ctx, accounts)
+  ctx.inject(['commands'], (scoped) => {
+    const commands = scoped.get('commands') as ClaudeLoginCommands
+    scoped.effect(() => registerClaudeLoginCommand(commands))
+  })
   const hostPathMapper = (hostPath: string): string | undefined => {
     const fs: unknown = ctx.get('fs')
     if (fs === null || typeof fs !== 'object' || !('processPathFromHostPath' in fs))

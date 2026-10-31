@@ -7,6 +7,7 @@ import {
 } from '@deepseek-ai/dsh-llm'
 import type SubprocessRuntime from '@deepseek-ai/dsh-subprocess'
 import { SubscriptionProvider } from '../src/sessions/provider.js'
+import { AccountController } from '../src/ui/controller.js'
 import { resolveConfig } from '../src/index.js'
 import { StickyRouter } from '../src/routing/router.js'
 import type { Account, Binding } from '../src/routing/types.js'
@@ -25,6 +26,9 @@ const fake = vi.hoisted(() => ({
 }))
 vi.mock('../src/auth/official.js', () => ({
   assertAccount: (...args: unknown[]) => fake.authenticate(...args),
+  verifyAccount: vi.fn(),
+  profileEnvironment: (profileRef: string) =>
+    profileRef === 'default' ? {} : { CLAUDE_CONFIG_DIR: profileRef },
 }))
 vi.mock('../src/bridge.js', () => ({
   defaultQueryFactory: vi.fn(),
@@ -160,19 +164,37 @@ describe('subscription provider request boundary', () => {
       await p.dispose()
     }
   })
-  it('does not start generation when a login begins while its auth check is pending', async () => {
+  it('keeps an in-flight generation running when this profile already has a reservation', async () => {
     const p = provider()
     new StickyRouter(p.store).register(account('A'))
-    fake.authenticate.mockImplementation(() => {
-      p.store.set('meta', 'auth-mutation', true)
-      return Promise.resolve()
+    const spawnLogin = vi.fn(() => {
+      throw new Error('must not spawn')
+    })
+    const retireIdle = vi.fn()
+    const accounts = new AccountController(() => p.store, 'claude', undefined, {
+      spawnLogin,
+      retireIdle,
+    })
+    fake.authenticate.mockImplementation(async () => {
+      const binding = p.store.list<Binding>('bindings')[0]
+      expect(binding?.generation).toBe(1)
+      await expect(
+        accounts.execute('login', {
+          op: 'open',
+          attempt: '00000000-0000-4000-8000-000000000001',
+          alias: 'A',
+        }),
+      ).rejects.toThrow('PROFILE_LOGIN_BUSY')
+      expect(p.store.list<Binding>('bindings')[0]?.generation).toBe(1)
+      expect(p.store.list<Binding>('bindings')[0]?.reason).not.toBe('profile-relogin')
+      expect(spawnLogin).not.toHaveBeenCalled()
+      expect(retireIdle).not.toHaveBeenCalled()
     })
     try {
-      expect(await collect(p)).toMatchObject([
-        { type: 'finish', reason: { kind: 'error', failure: { code: 'AUTH_BUSY' } } },
-      ])
-      expect(fake.streams).not.toHaveBeenCalled()
+      expect(await collect(p)).toMatchObject([{ type: 'finish', reason: { kind: 'stop' } }])
+      expect(fake.streams).toHaveBeenCalled()
     } finally {
+      accounts.dispose()
       await p.dispose()
     }
   })

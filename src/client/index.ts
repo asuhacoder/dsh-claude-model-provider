@@ -1,14 +1,103 @@
 import { createElement as h, useEffect, useState } from 'react'
+import type { ChangeEvent } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import { listedAccountModels, modelPresentation } from '../model-presentation.js'
+import type { Alias, LoginView, ProfileRef } from '../login-view.js'
+import { ACCOUNT_ALIAS } from '../routing/types.js'
 import type { AccountController } from '../ui/controller.js'
+import { ClaudeLoginCard, ClaudeTurnError, LoginExchangePanel } from './login-panel.js'
 type Status = ReturnType<AccountController['status']>
+type Screen = Status & { exchange?: LoginView }
 interface Rpc {
   call(
     channel: string,
     method: string,
     payload: unknown,
-  ): Promise<{ ok: true; value: Status } | { ok: false; error: { message: string } }>
+  ): Promise<{ ok: true; value: Screen } | { ok: false; error: { message: string } }>
+}
+function AccountArticle(props: {
+  account: Status['accounts'][number]
+  rpc: Rpc
+  busy: boolean
+  run: (action: string, payload: unknown) => Promise<void>
+}) {
+  const [typed, setTyped] = useState('')
+  const known = props.account.aliases.find((item) => ACCOUNT_ALIAS.test(item))
+  const button = (text: string, action: string, payload: unknown) =>
+    h(
+      'button',
+      { type: 'button', disabled: props.busy, onClick: () => void props.run(action, payload) },
+      text,
+    )
+  return h(
+    'article',
+    { style: { border: '1px solid #8885', borderRadius: 8, padding: 16 } },
+    h(
+      'h3',
+      null,
+      props.account.aliases.join(', ') || '無効',
+      props.account.isDefault ? ' • 既定' : '',
+    ),
+    h(
+      'p',
+      null,
+      `${props.account.state} · 推論中 ${props.account.inFlight} · 追加使用量 ${props.account.billingSafety === 'user-confirmed-off' ? 'OFF確認済み' : '未確認'}`,
+    ),
+    h(
+      'p',
+      null,
+      'モデル／思考の強さ: ',
+      Object.entries(props.account.models)
+        .map(
+          ([m, e]) =>
+            modelPresentation(m, props.account.modelMetadata?.[m]).name +
+            ' (' +
+            (e.join(', ') || '指定なし') +
+            ')',
+        )
+        .join(' / '),
+    ),
+    ...(props.account.windows.length
+      ? props.account.windows.map((w) =>
+          h(
+            'p',
+            { key: w.key },
+            `${w.key}: 残量 ${w.remaining === null ? '不明' : Math.round(w.remaining * 100) + '%'} · リセット ${w.resetsAt ? new Date(w.resetsAt).toLocaleString() : '不明'} · 観測 ${new Date(w.observedAt).toLocaleString()}`,
+          ),
+        )
+      : [h('p', { key: 'unknown' }, '利用枠の残量・リセット: 不明')]),
+    h('p', null, '直近の処理理由: ', props.account.lastRouteReason ?? 'まだ利用していません'),
+    props.account.state === 'DISABLED' || known === undefined
+      ? h(
+          'label',
+          null,
+          '表示名 ',
+          h('input', {
+            value: typed,
+            maxLength: 48,
+            onChange: (event: ChangeEvent<HTMLInputElement>) => setTyped(event.target.value),
+          }),
+        )
+      : null,
+    props.account.state === 'DISABLED' || known === undefined
+      ? h(LoginExchangePanel, {
+          rpc: props.rpc,
+          target: { kind: 'identity', identity: props.account.id, alias: typed as Alias },
+        })
+      : h(LoginExchangePanel, {
+          rpc: props.rpc,
+          target: { kind: 'alias', alias: known as Alias },
+        }),
+    known !== undefined
+      ? h(
+          'div',
+          null,
+          button('接続を確認', 'verify', { alias: known }),
+          button('既定にする', 'setDefault', { alias: known }),
+          button('接続を外す', 'remove', { alias: known }),
+        )
+      : null,
+  )
 }
 export const inject = ['slots', 'connection']
 export function Section({ rpc }: { rpc: Rpc }) {
@@ -95,7 +184,15 @@ export function Section({ rpc }: { rpc: Rpc }) {
         ' Claudeの追加使用量がOFFであることを確認しました',
       ),
       button('既存の公式ログインを接続', 'add', draft),
-      button('公式ログインを開始', 'login', draft),
+      h(LoginExchangePanel, {
+        rpc,
+        target: {
+          kind: 'profile',
+          profile: (profile === '' ? 'default' : profile) as ProfileRef,
+          alias: alias as Alias,
+        },
+        extraUsageOff: off,
+      }),
     ),
     state
       ? h(
@@ -116,47 +213,15 @@ export function Section({ rpc }: { rpc: Rpc }) {
           ),
         )
       : null,
-    ...(state?.accounts ?? [])
-      .filter((a) => a.state !== 'DISABLED')
-      .map((a) =>
-        h(
-          'article',
-          { key: a.id, style: { border: '1px solid #8885', borderRadius: 8, padding: 16 } },
-          h('h3', null, a.aliases.join(', '), a.isDefault ? ' • 既定' : ''),
-          h(
-            'p',
-            null,
-            `${a.state} · 推論中 ${a.inFlight} · 追加使用量 ${a.billingSafety === 'user-confirmed-off' ? 'OFF確認済み' : '未確認'}`,
-          ),
-          h(
-            'p',
-            null,
-            'モデル／思考の強さ: ',
-            Object.entries(a.models)
-              .map(
-                ([m, e]) =>
-                  modelPresentation(m, a.modelMetadata?.[m]).name +
-                  ' (' +
-                  (e.join(', ') || '指定なし') +
-                  ')',
-              )
-              .join(' / '),
-          ),
-          ...(a.windows.length
-            ? a.windows.map((w) =>
-                h(
-                  'p',
-                  { key: w.key },
-                  `${w.key}: 残量 ${w.remaining === null ? '不明' : Math.round(w.remaining * 100) + '%'} · リセット ${w.resetsAt ? new Date(w.resetsAt).toLocaleString() : '不明'} · 観測 ${new Date(w.observedAt).toLocaleString()}`,
-                ),
-              )
-            : [h('p', { key: 'unknown' }, '利用枠の残量・リセット: 不明')]),
-          h('p', null, '直近の処理理由: ', a.lastRouteReason ?? 'まだ利用していません'),
-          button('接続を確認', 'verify', { alias: a.aliases[0] }),
-          button('既定にする', 'setDefault', { alias: a.aliases[0] }),
-          button('接続を外す', 'remove', { alias: a.aliases[0] }),
-        ),
-      ),
+    ...(state?.accounts ?? []).map((account) =>
+      h(AccountArticle, {
+        key: account.id,
+        account,
+        rpc,
+        busy,
+        run,
+      }),
+    ),
     state
       ? h(
           'p',
@@ -169,7 +234,7 @@ export function Section({ rpc }: { rpc: Rpc }) {
 export function apply(ctx: Context) {
   const slots = ctx.get('slots') as {
       inject: (name: string, fn: () => unknown) => void
-      register: (options: unknown, component: typeof Section) => unknown
+      register: (options: unknown, component: unknown) => unknown
     },
     connection = ctx.get('connection') as { rpc: Rpc }
   slots.inject('settings.section', () =>
@@ -182,6 +247,26 @@ export function apply(ctx: Context) {
         inject: () => ({ rpc: connection.rpc }),
       },
       Section,
+    ),
+  )
+  slots.inject('conversation.chat.commandview', () =>
+    slots.register(
+      {
+        name: 'conversation.chat.commandview',
+        key: 'claude-login',
+        inject: () => ({ rpc: connection.rpc }),
+      },
+      ClaudeLoginCard,
+    ),
+  )
+  slots.inject('conversation.chat.node', () =>
+    slots.register(
+      {
+        name: 'conversation.chat.node',
+        key: 'turn-error',
+        inject: () => ({ rpc: connection.rpc }),
+      },
+      ClaudeTurnError,
     ),
   )
 }

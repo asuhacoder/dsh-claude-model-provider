@@ -10,8 +10,9 @@ import { ClaudeDiagnostics, type DiagnosticLogger } from '../diagnostics.js'
 import type { ResolvedConfig } from '../index.js'
 import type { AttachmentReader } from '../content.js'
 import { StateStore } from '../storage/store.js'
+import { profileLoginHeld } from '../login-exchange.js'
 import { StickyRouter, blockedUntil, type RouteRequest } from '../routing/router.js'
-import { RouteBlocked, type Account, type Binding } from '../routing/types.js'
+import { RouteBlocked, type Account, type Binding, type Reservation } from '../routing/types.js'
 import { ToolLedger } from './ledger.js'
 import { assertAccount } from '../auth/official.js'
 import { canonicalToolJson } from '../json.js'
@@ -196,10 +197,33 @@ export class SubscriptionProvider {
       this.#store = undefined
     }
   }
-  async #drop(key: string): Promise<void> {
+  async #release(key: string): Promise<{ ok: true } | { ok: false; error: unknown }> {
     const holder = this.#managers.get(key)
     this.#managers.delete(key)
-    await holder?.manager.dispose()
+    try {
+      await holder?.manager.dispose()
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error }
+    }
+  }
+  async #drop(key: string): Promise<void> {
+    const released = await this.#release(key)
+    if (!released.ok) throw released.error
+  }
+  retireIdle(profileRef: string): void {
+    const reservations = this.store.list<Reservation>('reservations')
+    for (const session of [...this.#managers.keys()]) {
+      const binding = this.store.get<Binding>('bindings', session)
+      const account = binding ? this.store.get<Account>('accounts', binding.identity) : undefined
+      if (!binding || !account || account.profileRef !== profileRef) continue
+      if (reservations.some((reservation) => reservation.session === session)) continue
+      binding.generation += 1
+      binding.reason = 'profile-relogin'
+      delete binding.sdkSessionId
+      this.store.set('bindings', session, binding)
+      void this.#release(session)
+    }
   }
   async #route(
     router: StickyRouter,
@@ -237,6 +261,7 @@ export class SubscriptionProvider {
             this.accounts().some(
               (a) =>
                 ['READY', 'DRAINING', 'COOLDOWN'].includes(a.state) &&
+                !profileLoginHeld(this.store, a.profileRef) &&
                 a.models[req.model] !== undefined &&
                 (req.effort === undefined || a.models[req.model]!.includes(req.effort)) &&
                 blockedUntil(a, req.model, req.now) === undefined,
@@ -349,7 +374,6 @@ export class SubscriptionProvider {
     try {
       this.#pending.set(requestId, { phase: 'waiting-for-session' })
       unlock = await this.#sessions.acquire(key, signal)
-      if (store.get('meta', 'auth-mutation')) throw new RouteBlocked('AUTH_BUSY')
       circuit.enter(requestId, this.now())
       for (const m of options.messages)
         if (
@@ -421,9 +445,7 @@ export class SubscriptionProvider {
             this.#closeIfIdle()
           })
         await abortable(authPromise, signal)
-        // A concurrent request or login may have revoked the account while this one awaited auth.
         const current = store.get<Account>('accounts', account.identity)
-        if (store.get('meta', 'auth-mutation')) throw new RouteBlocked('AUTH_BUSY')
         if (!current?.extraUsageOffConfirmedAt)
           throw new RouteBlocked('EXTRA_USAGE_OFF_UNCONFIRMED')
         if (
@@ -611,13 +633,19 @@ export class SubscriptionProvider {
             : error instanceof Error && 'code' in error && typeof error.code === 'string'
               ? error.code
               : 'SUBSCRIPTION_PROVIDER_FAILED'
-      // Read the child exit before cleanup stops it, and keep cleanup from replacing `error`.
       const failure = collectEvidence(code, error)
       evidence = failure
-      if (unlock)
-        await this.#drop(key).catch((cleanup: unknown) => {
-          failure.cleanup = describeError(cleanup)
-        })
+      const pinned = store.get<Binding>('bindings', key)
+      const pinnedAccount = pinned ? store.get<Account>('accounts', pinned.identity) : undefined
+      const observedLogin =
+        error instanceof RouteBlocked &&
+        error.code === 'SUBSCRIPTION_LOGIN_REQUIRED' &&
+        pinnedAccount !== undefined &&
+        profileLoginHeld(store, pinnedAccount.profileRef)
+      if (unlock && !observedLogin) {
+        const released = await this.#release(key)
+        if (!released.ok) failure.cleanup = describeError(released.error)
+      }
       const retryAfterMs =
         error instanceof RouteBlocked &&
         error.retryAt !== undefined &&

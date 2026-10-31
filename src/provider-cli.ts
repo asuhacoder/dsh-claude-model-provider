@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { randomUUID } from 'node:crypto'
+import { createInterface } from 'node:readline'
 import { isCliEntrypoint } from './entrypoint.js'
 import { StateStore, recoverStateLock } from './storage/store.js'
 import { officialStatus } from './auth/official.js'
@@ -7,6 +9,12 @@ import { RouteBlocked, type Account, type Binding } from './routing/types.js'
 import { runDoctor } from './doctor.js'
 import { AccountController } from './ui/controller.js'
 import { resolveCliState } from './cli-state.js'
+import { parseLoginPayload } from './login-view.js'
+import type { LoginView } from './login-view.js'
+export interface LoginIo {
+  writeUrl(url: string): void
+  readLine(): Promise<string>
+}
 export interface CliDependencies {
   output?: (value: unknown) => void
   store?: (directory: string, readOnly: boolean) => StateStore
@@ -15,6 +23,77 @@ export interface CliDependencies {
   controller?: (store: StateStore, command: string) => AccountController
   recover?: typeof recoverStateLock
   resolveState?: typeof resolveCliState
+  loginIo?: LoginIo
+}
+function defaultLoginIo(): LoginIo {
+  return {
+    writeUrl(url) {
+      process.stderr.write(`${url}\n`)
+    },
+    readLine() {
+      return new Promise((resolve) => {
+        const lines = createInterface({ input: process.stdin })
+        lines.once('line', (line) => {
+          lines.close()
+          resolve(line)
+        })
+      })
+    },
+  }
+}
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+async function pollLogin(
+  controller: AccountController,
+  alias: string,
+  profile: string,
+  view: LoginView,
+): Promise<LoginView> {
+  let current = view
+  while (current.phase === 'opening' || current.phase === 'finishing') {
+    await wait(200)
+    current = (await controller.login(parseLoginPayload({ op: 'read', alias, profile }))).exchange
+  }
+  return current
+}
+async function loginOnCli(
+  controller: AccountController,
+  alias: string,
+  profile: string,
+  extraUsageOff: boolean,
+  io: LoginIo,
+): Promise<unknown> {
+  let view = (
+    await controller.login(
+      parseLoginPayload({
+        op: 'open',
+        attempt: randomUUID(),
+        alias,
+        profile,
+        extraUsageOff,
+      }),
+    )
+  ).exchange
+  view = await pollLogin(controller, alias, profile, view)
+  if (view.phase === 'needs_code') {
+    io.writeUrl(view.authorizeUrl)
+    const line = await io.readLine()
+    view = (
+      await controller.login(
+        parseLoginPayload({
+          op: 'paste',
+          attempt: view.attempt,
+          alias,
+          profile,
+          code: line,
+        }),
+      )
+    ).exchange
+    view = await pollLogin(controller, alias, profile, view)
+  }
+  if (view.phase === 'failed') throw new RouteBlocked(view.failureCode)
+  return controller.status()
 }
 export async function runProviderCli(args: string[], deps: CliDependencies = {}): Promise<number> {
   const flag = (name: string, fallback = '') => {
@@ -63,13 +142,25 @@ export async function runProviderCli(args: string[], deps: CliDependencies = {})
       if (action === 'list') output({ ...controller.status(), stateDirectory: state })
       else {
         if (!args[2]) throw new RouteBlocked('ALIAS_REQUIRED')
-        output(
-          await controller.execute(args.includes('--login') ? 'login' : action, {
-            alias: args[2],
-            ...(args.includes('--profile') ? { profile: flag('--profile') } : {}),
-            extraUsageOff: args.includes('--extra-usage-off'),
-          }),
-        )
+        if (args.includes('--login')) {
+          const typed = args.includes('--profile') ? flag('--profile') : 'default'
+          output(
+            await loginOnCli(
+              controller,
+              args[2],
+              typed === '' ? 'default' : typed,
+              args.includes('--extra-usage-off'),
+              deps.loginIo ?? defaultLoginIo(),
+            ),
+          )
+        } else
+          output(
+            await controller.execute(action, {
+              alias: args[2],
+              ...(args.includes('--profile') ? { profile: flag('--profile') } : {}),
+              extraUsageOff: args.includes('--extra-usage-off'),
+            }),
+          )
       }
     } else if (args[0] === 'explain-route') {
       const selected = args[1]

@@ -89,7 +89,12 @@ it('renders local account management, honest unknowns and user-driven controls',
   const register = vi.fn(),
     slots = { inject: (_n: unknown, fn: () => unknown) => fn(), register }
   apply({ get: (name: string) => (name === 'slots' ? slots : { rpc }) } as never)
+  expect(register).toHaveBeenCalledTimes(3)
   expect(register.mock.calls[0]?.[0].id).toBe('claude-sdk-local')
   expect(register.mock.calls[0]?.[0].label()).toContain('Claude')
   expect(register.mock.calls[0]?.[0].inject()).toEqual({ rpc })
+  expect(register.mock.calls[1]?.[0].key).toBe('claude-login')
+  expect(register.mock.calls[1]?.[0].inject()).toEqual({ rpc })
+  expect(register.mock.calls[2]?.[0].key).toBe('turn-error')
+  expect(register.mock.calls[2]?.[0].inject()).toEqual({ rpc })
 })

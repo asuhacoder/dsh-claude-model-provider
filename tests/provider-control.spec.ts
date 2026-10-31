@@ -10,6 +10,7 @@ import {
 } from '../src/sessions/provider.js'
 import { resolveConfig } from '../src/index.js'
 import { StickyRouter } from '../src/routing/router.js'
+import { bindLoginGate, ProfileLoginGate } from '../src/login-exchange.js'
 import { RouteBlocked, type Account, type Binding } from '../src/routing/types.js'
 import { transportError } from '../src/errors.js'
 import { assertAccount, billingConflicts } from '../src/auth/official.js'
@@ -608,14 +609,28 @@ it.each([
   expect(s.get<Account>('accounts', 'A')?.windows).toEqual([])
   s.close()
 })
-it('returns missing terminal, preserves generic error redaction and blocks auth mutation', async () => {
+it('returns missing terminal and refuses a held profile without a reservation', async () => {
   const p = provider({ createManager: () => ({ dispose: async () => {}, async *stream() {} }) })
   try {
     expect((await collect(p)).at(-1)).toMatchObject({
       reason: { failure: { code: 'MISSING_TERMINAL' } },
     })
     p.store.set('meta', 'auth-mutation', true)
-    expect((await collect(p)).at(-1)).toMatchObject({ reason: { failure: { code: 'AUTH_BUSY' } } })
+    expect((await collect(p)).at(-1)).toMatchObject({
+      reason: { failure: { code: 'MISSING_TERMINAL' } },
+    })
+    const gate = new ProfileLoginGate()
+    bindLoginGate(p.store, gate)
+    gate.hold('default')
+    expect((await collect(p)).at(-1)).toMatchObject({
+      reason: {
+        failure: {
+          code: 'SUBSCRIPTION_LOGIN_REQUIRED',
+          message: 'SUBSCRIPTION_LOGIN_REQUIRED: A · /claude-login A',
+        },
+      },
+    })
+    expect(p.store.list('reservations')).toEqual([])
   } finally {
     await p.dispose()
   }

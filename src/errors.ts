@@ -1,4 +1,5 @@
 import { IMAGE_OFFLOAD_REQUIRED_CODE, LlmError } from '@deepseek-ai/dsh-llm'
+import { formatLoginRequiredMessage } from './login-view.js'
 import { visibleAccountLabel } from './routing/types.js'
 
 export const CLAUDE_ERROR_CODES = {
@@ -101,7 +102,7 @@ export function publicFailureMessage(error: unknown, code: string, detail?: stri
   if (error instanceof ClaudePluginError) return error.message.slice(0, 1024)
   if (code === 'SUBSCRIPTION_LOGIN_REQUIRED') {
     const account = loginAccountLabel(error)
-    if (account !== undefined) return `${code}: ${account}`
+    if (account !== undefined) return formatLoginRequiredMessage(account)
   }
   return detail === undefined ? code : `${code}: ${detail}`
 }

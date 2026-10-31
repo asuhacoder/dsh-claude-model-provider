@@ -19,15 +19,25 @@ const account = (alias = 'one'): Account => ({
   windows: [],
   parallelLimit: 1,
 })
+function exitPty() {
+  return {
+    write: vi.fn(),
+    kill: vi.fn(),
+    onData: vi.fn(),
+    onExit(listener: (event: { exitCode: number; signal?: number }) => void) {
+      listener({ exitCode: 0, signal: 0 })
+    },
+  }
+}
 function setup() {
   const s = new StateStore(':memory:')
-  const verify = vi.fn(async (_s, _c, alias) => account(alias))
-  const login = vi.fn(async () => {})
-  const c = new AccountController(() => s, 'claude', undefined, { verify, login })
-  return { s, c, verify, login }
+  const verify = vi.fn(async (_s, _c, alias: string) => account(alias))
+  const spawnLogin = vi.fn(() => exitPty())
+  const c = new AccountController(() => s, 'claude', undefined, { verify, spawnLogin })
+  return { s, c, verify, spawnLogin }
 }
 it('manages verified aliases, defaults, removal, unknown quota and usage without disclosing profiles', async () => {
-  const { s, c, verify, login } = setup()
+  const { s, c, verify, spawnLogin } = setup()
   try {
     await c.execute('add', { alias: 'one', extraUsageOff: true })
     await c.execute('add', { alias: 'two' })
@@ -42,8 +52,13 @@ it('manages verified aliases, defaults, removal, unknown quota and usage without
     expect(JSON.stringify(c.status())).not.toContain('profileRef')
     await c.execute('remove', { alias: 'one' })
     expect(c.status().accounts[0]?.aliases).toEqual(['two'])
-    await c.execute('login', { alias: 'two', profile: 'default' })
-    expect(login).toHaveBeenCalledOnce()
+    await c.execute('login', {
+      op: 'open',
+      attempt: '00000000-0000-4000-8000-000000000001',
+      alias: 'two',
+      profile: 'default',
+    })
+    expect(spawnLogin).toHaveBeenCalledOnce()
     await c.execute('remove', { alias: 'two' })
     expect(c.status().accounts[0]?.state).toBe('DISABLED')
     expect(verify).toHaveBeenCalledTimes(4)
@@ -52,7 +67,7 @@ it('manages verified aliases, defaults, removal, unknown quota and usage without
   }
 })
 it('blocks invalid inputs, active removal/login, alias identity replacement and invalid models', async () => {
-  const { s, c, verify } = setup()
+  const { s, c, verify, spawnLogin } = setup()
   try {
     for (const [action, payload, code] of [
       ['add', null, 'INVALID_PAYLOAD'],
@@ -67,7 +82,14 @@ it('blocks invalid inputs, active removal/login, alias identity replacement and 
     await c.execute('add', { alias: 'one' })
     s.set('reservations', 'r', { identity: 'A' })
     await expect(c.execute('remove', { alias: 'one' })).rejects.toThrow('ACCOUNT_BUSY')
-    await expect(c.execute('login', { alias: 'one' })).rejects.toThrow('LOGIN_REQUIRES_IDLE')
+    await expect(
+      c.execute('login', {
+        op: 'open',
+        attempt: '00000000-0000-4000-8000-000000000001',
+        alias: 'one',
+      }),
+    ).rejects.toThrow('PROFILE_LOGIN_BUSY')
+    expect(spawnLogin).not.toHaveBeenCalled()
     s.delete('reservations', 'r')
     await expect(c.execute('unknown', { alias: 'one' })).rejects.toThrow('UNKNOWN_ACTION')
     verify.mockResolvedValue({ ...account(), identity: 'B' })
@@ -221,9 +243,13 @@ it('runs CLI account and diagnostic operations without executing on import', asy
   expect(JSON.stringify(out.mock.calls)).not.toContain('private secret')
 })
 it('prints help without resolving a profile or opening its state', async () => {
-  const output = vi.fn(), resolveState = vi.fn(async () => {
-    throw new RouteBlocked('PROFILE_STATE_UNRESOLVED')
-  }), store = vi.fn(() => { throw new Error('must not open state') })
+  const output = vi.fn(),
+    resolveState = vi.fn(async () => {
+      throw new RouteBlocked('PROFILE_STATE_UNRESOLVED')
+    }),
+    store = vi.fn(() => {
+      throw new Error('must not open state')
+    })
   expect(await runProviderCli(['--help'], { output, resolveState, store })).toBe(0)
   expect(output).toHaveBeenCalledWith(expect.objectContaining({ commands: expect.any(Array) }))
   expect(resolveState).not.toHaveBeenCalled()

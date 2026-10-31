@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context, Service } from '@deepseek-ai/cordis'
 import AttachmentStore from '@deepseek-ai/dsh-attachment'
 import type {
   ImageAttachmentRef,
@@ -90,6 +90,42 @@ describe('DSH plugin registration', () => {
 
     await fiber.dispose()
     expect(ctx.llm.listProviders()).toEqual([])
+  })
+
+  it('registers /claude-login when the commands service appears', async () => {
+    const ctx = await setup()
+    const fiber = await ctx.plugin(claudePlugin, {
+      defaultModel: 'opus',
+      stateDirectory: ':memory:',
+    })
+    class RecordingCommands extends Service {
+      readonly names: string[] = []
+      constructor(ctx: Context) {
+        super(ctx, 'commands')
+      }
+      register(definition: { readonly name: string }): () => void {
+        this.names.push(definition.name)
+        return () => {
+          const index = this.names.indexOf(definition.name)
+          if (index >= 0) this.names.splice(index, 1)
+        }
+      }
+    }
+    let commands!: RecordingCommands
+    const commandsFiber = await ctx.plugin({
+      name: 'commands-fixture',
+      apply(inner: Context) {
+        commands = new RecordingCommands(inner)
+      },
+    })
+    await new Promise((resolve) => setImmediate(resolve))
+    expect(commands.names).toContain('claude-login')
+    await commandsFiber.dispose()
+    expect(commands.names).not.toContain('claude-login')
+    expect(ctx.llm.listProviders()).toEqual([
+      { id: 'claude-sdk-local', name: 'Claude Subscription' },
+    ])
+    await fiber.dispose()
   })
 
   it('normalizes a synchronous SDK transport failure to one terminal finish', async () => {

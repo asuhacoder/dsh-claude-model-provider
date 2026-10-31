@@ -67,11 +67,24 @@ export class RouteBlocked extends Error {
     this.name = 'RouteBlocked'
   }
 }
-const ACCOUNT_ALIAS = /^[A-Za-z0-9_-]{1,48}$/
+export const ACCOUNT_ALIAS = /^[A-Za-z0-9_-]{1,48}$/
 
 export function visibleAccountLabel(value: string): string | undefined {
   if (value === 'default' || ACCOUNT_ALIAS.test(value)) return value
   const absolute = value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value)
   if (!absolute || value.length > 256 || /[\u0000-\u001f\u007f]/.test(value)) return undefined
   return value
+}
+
+export function preferredAccountLabel(aliases: readonly string[], profileRef: string): string {
+  const alias = aliases.find((item) => ACCOUNT_ALIAS.test(item))
+  if (alias !== undefined) return alias
+  return visibleAccountLabel(profileRef) ?? profileRef
+}
+
+export function subscriptionLoginRequired(label: string): RouteBlocked {
+  const blocked = new RouteBlocked('SUBSCRIPTION_LOGIN_REQUIRED')
+  const visible = visibleAccountLabel(label)
+  if (visible !== undefined) blocked.accountLabel = visible
+  return blocked
 }

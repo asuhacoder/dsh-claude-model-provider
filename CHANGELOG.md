@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Re-login a Claude account from the failure row, the settings screen, or `/claude-login`. The failure row shows 公式ログインを開始 for that account, and other failures still show their message and code. The login child runs against a staging directory with `BROWSER=true`, and the saved credentials are replaced only after the organization matches. A ready account keeps serving during the browser wait. The code wait is 15 minutes, with キャンセル and もう一度ログイン on the card. A matching profile in the other pool is marked ready when that pool's database is free. `default` leaves the live `CLAUDE_CONFIG_DIR` unset until the verified file is installed.
+
 A non-zero `claude auth status` that prints JSON with `loggedIn: false` now reports `SUBSCRIPTION_LOGIN_REQUIRED` and names the account alias or profile path. Broken output, a launch failure, and a timeout keep their existing codes. The public message does not include command output.
 
 A session whose pinned account is missing or `DISABLED` moves to another ready account when no tool call is unfinished, through the same migration used for a confirmed usage limit. A suspended account, an account that still needs login, and an unfinished tool call stay where they are.
