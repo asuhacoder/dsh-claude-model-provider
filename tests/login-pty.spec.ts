@@ -38,11 +38,34 @@ it('spawns claude auth login on a pty without opening a browser', () => {
   expect(options).not.toHaveProperty('cwd')
 })
 
-it('kills the login pty with SIGKILL', () => {
-  expect(process.platform).not.toBe('win32')
-  const kill = vi.fn()
-  fake.spawn.mockReturnValue({ onData() {}, onExit() {}, write() {}, kill })
-  spawnLoginPty('claude', parseProfileRef('default')).kill()
-  expect(kill).toHaveBeenCalledTimes(1)
-  expect(kill).toHaveBeenCalledWith('SIGKILL')
+it.each([
+  ['darwin', ['SIGKILL']],
+  ['linux', ['SIGKILL']],
+  ['win32', []],
+] as const)('kills the login pty on %s', (platform, args) => {
+  const original = process.platform
+  Object.defineProperty(process, 'platform', { value: platform, configurable: true })
+  try {
+    const kill = vi.fn()
+    fake.spawn.mockReturnValue({ onData() {}, onExit() {}, write() {}, kill })
+    spawnLoginPty('claude', parseProfileRef('default')).kill()
+    expect(kill).toHaveBeenCalledTimes(1)
+    expect(kill).toHaveBeenCalledWith(...args)
+  } finally {
+    Object.defineProperty(process, 'platform', { value: original, configurable: true })
+  }
+})
+
+it('forwards writes, output and exit to the pty', () => {
+  const child = { onData: vi.fn(), onExit: vi.fn(), write: vi.fn(), kill() {} }
+  fake.spawn.mockReturnValue(child)
+  const pty = spawnLoginPty('claude', parseProfileRef('default'))
+  const onData = () => {}
+  const onExit = () => {}
+  pty.write('code\r')
+  pty.onData(onData)
+  pty.onExit(onExit)
+  expect(child.write).toHaveBeenCalledWith('code\r')
+  expect(child.onData).toHaveBeenCalledWith(onData)
+  expect(child.onExit).toHaveBeenCalledWith(onExit)
 })
