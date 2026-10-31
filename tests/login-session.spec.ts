@@ -1,4 +1,5 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, vi } from 'vitest'
 import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
@@ -208,6 +209,47 @@ it('ends ready for the same org and keeps the previous row when the org changes'
   } finally {
     c.dispose()
     s.close()
+  }
+})
+
+it('does not replace saved credentials when the login is a different account', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-login-'))
+  const profile = join(dir, 'profile')
+  mkdirSync(profile, { mode: 0o700 })
+  const credential = join(profile, '.credentials.json')
+  writeFileSync(credential, 'kept-sentinel\n', { mode: 0o600 })
+  const s = new StateStore(':memory:')
+  s.set('accounts', 'A', row('READY', profile, 'primary'))
+  const pty = new FakePty()
+  pty.exitOnRegister = true
+  const spawned: string[] = []
+  const verify = vi.fn(
+    async (_store: StateStore, _command: string, _alias: string, profileRef: string) => {
+      writeFileSync(join(profileRef, '.credentials.json'), 'wrong-account\n', { mode: 0o600 })
+      return row('READY', profileRef, 'primary', 'B')
+    },
+  )
+  const c = new AccountController(() => s, 'claude', undefined, {
+    verify,
+    spawnLogin: (_command, profileRef) => {
+      spawned.push(profileRef)
+      return pty
+    },
+  })
+  try {
+    const changed = await c.login(open('primary', { profile }))
+    expect(changed.exchange).toMatchObject({
+      phase: 'failed',
+      failureCode: 'ALIAS_IDENTITY_CHANGED',
+    })
+    expect(spawned).not.toContain(profile)
+    expect(readFileSync(credential, 'utf8')).toBe('kept-sentinel\n')
+    expect(s.get<Account>('accounts', 'A')?.identity).toBe('A')
+    expect(s.get('accounts', 'B')).toBeUndefined()
+  } finally {
+    c.dispose()
+    s.close()
+    rmSync(dir, { recursive: true, force: true })
   }
 })
 
