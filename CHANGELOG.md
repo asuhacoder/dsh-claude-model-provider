@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Re-login a Claude account from the settings screen, or from `/claude-login` in the chat. A login-required failure names the account and that command. The command card and the settings control open the official login page and store the pasted code on that account's profile. `default` leaves `CLAUDE_CONFIG_DIR` unset. A disabled, suspended, logged-out, or auth-required row for the same organization becomes ready. Other accounts keep running. The turn-error slot replaces the host renderer and cannot wrap it, so the failure row keeps the host's own text and the command is the control on that row.
+Re-login a Claude account from the failure row, the settings screen, or `/claude-login`. The failure row shows 公式ログインを開始 for that account, and other failures still show their message and code. The login child runs against a staging directory with `BROWSER=true`, and the saved credentials are replaced only after the organization matches. A ready account keeps serving during the browser wait. The code wait is 15 minutes, with キャンセル and もう一度ログイン on the card. A matching profile in the other pool is marked ready when that pool's database is free. `default` leaves the live `CLAUDE_CONFIG_DIR` unset until the verified file is installed.
 
 A non-zero `claude auth status` that prints JSON with `loggedIn: false` now reports `SUBSCRIPTION_LOGIN_REQUIRED` and names the account alias or profile path. Broken output, a launch failure, and a timeout keep their existing codes. The public message does not include command output.
 

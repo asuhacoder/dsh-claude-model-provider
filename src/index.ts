@@ -317,10 +317,10 @@ export function apply(ctx: Context, config: Config = {}): void {
     'dsh-claude-plugin: bridge teardown',
   )
   registerAccountUi(ctx, accounts)
-  const commands = ctx.get('commands') as ClaudeLoginCommands | undefined
-  if (commands !== undefined && typeof commands.register === 'function') {
-    ctx.effect(() => registerClaudeLoginCommand(commands))
-  }
+  ctx.inject(['commands'], (scoped) => {
+    const commands = scoped.get('commands') as ClaudeLoginCommands
+    scoped.effect(() => registerClaudeLoginCommand(commands))
+  })
   const hostPathMapper = (hostPath: string): string | undefined => {
     const fs: unknown = ctx.get('fs')
     if (fs === null || typeof fs !== 'object' || !('processPathFromHostPath' in fs))

@@ -152,14 +152,44 @@ export function LoginExchangePanel(props: {
     view.phase === 'opening' ||
     view.phase === 'needs_code' ||
     view.phase === 'finishing'
+  const cancellable =
+    view?.phase === 'opening' || view?.phase === 'needs_code' || view?.phase === 'finishing'
+  async function close(): Promise<void> {
+    if (view === undefined || !cancellable) return
+    setBusy(true)
+    setError('')
+    try {
+      const result = await props.rpc.call('/api', 'claude-sdk-local.login', {
+        op: 'close',
+        attempt: view.attempt,
+        ...fields,
+      })
+      if (!result.ok) {
+        setError(result.error.message)
+        return
+      }
+      if (result.value.exchange) setView(result.value.exchange)
+    } catch (caught) {
+      setError(failureText(caught))
+    } finally {
+      setBusy(false)
+    }
+  }
   return h(
     'div',
     null,
     h(
       'button',
       { type: 'button', disabled: busy, onClick: () => void open() },
-      '公式ログインを開始',
+      view?.phase === 'failed' ? 'もう一度ログイン' : '公式ログインを開始',
     ),
+    cancellable
+      ? h(
+          'button',
+          { type: 'button', disabled: busy, onClick: () => void close() },
+          'キャンセル',
+        )
+      : null,
     view?.phase === 'needs_code'
       ? h(
           'a',
@@ -201,14 +231,26 @@ export function ClaudeLoginCard(props: { rpc: LoginRpc; node?: { args?: string |
   return h(LoginExchangePanel, { rpc: props.rpc, target })
 }
 
-export function ClaudeTurnError(props: { message: string; code?: string; rpc: LoginRpc }) {
-  if (props.code !== 'SUBSCRIPTION_LOGIN_REQUIRED') return null
-  const parsed = parseLoginRequiredMessage(props.message)
-  if (!parsed) return null
+function shownText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+export function ClaudeTurnError(props: {
+  message?: string
+  code?: string
+  rpc: LoginRpc
+  node?: { data?: { message?: unknown; code?: unknown } }
+}) {
+  const message = shownText(props.node?.data?.message) ?? props.message ?? ''
+  const code = shownText(props.node?.data?.code) ?? props.code
+  const parsed =
+    code === 'SUBSCRIPTION_LOGIN_REQUIRED' ? parseLoginRequiredMessage(message) : undefined
+  if (message.length === 0 && code === undefined && parsed === undefined) return null
   return h(
     'div',
     null,
-    h('p', null, props.message),
-    h(LoginExchangePanel, { rpc: props.rpc, target: parsed }),
+    message.length > 0 ? h('p', null, message) : null,
+    code !== undefined ? h('code', null, code) : null,
+    parsed ? h(LoginExchangePanel, { rpc: props.rpc, target: parsed }) : null,
   )
 }

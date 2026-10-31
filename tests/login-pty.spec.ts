@@ -4,15 +4,15 @@ import { parseProfileRef } from '../src/login-view.js'
 
 const fake = vi.hoisted(() => ({ spawn: vi.fn() }))
 vi.mock('node-pty', () => ({ spawn: fake.spawn }))
-import { spawnLoginPty } from '../src/ui/login-pty.js'
+import { loginEnvironment, spawnLoginPty } from '../src/ui/login-pty.js'
 
 beforeEach(() => {
   fake.spawn.mockReset()
   fake.spawn.mockReturnValue({ onData() {}, onExit() {}, write() {}, kill() {} })
 })
 
-it('spawns claude auth login on a pty with only the profile environment', () => {
-  spawnLoginPty('claude', parseProfileRef('default'))
+it('spawns claude auth login on a pty without opening a browser', () => {
+  spawnLoginPty('claude', parseProfileRef('/tmp/staging'))
   expect(fake.spawn).toHaveBeenCalledWith(
     'claude',
     ['auth', 'login', '--claudeai'],
@@ -28,16 +28,14 @@ it('spawns claude auth login on a pty with only the profile environment', () => 
   }
   expect(Object.keys(options).sort()).toEqual(['cols', 'env', 'name', 'rows'])
   expect(options).toMatchObject({ name: 'xterm-256color', cols: 200, rows: 24 })
-  expect(options.env).toEqual(profileEnvironment('default'))
-  expect(options.env?.CLAUDE_CONFIG_DIR).toBeUndefined()
+  expect(options.env).toEqual(loginEnvironment(parseProfileRef('/tmp/staging')))
+  expect(options.env?.CLAUDE_CONFIG_DIR).toBe('/tmp/staging')
+  expect(options.env?.CLAUDE_SECURESTORAGE_CONFIG_DIR).toBe('/tmp/staging')
+  expect(options.env?.BROWSER).toBe('true')
+  expect(options.env?.HOME).toBe(profileEnvironment('/tmp/staging').HOME)
   expect(options.env?.ANTHROPIC_API_KEY).toBeUndefined()
   expect(options).not.toHaveProperty('stdio')
   expect(options).not.toHaveProperty('cwd')
-
-  spawnLoginPty('claude', parseProfileRef('/tmp/profile'))
-  const isolated = fake.spawn.mock.calls[1]?.[2] as { env?: NodeJS.ProcessEnv }
-  expect(isolated.env).toEqual(profileEnvironment('/tmp/profile'))
-  expect(isolated.env?.CLAUDE_CONFIG_DIR).toBe('/tmp/profile')
 })
 
 it('kills the login pty with SIGKILL', () => {

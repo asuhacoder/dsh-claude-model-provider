@@ -253,6 +253,95 @@ it('does not replace saved credentials when the login is a different account', a
   }
 })
 
+it('installs verified credentials onto the account profile', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-login-'))
+  const profile = join(dir, 'profile')
+  mkdirSync(profile, { mode: 0o700 })
+  const credential = join(profile, '.credentials.json')
+  writeFileSync(credential, 'kept-sentinel\n', { mode: 0o600 })
+  const s = new StateStore(':memory:')
+  s.set('accounts', 'A', row('READY', profile, 'primary'))
+  const pty = new FakePty()
+  pty.exitOnRegister = true
+  const verify = vi.fn(
+    async (_store: StateStore, _command: string, _alias: string, profileRef: string) => {
+      writeFileSync(join(profileRef, '.credentials.json'), 'fresh-login\n', { mode: 0o600 })
+      return row('READY', profile, 'primary')
+    },
+  )
+  const c = new AccountController(() => s, 'claude', undefined, { verify, spawnLogin: () => pty })
+  try {
+    const done = await c.login(open('primary', { profile }))
+    expect(done.exchange.phase).toBe('ready')
+    expect(readFileSync(credential, 'utf8')).toBe('fresh-login\n')
+    expect(profileLoginHeld(s, profile)).toBe(false)
+    expect(s.get<Account>('accounts', 'A')?.profileRef).toBe(profile)
+  } finally {
+    c.dispose()
+    s.close()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+it('marks the same profile ready in the other pool unless that pool is locked', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'dsh-pools-'))
+  const webDir = join(root, 'claude-sdk-web')
+  const localDir = join(root, 'claude-sdk-local')
+  const profile = join(root, 'profile')
+  mkdirSync(profile, { mode: 0o700 })
+  const web = new StateStore(webDir)
+  const local = new StateStore(localDir)
+  web.set('accounts', 'A', row('AUTH_REQUIRED', profile, 'primary'))
+  local.set('accounts', 'L', row('AUTH_REQUIRED', profile, 'primary', 'L'))
+  const pty = new FakePty()
+  pty.exitOnRegister = true
+  const verify = vi.fn(async () => row('READY', profile, 'primary'))
+  const blocked = new AccountController(() => web, 'claude', undefined, {
+    verify,
+    spawnLogin: () => pty,
+  })
+  try {
+    const waiting = await blocked.login(open('primary', { profile }))
+    expect(waiting.exchange.phase).toBe('ready')
+    expect(local.get<Account>('accounts', 'L')?.state).toBe('AUTH_REQUIRED')
+  } finally {
+    blocked.dispose()
+  }
+  local.close()
+  const again = new FakePty()
+  again.exitOnRegister = true
+  web.set('accounts', 'A', row('AUTH_REQUIRED', profile, 'primary'))
+  const openPool = new AccountController(() => web, 'claude', undefined, {
+    verify,
+    spawnLogin: () => again,
+  })
+  try {
+    const done = await openPool.login(
+      parseLoginPayload({
+        op: 'open',
+        attempt: ATTEMPT_2,
+        alias: 'primary',
+        profile,
+      }),
+    )
+    expect(done.exchange.phase).toBe('ready')
+    const reread = new StateStore(localDir)
+    try {
+      expect(reread.get<Account>('accounts', 'L')).toMatchObject({
+        state: 'READY',
+        identity: 'L',
+        profileRef: profile,
+      })
+    } finally {
+      reread.close()
+    }
+  } finally {
+    openPool.dispose()
+    web.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 it('does not spawn for draining or cooldown', async () => {
   for (const state of ['DRAINING', 'COOLDOWN'] as const) {
     const s = new StateStore(':memory:')
@@ -341,7 +430,7 @@ it('verifies when the child exits 0 before a paste', async () => {
 it('fails an incomplete login on timeout and releases the gate', async () => {
   vi.useFakeTimers()
   const s = new StateStore(':memory:')
-  s.set('accounts', 'A', row('READY', 'default', 'primary'))
+  s.set('accounts', 'A', row('AUTH_REQUIRED', 'default', 'primary'))
   const pty = new FakePty()
   const c = new AccountController(() => s, 'claude', undefined, { spawnLogin: () => pty })
   try {
@@ -352,6 +441,31 @@ it('fails an incomplete login on timeout and releases the gate', async () => {
     const after = await c.login(parseLoginPayload({ op: 'read', alias: 'primary' }))
     expect(after.exchange).toMatchObject({ phase: 'failed', failureCode: 'LOGIN_INCOMPLETE' })
     expect(profileLoginHeld(s, 'default')).toBe(false)
+    expect(pty.killed).toBe(true)
+  } finally {
+    c.dispose()
+    s.close()
+    vi.useRealTimers()
+  }
+})
+
+it('keeps a ready account serving while the browser wait is still open', async () => {
+  vi.useFakeTimers()
+  const s = new StateStore(':memory:')
+  s.set('accounts', 'A', row('READY', 'default', 'primary'))
+  const pty = new FakePty()
+  pty.urlOnData = true
+  const c = new AccountController(() => s, 'claude', undefined, { spawnLogin: () => pty })
+  try {
+    const opened = await c.login(open('primary'))
+    expect(opened.exchange.phase).toBe('needs_code')
+    expect(profileLoginHeld(s, 'default')).toBe(false)
+    await vi.advanceTimersByTimeAsync(180_000)
+    const waiting = await c.login(parseLoginPayload({ op: 'read', alias: 'primary' }))
+    expect(waiting.exchange.phase).toBe('needs_code')
+    await vi.advanceTimersByTimeAsync(15 * 60 * 1_000)
+    const after = await c.login(parseLoginPayload({ op: 'read', alias: 'primary' }))
+    expect(after.exchange).toMatchObject({ phase: 'failed', failureCode: 'LOGIN_INCOMPLETE' })
     expect(pty.killed).toBe(true)
   } finally {
     c.dispose()
@@ -381,8 +495,8 @@ it('lets two profiles exchange at the same time', async () => {
     expect(first.exchange.phase).toBe('needs_code')
     expect(second.exchange.phase).toBe('needs_code')
     expect(ptys).toHaveLength(2)
-    expect(profileLoginHeld(s, 'default')).toBe(true)
-    expect(profileLoginHeld(s, '/tmp/claude-other')).toBe(true)
+    expect(profileLoginHeld(s, 'default')).toBe(false)
+    expect(profileLoginHeld(s, '/tmp/claude-other')).toBe(false)
   } finally {
     c.dispose()
     s.close()

@@ -1,16 +1,26 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { profileEnvironment, verifyAccount } from '../auth/official.js'
 import {
   admitLogin,
   bindLoginGate,
   extractAuthorizeUrl,
   LOGIN_CHILD_TIMEOUT_MS,
+  LOGIN_CODE_TIMEOUT_MS,
   ProfileLoginGate,
   resolveLoginTarget,
   stepLogin,
   toLoginView,
 } from '../login-exchange.js'
 import type { ExchangeState, LoginEffect, LoginEvent } from '../login-exchange.js'
-import { failureCode, parseLoginPayload } from '../login-view.js'
+import {
+  discardStagingKeychain,
+  installDarwinKeychain,
+  installVerifiedCredentials,
+  mirrorProfileReady,
+} from '../login-install.js'
+import { failureCode, parseLoginPayload, parseProfileRef } from '../login-view.js'
 import type { Alias, LoginIntent, LoginView, ProfileRef } from '../login-view.js'
 import { UsageHistory } from '../metrics/history.js'
 import { KeyedQueue } from '../routing/control.js'
@@ -27,6 +37,7 @@ interface ExchangeRecord {
   alias: Alias
   extraUsageOff: boolean
   previousIdentity: string | undefined
+  stagingDir: string
   buffer: string
   child: LoginPty | undefined
   timer: ReturnType<typeof setTimeout> | undefined
@@ -193,6 +204,7 @@ export class AccountController {
       record.timer = undefined
       this.#kill(record)
       record.buffer = ''
+      this.#discardStaging(record)
       this.gate.release(profile)
     }
     this.exchanges.clear()
@@ -202,6 +214,7 @@ export class AccountController {
     const release = await this.locks.acquire('account-management')
     let profile: ProfileRef | undefined
     let inserted = false
+    let stagingDir = ''
     try {
       const store = this.state()
       bindLoginGate(store, this.gate)
@@ -221,21 +234,22 @@ export class AccountController {
       })
       if (!admitted.ok) throw new RouteBlocked(admitted.code)
       const previous = this.#previous(intent.target, accounts, resolved.profileRef, resolved.alias)
+      stagingDir = mkdtempSync(join(tmpdir(), 'dsh-claude-login-'))
       const created: ExchangeRecord = {
         state: { phase: 'idle' },
         profileRef: resolved.profileRef,
         alias: resolved.alias,
         extraUsageOff: resolved.extraUsageOff,
         previousIdentity: previous,
+        stagingDir,
         buffer: '',
         child: undefined,
         timer: undefined,
         verifyTask: undefined,
       }
-      this.gate.hold(resolved.profileRef)
+      if (!resolved.rowStates.includes('READY')) this.gate.hold(resolved.profileRef)
       this.exchanges.set(resolved.profileRef, created)
       inserted = true
-      this.deps.retireIdle?.(resolved.profileRef)
       this.#apply(created, {
         type: 'begin',
         attempt: intent.attempt,
@@ -247,10 +261,13 @@ export class AccountController {
       if (inserted && profile !== undefined) {
         const record = this.exchanges.get(profile)
         if (record?.timer !== undefined) clearTimeout(record.timer)
-        if (record) this.#kill(record)
+        if (record) {
+          this.#kill(record)
+          this.#discardStaging(record)
+        }
         this.gate.release(profile)
         this.exchanges.delete(profile)
-      }
+      } else if (stagingDir !== '') rmSync(stagingDir, { recursive: true, force: true })
       throw error
     } finally {
       release()
@@ -341,6 +358,7 @@ export class AccountController {
       for (const effect of step.effects) {
         if (this.#effect(record, effect)) verify = true
       }
+      if (terminal(record.state)) this.#discardStaging(record)
       if (verify) this.#requestVerify(record)
       return { reaction: 'applied', verify }
     } finally {
@@ -352,7 +370,10 @@ export class AccountController {
   #effect(record: ExchangeRecord, effect: LoginEffect): boolean {
     switch (effect.type) {
       case 'spawn':
-        record.child = (this.deps.spawnLogin ?? spawnLoginPty)(this.command, record.profileRef)
+        record.child = (this.deps.spawnLogin ?? spawnLoginPty)(
+          this.command,
+          parseProfileRef(record.stagingDir),
+        )
         record.child.onData((chunk) => {
           if (record.state.phase !== 'spawning') return
           record.buffer = (record.buffer + chunk).slice(-SCRAPE_LIMIT)
@@ -370,10 +391,14 @@ export class AccountController {
           record.state.phase !== 'writing_code'
         )
           return false
-        record.timer = setTimeout(() => {
-          record.timer = undefined
-          this.#apply(record, { type: 'timeout' })
-        }, LOGIN_CHILD_TIMEOUT_MS)
+        if (record.timer !== undefined) clearTimeout(record.timer)
+        record.timer = setTimeout(
+          () => {
+            record.timer = undefined
+            this.#apply(record, { type: 'timeout' })
+          },
+          effect.limit === 'code' ? LOGIN_CODE_TIMEOUT_MS : LOGIN_CHILD_TIMEOUT_MS,
+        )
         record.timer.unref()
         return false
       case 'clear_timer':
@@ -412,6 +437,14 @@ export class AccountController {
     record.child?.kill()
   }
 
+  #discardStaging(record: ExchangeRecord): void {
+    if (record.stagingDir === '') return
+    const stagingDir = record.stagingDir
+    rmSync(stagingDir, { recursive: true, force: true })
+    record.stagingDir = ''
+    discardStagingKeychain(stagingDir)
+  }
+
   #requestVerify(record: ExchangeRecord): void {
     if (record.verifyTask) return
     record.verifyTask = this.#verify(record)
@@ -424,7 +457,7 @@ export class AccountController {
         this.state(),
         this.command,
         record.alias,
-        record.profileRef,
+        record.stagingDir,
         record.extraUsageOff,
       )
     } catch (error) {
@@ -472,8 +505,19 @@ export class AccountController {
         })
         return
       }
-      if (previous?.isDefault) account.isDefault = true
-      new StickyRouter(store).register(account)
+      const committed = { ...account, profileRef: record.profileRef }
+      if (previous?.isDefault) committed.isDefault = true
+      try {
+        const fileInstalled = installVerifiedCredentials(record.stagingDir, record.profileRef)
+        if (!fileInstalled || process.platform === 'darwin')
+          await installDarwinKeychain(record.stagingDir, record.profileRef)
+      } catch (error) {
+        this.#apply(record, { type: 'verify_failed', failureCode: failureCode(error) })
+        return
+      }
+      new StickyRouter(store).register(committed)
+      this.deps.retireIdle?.(record.profileRef)
+      mirrorProfileReady(store.directory, committed)
       this.#apply(record, { type: 'verify_ok' })
     } finally {
       release()

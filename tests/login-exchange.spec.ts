@@ -358,7 +358,10 @@ describe('login exchange reducer', () => {
     expect(toLoginView(failed)).toMatchObject({ phase: 'failed', failureCode: 'LOGIN_INCOMPLETE' })
     const captured = stepLogin(spawning, { type: 'authorize_url', url })
     expect(captured.state.phase).toBe('awaiting_code')
-    expect(captured.effects).toEqual([{ type: 'discard_buffer' }])
+    expect(captured.effects).toEqual([
+      { type: 'discard_buffer' },
+      { type: 'arm_timer', limit: 'code' },
+    ])
     expect(stepLogin(awaiting, { type: 'authorize_url', url }).reaction).toBe('ignore')
   })
 })

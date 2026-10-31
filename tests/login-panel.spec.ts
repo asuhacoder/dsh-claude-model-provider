@@ -65,7 +65,8 @@ it('leaves a non-login failure unchanged and waits for a click on login required
       }),
     )
   })
-  expect(plain.toJSON()).toBeNull()
+  expect(JSON.stringify(plain.toJSON())).toContain('POOL_UNAVAILABLE')
+  expect(plain.root.findAllByType('button')).toHaveLength(0)
   expect(plain.root.findAllByType('input')).toHaveLength(0)
   plain.unmount()
 
@@ -79,8 +80,28 @@ it('leaves a non-login failure unchanged and waits for a click on login required
       }),
     )
   })
-  expect(unread.toJSON()).toBeNull()
+  expect(JSON.stringify(unread.toJSON())).toContain('SUBSCRIPTION_LOGIN_REQUIRED')
+  expect(unread.root.findAllByType('button')).toHaveLength(0)
   unread.unmount()
+
+  let hosted!: ReactTestRenderer
+  await act(async () => {
+    hosted = create(
+      createElement(ClaudeTurnError, {
+        rpc,
+        node: {
+          data: {
+            message: 'SUBSCRIPTION_LOGIN_REQUIRED: primary · /claude-login primary',
+            code: 'SUBSCRIPTION_LOGIN_REQUIRED',
+          },
+        },
+      }),
+    )
+  })
+  expect(
+    hosted.root.findAllByType('button').some((button) => button.children.includes('公式ログインを開始')),
+  ).toBe(true)
+  hosted.unmount()
 
   let tree!: ReactTestRenderer
   await act(async () => {
@@ -171,6 +192,12 @@ it('opens the login page once, keeps the address out of storage and errors, and 
   expect(link.props.rel).toBe('noopener noreferrer')
   expect(alerts(tree).join('')).not.toContain('fixture')
   expect(storage.setItem).not.toHaveBeenCalled()
+  await click(tree, 'キャンセル')
+  expect(rpc.call).toHaveBeenCalledWith(
+    '/api',
+    'claude-sdk-local.login',
+    expect.objectContaining({ op: 'close', attempt: exchange.attempt, alias: 'primary' }),
+  )
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1000)
   })
@@ -243,6 +270,9 @@ it('shows a failure code without the paste field', async () => {
   })
   await click(tree, '公式ログインを開始')
   expect(alerts(tree)).toEqual(['LOGIN_INCOMPLETE'])
+  expect(
+    tree.root.findAllByType('button').some((button) => button.children.includes('もう一度ログイン')),
+  ).toBe(true)
   expect(tree.root.findAllByType('input')).toHaveLength(0)
   expect(JSON.stringify(tree.toJSON())).not.toContain(SAMPLE_URL)
   expect(JSON.stringify(tree.toJSON())).not.toContain(SAMPLE_CODE)

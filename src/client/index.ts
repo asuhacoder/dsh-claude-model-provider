@@ -5,7 +5,7 @@ import { listedAccountModels, modelPresentation } from '../model-presentation.js
 import type { Alias, LoginView, ProfileRef } from '../login-view.js'
 import { ACCOUNT_ALIAS } from '../routing/types.js'
 import type { AccountController } from '../ui/controller.js'
-import { ClaudeLoginCard, LoginExchangePanel } from './login-panel.js'
+import { ClaudeLoginCard, ClaudeTurnError, LoginExchangePanel } from './login-panel.js'
 type Status = ReturnType<AccountController['status']>
 type Screen = Status & { exchange?: LoginView }
 interface Rpc {
@@ -257,6 +257,16 @@ export function apply(ctx: Context) {
         inject: () => ({ rpc: connection.rpc }),
       },
       ClaudeLoginCard,
+    ),
+  )
+  slots.inject('conversation.chat.node', () =>
+    slots.register(
+      {
+        name: 'conversation.chat.node',
+        key: 'turn-error',
+        inject: () => ({ rpc: connection.rpc }),
+      },
+      ClaudeTurnError,
     ),
   )
 }

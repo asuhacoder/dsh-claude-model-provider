@@ -13,6 +13,7 @@ import { ACCOUNT_ALIAS, preferredAccountLabel, RouteBlocked } from './routing/ty
 import type { Account, AccountState } from './routing/types.js'
 
 export const LOGIN_CHILD_TIMEOUT_MS = 180_000
+export const LOGIN_CODE_TIMEOUT_MS = 15 * 60 * 1_000
 
 export type ExchangeState =
   | { readonly phase: 'idle' }
@@ -73,7 +74,7 @@ export type LoginEvent =
 
 export type LoginEffect =
   | { readonly type: 'spawn' }
-  | { readonly type: 'arm_timer' }
+  | { readonly type: 'arm_timer'; readonly limit: 'spawn' | 'code' }
   | { readonly type: 'clear_timer' }
   | { readonly type: 'write_code'; readonly code: AuthorizationCode }
   | { readonly type: 'kill' }
@@ -151,7 +152,7 @@ function spawn(event: BeginEvent): LoginStep {
       accountLabel: event.accountLabel,
       profileRef: event.profileRef,
     },
-    effects: [{ type: 'spawn' }, { type: 'arm_timer' }],
+    effects: [{ type: 'spawn' }, { type: 'arm_timer', limit: 'spawn' }],
     reaction: 'applied',
   }
 }
@@ -203,7 +204,10 @@ function onAuthorize(
           profileRef: state.profileRef,
           authorizeUrl: event.url,
         },
-        effects: [{ type: 'discard_buffer' }],
+        effects: [
+          { type: 'discard_buffer' },
+          { type: 'arm_timer', limit: 'code' },
+        ],
         reaction: 'applied',
       }
     case 'idle':
