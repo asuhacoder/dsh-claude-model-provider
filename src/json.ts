@@ -77,6 +77,40 @@ function repairedDoubleEscapedUnicode(value: unknown): unknown {
   return value
 }
 
+function isJsonContainer(value: unknown): boolean {
+  return value !== null && typeof value === 'object'
+}
+
+/**
+ * Claude Code 2.1.287 streams an object or array given to an untyped tool property as a JSON
+ * string, then parses it back before it completes the message and calls the MCP tool. True when
+ * the completed input differs from the emitted one only by such top-level parses.
+ */
+export function completesStringifiedJson(
+  emitted: Readonly<Record<string, unknown>>,
+  completed: Readonly<Record<string, unknown>>,
+): boolean {
+  const keys = Object.keys(emitted)
+  if (keys.length !== Object.keys(completed).length) return false
+  let parsedAny = false
+  for (const key of keys) {
+    if (!Object.hasOwn(completed, key)) return false
+    const value = emitted[key]
+    const observed = completed[key]
+    if (canonicalToolJson(value) === canonicalToolJson(observed)) continue
+    if (typeof value !== 'string' || !isJsonContainer(observed)) return false
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(value)
+    } catch {
+      return false
+    }
+    if (canonicalToolJson(parsed) !== canonicalToolJson(observed)) return false
+    parsedAny = true
+  }
+  return parsedAny
+}
+
 /**
  * Claude Code 2.1.287 rewrites `\uXXXX` text inside a tool input's string values into the
  * character before it completes the assistant message, so the completed input can differ from

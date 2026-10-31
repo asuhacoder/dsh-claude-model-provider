@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+A tool call that passes an object to an untyped parameter, such as `input` on `cordis_inspect_query`, no longer stops the turn with `CLAUDE_PROTOCOL_ERROR` (partial and completed content did not reconcile). Claude Code 2.1.287 streams that object as a JSON string, then parses it back before it completes the message and calls the MCP tool. DSH now executes the parsed object Claude Code completed, so the tool receives an object, not a string. Only top-level values whose completed form is exactly the parse of the streamed string are accepted, and only when the completed block arrives before the stream stops, which is the order Claude Code uses. Any other difference still fails.
+
 ## 0.1.0-next.7 — 2026-10-31
 
 Publish from a version tag. Pushing `v<version>` runs the release workflow, which checks that the tag matches `package.json`, that the version is a prerelease not yet on npm, that `CHANGELOG.md` has its section, and that the commit is on `main`. It then runs the full verification, publishes the exact rehearsed tarball to `next` with npm provenance through trusted publishing, and creates a GitHub prerelease with the tarball, the dry-run report and the SBOM. `latest` stays manual.
