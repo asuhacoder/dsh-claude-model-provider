@@ -1,6 +1,12 @@
-# Release status — 2026-10-03
+# Release status — 2026-10-31
 
-## Current candidate: 0.1.0-next.5
+## Current candidate: 0.1.0-next.7
+
+This is the first version published by the tag release workflow. A `v0.1.0-next.7` tag on `main` publishes the CI-verified tarball to npm `next` with provenance and creates the GitHub prerelease. `latest` is unchanged. It contains the login, auth status and failure-evidence changes described in CHANGELOG.md. No real-account run of this exact artifact is claimed.
+
+`0.1.0-next.6` was published to npm `next` on October 16 from a local maintainer build, without provenance or a recorded source commit.
+
+## Historical candidate: 0.1.0-next.5
 
 This version promotes the interruption repair previously tested as the unpublished `0.1.0-next.4.local.2` build. npm publication is pending maintainer authentication. It must be published under `next`, without assigning `latest`. `publishConfig.tag` now defaults to `next`; local maintainer publication explicitly disables provenance rather than claiming an unavailable CI attestation.
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-next.7 — 2026-10-31
 
 Publish from a version tag. Pushing `v<version>` runs the release workflow, which checks that the tag matches `package.json`, that the version is a prerelease not yet on npm, that `CHANGELOG.md` has its section, and that the commit is on `main`. It then runs the full verification, publishes the exact rehearsed tarball to `next` with npm provenance through trusted publishing, and creates a GitHub prerelease with the tarball, the dry-run report and the SBOM. `latest` stays manual.
 
