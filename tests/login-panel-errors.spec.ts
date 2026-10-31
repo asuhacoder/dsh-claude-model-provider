@@ -1,3 +1,4 @@
+import { t } from './client-locale.js'
 import { afterEach, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
@@ -19,23 +20,32 @@ afterEach(() => {
 })
 
 function alerts(tree: ReactTestRenderer): string[] {
-  return tree.root.findAll((node) => node.props.role === 'alert').map((node) => node.children.join(''))
+  return tree.root
+    .findAll((node) => node.props.role === 'alert')
+    .map((node) => node.children.join(''))
 }
 
 async function click(tree: ReactTestRenderer, label: string): Promise<void> {
   await act(async () => {
-    tree.root.findAllByType('button').find((button) => button.children.includes(label))!.props.onClick()
+    tree.root
+      .findAllByType('button')
+      .find((button) => button.children.includes(label))!
+      .props.onClick()
   })
 }
 
 async function waitingPanel(close: LoginRpc['call']): Promise<ReactTestRenderer> {
   vi.stubGlobal('window', { open: vi.fn() })
   const call = vi.fn<LoginRpc['call']>(async (_channel, _method, payload) =>
-    (payload as { op: string }).op === 'open' ? { ok: true, value: { exchange: needsCode } } : close(_channel, _method, payload),
+    (payload as { op: string }).op === 'open'
+      ? { ok: true, value: { exchange: needsCode } }
+      : close(_channel, _method, payload),
   )
   let tree!: ReactTestRenderer
   await act(async () => {
-    tree = create(createElement(LoginExchangePanel, { rpc: { call }, target: parseLoginLabel('primary')! }))
+    tree = create(
+      createElement(LoginExchangePanel, { t, rpc: { call }, target: parseLoginLabel('primary')! }),
+    )
   })
   await click(tree, '公式ログインを開始')
   return tree
@@ -69,7 +79,7 @@ it('keeps the current view when cancel returns no exchange', async () => {
 it('renders nothing for an empty turn error', async () => {
   let tree!: ReactTestRenderer
   await act(async () => {
-    tree = create(createElement(ClaudeTurnError, { rpc: { call: vi.fn() } }))
+    tree = create(createElement(ClaudeTurnError, { t, rpc: { call: vi.fn() } }))
   })
   expect(tree.toJSON()).toBeNull()
   tree.unmount()
@@ -80,6 +90,7 @@ it('prefers the node message and code over the props', async () => {
   await act(async () => {
     tree = create(
       createElement(ClaudeTurnError, {
+        t,
         message: 'stale',
         code: 'STALE',
         rpc: { call: vi.fn() },
@@ -96,7 +107,9 @@ it('prefers the node message and code over the props', async () => {
 it('shows only the code when the message is empty', async () => {
   let tree!: ReactTestRenderer
   await act(async () => {
-    tree = create(createElement(ClaudeTurnError, { code: 'POOL_UNAVAILABLE', rpc: { call: vi.fn() } }))
+    tree = create(
+      createElement(ClaudeTurnError, { t, code: 'POOL_UNAVAILABLE', rpc: { call: vi.fn() } }),
+    )
   })
   expect(tree.root.findAllByType('p')).toHaveLength(0)
   expect(tree.root.findByType('code').children).toEqual(['POOL_UNAVAILABLE'])
@@ -106,7 +119,7 @@ it('shows only the code when the message is empty', async () => {
 it('rejects a login card without arguments', async () => {
   let tree!: ReactTestRenderer
   await act(async () => {
-    tree = create(createElement(ClaudeLoginCard, { rpc: { call: vi.fn() } }))
+    tree = create(createElement(ClaudeLoginCard, { t, rpc: { call: vi.fn() } }))
   })
   expect(alerts(tree)).toEqual(['INVALID_PAYLOAD'])
   tree.unmount()

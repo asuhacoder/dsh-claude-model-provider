@@ -1,3 +1,4 @@
+import { t } from './client-locale.js'
 import { afterEach, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
@@ -59,6 +60,7 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   await act(async () => {
     plain = create(
       createElement(ClaudeTurnError, {
+        t,
         message: 'POOL_UNAVAILABLE',
         code: 'POOL_UNAVAILABLE',
         rpc,
@@ -74,6 +76,7 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   await act(async () => {
     unread = create(
       createElement(ClaudeTurnError, {
+        t,
         message: 'SUBSCRIPTION_LOGIN_REQUIRED',
         code: 'SUBSCRIPTION_LOGIN_REQUIRED',
         rpc,
@@ -88,6 +91,7 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   await act(async () => {
     hosted = create(
       createElement(ClaudeTurnError, {
+        t,
         rpc,
         node: {
           data: {
@@ -99,7 +103,9 @@ it('leaves a non-login failure unchanged and waits for a click on login required
     )
   })
   expect(
-    hosted.root.findAllByType('button').some((button) => button.children.includes('公式ログインを開始')),
+    hosted.root
+      .findAllByType('button')
+      .some((button) => button.children.includes('公式ログインを開始')),
   ).toBe(true)
   hosted.unmount()
 
@@ -107,6 +113,7 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   await act(async () => {
     tree = create(
       createElement(ClaudeTurnError, {
+        t,
         message: 'SUBSCRIPTION_LOGIN_REQUIRED: primary',
         code: 'SUBSCRIPTION_LOGIN_REQUIRED',
         rpc,
@@ -131,15 +138,12 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   const cardRpc = { call: vi.fn(async () => ({ ok: true as const, value: {} })) }
   let card!: ReactTestRenderer
   await act(async () => {
-    card = create(
-      createElement(ClaudeLoginCard, {
-        rpc: cardRpc,
-        node: { args: ' primary' },
-      }),
-    )
+    card = create(createElement(ClaudeLoginCard, { t, rpc: cardRpc, node: { args: ' primary' } }))
   })
   expect(
-    card.root.findAllByType('button').some((button) => button.children.includes('公式ログインを開始')),
+    card.root
+      .findAllByType('button')
+      .some((button) => button.children.includes('公式ログインを開始')),
   ).toBe(true)
   expect(cardRpc.call).not.toHaveBeenCalled()
   card.unmount()
@@ -147,10 +151,7 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   let rejected!: ReactTestRenderer
   await act(async () => {
     rejected = create(
-      createElement(ClaudeLoginCard, {
-        rpc: cardRpc,
-        node: { args: ' sk-ant-fixture pasted' },
-      }),
+      createElement(ClaudeLoginCard, { t, rpc: cardRpc, node: { args: ' sk-ant-fixture pasted' } }),
     )
   })
   expect(JSON.stringify(rejected.toJSON())).toContain('INVALID_PAYLOAD')
@@ -176,6 +177,7 @@ it('opens the login page once, keeps the address out of storage and errors, and 
   await act(async () => {
     tree = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
@@ -223,6 +225,7 @@ it('rejects a link pasted as a code and clears the field after a code is accepte
   await act(async () => {
     tree = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc,
         target: { kind: 'profile', profile: '/tmp/claude-primary' } as LoginTarget,
       }),
@@ -263,6 +266,7 @@ it('shows a failure code without the paste field', async () => {
   await act(async () => {
     tree = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
@@ -271,7 +275,9 @@ it('shows a failure code without the paste field', async () => {
   await click(tree, '公式ログインを開始')
   expect(alerts(tree)).toEqual(['LOGIN_INCOMPLETE'])
   expect(
-    tree.root.findAllByType('button').some((button) => button.children.includes('もう一度ログイン')),
+    tree.root
+      .findAllByType('button')
+      .some((button) => button.children.includes('もう一度ログイン')),
   ).toBe(true)
   expect(tree.root.findAllByType('input')).toHaveLength(0)
   expect(JSON.stringify(tree.toJSON())).not.toContain(SAMPLE_URL)
@@ -287,6 +293,7 @@ it('shows only the server code when open or paste is refused', async () => {
   await act(async () => {
     busy = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc: refused,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
@@ -305,6 +312,7 @@ it('shows only the server code when open or paste is refused', async () => {
   await act(async () => {
     blown = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc: exploded,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
@@ -328,6 +336,7 @@ it('shows only the server code when open or paste is refused', async () => {
   await act(async () => {
     tree = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc: blocked,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
@@ -360,6 +369,7 @@ it('shows a refused read or paste as the code alone', async () => {
   await act(async () => {
     tree = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
@@ -397,6 +407,7 @@ it('polls while the login is opening and does not open a page before a code is r
   await act(async () => {
     tree = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
@@ -453,7 +464,7 @@ it('sends the typed profile from the add form and the status id for a disabled r
   }
   let tree!: ReactTestRenderer
   await act(async () => {
-    tree = create(createElement(Section, { rpc } as never))
+    tree = create(createElement(Section, { t, rpc } as never))
   })
   expect(rpc.call).toHaveBeenCalledTimes(1)
   expect(rpc.call).toHaveBeenCalledWith('/api', 'claude-sdk-local.status', {})
