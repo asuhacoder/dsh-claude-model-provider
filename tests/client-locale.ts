@@ -7,4 +7,4 @@ export function translator(language: keyof typeof dictionaries): Translate {
     )
 }
 
-export const t = translator('ja')
+export const t = translator('en')

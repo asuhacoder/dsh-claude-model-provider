@@ -6,7 +6,7 @@ import type { Alias, LoginView, ProfileRef } from '../login-view.js'
 import { ACCOUNT_ALIAS } from '../routing/types.js'
 import type { AccountController } from '../ui/controller.js'
 import { ClaudeLoginCard, ClaudeTurnError, LoginExchangePanel } from './login-panel.js'
-import { dictionaries, japanese, NS, type Translate } from './messages.js'
+import { dictionaries, NS, type Translate } from './messages.js'
 type Status = ReturnType<AccountController['status']>
 type Screen = Status & { exchange?: LoginView }
 interface Rpc {
@@ -261,15 +261,10 @@ export function apply(ctx: Context) {
     connection = ctx.get('connection') as { rpc: Rpc },
     locale = ctx.get('locale') as {
       register: (namespace: string, id: string, dict: Record<string, string>) => () => void
-      getLocale: () => { active: string; locales: readonly { id: string }[] }
-      addLanguage: (language: { id: string; label: string; fallback: string }) => () => void
       bind: (namespace: string) => Translate
     }
   for (const [id, dict] of Object.entries(dictionaries)) {
     ctx.effect(() => locale.register(NS, id, dict))
-  }
-  if (!locale.getLocale().locales.some((language) => language.id === 'ja')) {
-    ctx.effect(() => locale.addLanguage(japanese))
   }
   const t = locale.bind(NS)
   slots.inject('settings.section', () =>

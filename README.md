@@ -49,7 +49,7 @@ Profiles may be added with `accounts add <alias> --profile <absolute-directory> 
 
 ## Interface language
 
-The settings page and login cards are available in English, Simplified Chinese and Japanese, and follow the DSH language setting. DSH itself ships English and Simplified Chinese. When Japanese is not yet available, this plugin adds 日本語 as a choice. With 日本語 selected, this plugin's screens are in Japanese and the parts of DSH without a Japanese translation stay in English.
+The settings page and login cards are available in English and Simplified Chinese, and follow the DSH language setting. Japanese is provided for this README only; with any other DSH language the screens are in English.
 
 ## Behavior
 

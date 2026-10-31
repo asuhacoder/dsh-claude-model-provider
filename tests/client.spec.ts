@@ -48,7 +48,7 @@ it('renders local account management, honest unknowns and user-driven controls',
   await act(async () => {
     tree = create(createElement(Section, { t, rpc } as never))
   })
-  expect(JSON.stringify(tree.toJSON())).toContain('不明')
+  expect(JSON.stringify(tree.toJSON())).toContain('Unknown')
   expect(rpc.call).toHaveBeenCalledTimes(1)
   expect(
     tree.root.findAllByType('option').map((o) => [o.props.value, o.children.join('')]),
@@ -56,7 +56,7 @@ it('renders local account management, honest unknowns and user-driven controls',
     ['opus', 'Claude Opus 5.5'],
     ['haiku', 'Claude Haiku'],
   ])
-  expect(JSON.stringify(tree.toJSON())).not.toContain('公式SDK')
+  expect(JSON.stringify(tree.toJSON())).not.toContain('Official SDK')
   const inputs = tree.root.findAllByType('input')
   await act(async () => {
     inputs[0]!.props.onChange({ target: { value: 'new' } })
@@ -66,7 +66,7 @@ it('renders local account management, honest unknowns and user-driven controls',
   await act(async () => {
     tree.root
       .findAllByType('button')
-      .find((b) => b.children.includes('既存の公式ログインを接続'))!
+      .find((b) => b.children.includes('Connect existing official login'))!
       .props.onClick()
   })
   expect(rpc.call).toHaveBeenLastCalledWith('/api', 'claude-sdk-local.add', {
@@ -87,14 +87,12 @@ it('renders local account management, honest unknowns and user-driven controls',
   await act(async () => {
     tree.root.findAllByType('button')[0]!.props.onClick()
   })
-  expect(JSON.stringify(tree.toJSON())).toContain('操作を完了できませんでした')
+  expect(JSON.stringify(tree.toJSON())).toContain('Could not complete the operation')
   tree.unmount()
   const register = vi.fn(),
     slots = { inject: (_n: unknown, fn: () => unknown) => fn(), register }
   const locale = {
     register: vi.fn(() => vi.fn()),
-    getLocale: () => ({ active: 'ja', locales: [{ id: 'en' }, { id: 'zh' }] }),
-    addLanguage: vi.fn(() => vi.fn()),
     bind: vi.fn(() => t),
   }
   const disposers: (() => void)[] = []
@@ -107,9 +105,8 @@ it('renders local account management, honest unknowns and user-driven controls',
   expect(locale.register.mock.calls).toEqual(
     Object.entries(dictionaries).map(([id, dict]) => [NS, id, dict]),
   )
-  expect(locale.addLanguage).toHaveBeenCalledWith({ id: 'ja', label: '日本語', fallback: 'en' })
   expect(locale.bind).toHaveBeenCalledWith(NS)
-  expect(disposers).toHaveLength(4)
+  expect(disposers).toHaveLength(2)
   for (const dispose of disposers) {
     dispose()
     expect(dispose).toHaveBeenCalledTimes(1)
@@ -125,42 +122,19 @@ it('renders local account management, honest unknowns and user-driven controls',
   expect(register.mock.calls[2]?.[0].inject()).toEqual({ rpc })
 })
 
-it('keeps a Japanese language pack registered by another plugin', () => {
-  const addLanguage = vi.fn()
-  const locale = {
-    register: vi.fn(() => vi.fn()),
-    getLocale: () => ({ active: 'ja', locales: [{ id: 'en' }, { id: 'zh' }, { id: 'ja' }] }),
-    addLanguage,
-    bind: () => t,
-  }
-  const slots = {
-    inject: (_name: string, callback: () => unknown) => callback(),
-    register: vi.fn(),
-  }
-  apply({
-    get: (name: string) =>
-      ({ slots, connection: { rpc: { call: vi.fn() } }, locale })[
-        name as 'slots' | 'connection' | 'locale'
-      ],
-    effect: (effect: () => () => void) => effect(),
-  } as never)
-  expect(addLanguage).not.toHaveBeenCalled()
-  expect(locale.register).toHaveBeenCalledTimes(3)
-})
-
-it('renders the same account fixture in English without Japanese text', async () => {
+it('renders the same account fixture in Simplified Chinese', async () => {
   const rpc = { call: vi.fn(async () => ({ ok: true as const, value: status })) }
   let tree!: ReactTestRenderer
   await act(async () => {
-    tree = create(createElement(Section, { rpc, t: translator('en') } as never))
+    tree = create(createElement(Section, { rpc, t: translator('zh') } as never))
   })
   const text = JSON.stringify(tree.toJSON())
-  expect(text).toContain('Add account')
-  expect(text).toContain('Connect existing official login')
-  expect(text).toContain('Start official login')
-  expect(text).toContain('In flight 1')
-  expect(text).toContain('Remaining 50%')
+  expect(text).toContain('添加账户')
+  expect(text).toContain('连接现有官方登录')
+  expect(text).toContain('开始官方登录')
+  expect(text).toContain('推理中 1')
+  expect(text).toContain('剩余 50%')
   expect(text).toContain('confirmed-quota-migration')
-  expect(text).not.toMatch(/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u)
+  expect(text).not.toContain('Add account')
   tree.unmount()
 })

@@ -83,49 +83,6 @@ export const zh: Record<MessageKey, string> = {
   loggedIn: '已登录',
 }
 
-export const ja: Record<MessageKey, string> = {
-  title: 'Claude サブスクリプション',
-  description:
-    '公式Claudeログインを使います。追加使用量はClaude側でOFFにしてください。残量の更新のために推論することはありません。',
-  disabled: '無効',
-  defaultAccount: '{aliases} • 既定',
-  accountStatus: '{state} · 推論中 {inFlight} · 追加使用量 {billingSafety}',
-  extraUsageOff: 'OFF確認済み',
-  unverified: '未確認',
-  models: 'モデル／思考の強さ: {models}',
-  modelEffort: '{model} ({effort})',
-  unspecified: '指定なし',
-  usageWindow: '{key}: 残量 {remaining} · リセット {resetsAt} · 観測 {observedAt}',
-  unknown: '不明',
-  unknownUsageWindow: '利用枠の残量・リセット: 不明',
-  lastRouteReason: '直近の処理理由: {reason}',
-  notUsed: 'まだ利用していません',
-  displayName: '表示名 ',
-  verifyConnection: '接続を確認',
-  setDefault: '既定にする',
-  removeConnection: '接続を外す',
-  operationFailed: '操作を完了できませんでした',
-  waiting: '待機中 {count}',
-  refreshStatus: '状態を更新',
-  processing: ' 処理中…',
-  addAccount: 'アカウントを追加',
-  officialProfile: ' 公式プロファイル（空欄で標準） ',
-  confirmExtraUsageOff: ' Claudeの追加使用量がOFFであることを確認しました',
-  connectExistingLogin: '既存の公式ログインを接続',
-  defaultConversationModel: '既存の会話で「default」を選択している場合のモデル ',
-  usageSummary:
-    '完了応答 {responses} · ツール待ち {toolBoundaries} · 失敗／中断 {failed} · 入力 {inputTokens} · 出力 {outputTokens} tokens',
-  retryLogin: 'もう一度ログイン',
-  startLogin: '公式ログインを開始',
-  cancel: 'キャンセル',
-  openLoginPage: 'Claudeのログインページを開く',
-  code: 'コード ',
-  submitCode: 'コードを送信',
-  loggedIn: 'ログイン済み',
-}
-
-export const dictionaries = { en, zh, ja }
-
-export const japanese = { id: 'ja', label: '日本語', fallback: 'en' }
+export const dictionaries = { en, zh }
 
 export type Translate = (key: MessageKey, params?: Record<string, string | number>) => string

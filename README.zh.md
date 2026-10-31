@@ -51,7 +51,7 @@ dsh plugin --profile web exec dsh-claude-model-provider doctor --offline
 
 ## 界面语言
 
-设置页和登录卡片支持英语、简体中文和日本語，并跟随 DSH 的语言设置切换。DSH 本身内置英语和简体中文；若尚无日语，本插件会添加“日本語”选项。选择日本語时，本插件的界面显示日语，DSH 其他尚未翻译的部分显示英语。
+设置页和登录卡片支持英语和简体中文，并跟随 DSH 的语言设置切换。日语仅提供 README；DSH 使用其他语言时，界面显示英语。
 
 ## 行为
 

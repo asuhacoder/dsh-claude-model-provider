@@ -47,13 +47,13 @@ async function waitingPanel(close: LoginRpc['call']): Promise<ReactTestRenderer>
       createElement(LoginExchangePanel, { t, rpc: { call }, target: parseLoginLabel('primary')! }),
     )
   })
-  await click(tree, '公式ログインを開始')
+  await click(tree, 'Start official login')
   return tree
 }
 
 it('shows the RPC error when cancel is refused and keeps the login open', async () => {
   const tree = await waitingPanel(async () => ({ ok: false, error: { message: 'LOGIN_BUSY' } }))
-  await click(tree, 'キャンセル')
+  await click(tree, 'Cancel')
   expect(alerts(tree)).toEqual(['LOGIN_BUSY'])
   expect(tree.root.findAllByType('a')).toHaveLength(1)
   tree.unmount()
@@ -63,14 +63,14 @@ it('shows the blocked code when cancel throws', async () => {
   const tree = await waitingPanel(async () => {
     throw new RouteBlocked('LOGIN_NOT_COMMITTED')
   })
-  await click(tree, 'キャンセル')
+  await click(tree, 'Cancel')
   expect(alerts(tree)).toEqual(['LOGIN_NOT_COMMITTED'])
   tree.unmount()
 })
 
 it('keeps the current view when cancel returns no exchange', async () => {
   const tree = await waitingPanel(async () => ({ ok: true, value: {} }))
-  await click(tree, 'キャンセル')
+  await click(tree, 'Cancel')
   expect(alerts(tree)).toEqual([])
   expect(tree.root.findAllByType('a')).toHaveLength(1)
   tree.unmount()
