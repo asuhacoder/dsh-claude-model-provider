@@ -1,6 +1,10 @@
-# Release status — 2026-10-31
+# Release status — 2026-11-02
 
-## Current candidate: 0.1.0-next.7
+## Current candidate: 0.1.0-next.8
+
+A `v0.1.0-next.8` tag on `main` publishes the CI-verified tarball to npm `next` with provenance and creates the GitHub prerelease. `latest` is unchanged. It contains the untyped tool-argument repair and the English and Simplified Chinese settings and login screens described in CHANGELOG.md. No real-account run of this exact artifact is claimed.
+
+## Historical candidate: 0.1.0-next.7
 
 This is the first version published by the tag release workflow. A `v0.1.0-next.7` tag on `main` publishes the CI-verified tarball to npm `next` with provenance and creates the GitHub prerelease. `latest` is unchanged. It contains the login, auth status and failure-evidence changes described in CHANGELOG.md. No real-account run of this exact artifact is claimed.
 
