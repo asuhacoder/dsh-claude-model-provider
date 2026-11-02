@@ -9,7 +9,7 @@ dsh plugin --profile web add @asuha/dsh-claude-model-provider@next --ignore-scri
 claude auth login
 ```
 
-npmの`next`タグは最後に公開した試験版を指します。このソースは `0.1.0-next.5` の公開準備版です。実際の公開状況は[リリース状況](RELEASE_STATUS.md)で確認できます。以前の固定バージョンのGitHub配布物からも導入できます。
+npmの`next`タグは最後に公開した試験版を指します。このソースは `0.1.0-next.7` の公開準備版です。実際の公開状況は[リリース状況](RELEASE_STATUS.md)で確認できます。以前の固定バージョンのGitHub配布物からも導入できます。
 
 ```sh
 dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.4/asuha-dsh-claude-model-provider-0.1.0-next.4.tgz --ignore-scripts
