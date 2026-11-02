@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-next.8 — 2026-11-02
 
 A tool call that passes an object to an untyped parameter, such as `input` on `cordis_inspect_query`, no longer stops the turn with `CLAUDE_PROTOCOL_ERROR` (partial and completed content did not reconcile). Claude Code 2.1.287 streams that object as a JSON string, then parses it back before it completes the message and calls the MCP tool. DSH now executes the parsed object Claude Code completed, so the tool receives an object, not a string. Only top-level values whose completed form is exactly the parse of the streamed string are accepted, and only when the completed block arrives before the stream stops, which is the order Claude Code uses. Any other difference still fails.
+
+The settings page and login cards follow the DSH language setting in English and Simplified Chinese. Japanese is only in the README. With any other DSH language, those screens are in English. The README is in English, Japanese, and Simplified Chinese.
 
 ## 0.1.0-next.7 — 2026-10-31
 

@@ -21,6 +21,7 @@ describe('installable DSH bundle', () => {
       'LICENSE',
       'THIRD_PARTY_NOTICES.md',
       'README.ja.md',
+      'README.zh.md',
       'CHANGELOG.md',
       'RELEASE_STATUS.md',
       'COMPLIANCE.md',
