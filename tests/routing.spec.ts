@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { StateStore } from '../src/storage/store.js'
 import { StickyRouter, choose, availableWork } from '../src/routing/router.js'
-import type { Account, Binding } from '../src/routing/types.js'
+import { RouteBlocked, type Account, type Binding } from '../src/routing/types.js'
 import { ToolLedger } from '../src/sessions/ledger.js'
 import { billingConflicts, profileEnvironment } from '../src/auth/official.js'
 import { prepareDshRequest } from '../src/sessions/provider.js'
@@ -247,6 +247,9 @@ describe('subscription routing acceptance', () => {
     }
   })
   it('100 seeds x 1000 events agrees with an independent sticky-state model', () => {
+    // A vitest expect that catches an exception maps its stack through source maps, which made
+    // this loop exceed the timeout on Windows. Collect mismatches and assert them once.
+    const mismatches: string[] = []
     for (let seed = 1; seed <= 100; seed++) {
       let rng = seed
       const rand = () => {
@@ -273,17 +276,28 @@ describe('subscription routing acceptance', () => {
         const previous = model.get(key),
           shouldBlock =
             previous !== undefined ? !enabled.get(previous) : ![...enabled.values()].some(Boolean)
-        if (shouldBlock) expect(() => r.route(req(key, event))).toThrow()
+        const at = `seed ${seed} event ${event}`
+        let b: Binding | undefined
+        try {
+          b = r.route(req(key, event))
+        } catch (error) {
+          if (!(error instanceof RouteBlocked)) throw error
+        }
+        if (shouldBlock) {
+          if (b !== undefined) mismatches.push(`${at}: routed a blocked session`)
+        } else if (b === undefined) mismatches.push(`${at}: blocked a routable session`)
         else {
-          const b = r.route(req(key, event))
-          if (previous !== undefined) expect(b.identity).toBe(previous)
-          else model.set(key, b.identity)
-          expect(enabled.get(b.identity)).toBe(true)
+          if (previous !== undefined && b.identity !== previous)
+            mismatches.push(`${at}: moved from ${previous} to ${b.identity}`)
+          if (previous === undefined) model.set(key, b.identity)
+          if (enabled.get(b.identity) !== true)
+            mismatches.push(`${at}: routed to disabled ${b.identity}`)
           r.release(key)
         }
-        expect(s.list('reservations')).toHaveLength(0)
+        if (s.list('reservations').length !== 0) mismatches.push(`${at}: reservation left`)
       }
       s.close()
     }
+    expect(mismatches).toEqual([])
   }, 30000)
 })

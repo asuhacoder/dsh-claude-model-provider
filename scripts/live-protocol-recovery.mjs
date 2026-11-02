@@ -72,6 +72,16 @@ const tools = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'inspect',
+    description: 'A harmless protocol fixture. Does not read or change anything. Returns NOOP_OK.',
+    parameters: {
+      type: 'object',
+      properties: { input: { description: 'Any JSON value.' } },
+      required: ['input'],
+      additionalProperties: false,
+    },
+  },
 ]
 const user = (text) =>
   createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text }] })
@@ -99,7 +109,7 @@ async function generate(name, expectedKind) {
     reasoningEffort: 'low',
     sessionId,
     system:
-      'This is a harmless DSH protocol test. Native tools are disabled. The only executable tool is the no-op dsh MCP bash fixture. A deliberately unavailable name must not execute; correct it after rejection. Follow the latest user instruction. Be brief.',
+      'This is a harmless DSH protocol test. Native tools are disabled. The only executable tools are the no-op dsh MCP fixtures. A deliberately unavailable name must not execute; correct it after rejection. Follow the latest user instruction. Be brief.',
     messages,
     tools,
     signal: AbortSignal.timeout(120000),
@@ -146,9 +156,8 @@ async function generate(name, expectedKind) {
   })
   return { blocks, calls }
 }
-function receipt(calls, validate) {
-  if (calls.length !== 1 || calls[0].name !== 'bash')
-    throw new Error('EXPECTED_EXACTLY_ONE_DSH_NOOP')
+function receipt(calls, validate, name = 'bash') {
+  if (calls.length !== 1 || calls[0].name !== name) throw new Error('EXPECTED_EXACTLY_ONE_DSH_NOOP')
   validate?.(JSON.parse(calls[0].arguments))
   toolsExecuted++
   messages.push(
@@ -198,7 +207,21 @@ try {
         throw new Error('STREAMED_UNICODE_WAS_REWRITTEN')
     })
     await generate('unicode-tool-receipt-continuation', 'stop')
-    if (toolsExecuted !== 2) throw new Error('DUPLICATE_TOOL_EXECUTION')
+    messages.push(
+      user(
+        'Call mcp__dsh__inspect exactly once with input set to the JSON object {"service":"locale"} (an object, not a string). Then reply DONE.',
+      ),
+    )
+    const untyped = await generate('untyped-object-argument', 'tool-calls')
+    receipt(
+      untyped.calls,
+      (args) => {
+        if (args.input?.service !== 'locale') throw new Error('UNTYPED_OBJECT_ARGUMENT_STRINGIFIED')
+      },
+      'inspect',
+    )
+    await generate('untyped-object-receipt-continuation', 'stop')
+    if (toolsExecuted !== 3) throw new Error('DUPLICATE_TOOL_EXECUTION')
     record('exactly-once-noop-effects', { pass: true, toolsExecuted })
   }
   report.status = 'PASSED'
