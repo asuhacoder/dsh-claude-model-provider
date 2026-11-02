@@ -1,8 +1,13 @@
 import { createElement as h, useEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import type { LoginTarget, LoginView, ParsedLoginFailure } from '../login-view.js'
-import { parseAuthorizationCode, parseLoginLabel, parseLoginRequiredMessage } from '../login-view.js'
+import {
+  parseAuthorizationCode,
+  parseLoginLabel,
+  parseLoginRequiredMessage,
+} from '../login-view.js'
 import { RouteBlocked } from '../routing/types.js'
+import type { Translate } from './messages.js'
 
 export interface LoginRpc {
   call(
@@ -53,10 +58,12 @@ function failureText(error: unknown): string {
 }
 
 export function LoginExchangePanel(props: {
+  t: Translate
   rpc: LoginRpc
   target: ParsedLoginFailure | LoginTarget
   extraUsageOff?: boolean
 }) {
+  const { t } = props
   const [view, setView] = useState<LoginView>()
   const [error, setError] = useState('')
   const [code, setCode] = useState('')
@@ -181,27 +188,23 @@ export function LoginExchangePanel(props: {
     h(
       'button',
       { type: 'button', disabled: busy, onClick: () => void open() },
-      view?.phase === 'failed' ? 'もう一度ログイン' : '公式ログインを開始',
+      view?.phase === 'failed' ? t('retryLogin') : t('startLogin'),
     ),
     cancellable
-      ? h(
-          'button',
-          { type: 'button', disabled: busy, onClick: () => void close() },
-          'キャンセル',
-        )
+      ? h('button', { type: 'button', disabled: busy, onClick: () => void close() }, t('cancel'))
       : null,
     view?.phase === 'needs_code'
       ? h(
           'a',
           { href: view.authorizeUrl, target: '_blank', rel: 'noopener noreferrer' },
-          'Claudeのログインページを開く',
+          t('openLoginPage'),
         )
       : null,
     pasteVisible
       ? h(
           'label',
           null,
-          'コード ',
+          t('code'),
           h('input', {
             value: code,
             autoComplete: 'off',
@@ -215,20 +218,24 @@ export function LoginExchangePanel(props: {
               disabled: busy || view?.phase !== 'needs_code',
               onClick: () => void paste(),
             },
-            'コードを送信',
+            t('submitCode'),
           ),
         )
       : null,
-    view?.phase === 'ready' ? h('p', null, 'ログイン済み') : null,
+    view?.phase === 'ready' ? h('p', null, t('loggedIn')) : null,
     view?.phase === 'failed' ? h('p', { role: 'alert' }, view.failureCode) : null,
     error ? h('p', { role: 'alert' }, error) : null,
   )
 }
 
-export function ClaudeLoginCard(props: { rpc: LoginRpc; node?: { args?: string | null } }) {
+export function ClaudeLoginCard(props: {
+  t: Translate
+  rpc: LoginRpc
+  node?: { args?: string | null }
+}) {
   const target = parseLoginLabel((props.node?.args ?? '').trim())
   if (!target) return h('p', { role: 'alert' }, 'INVALID_PAYLOAD')
-  return h(LoginExchangePanel, { rpc: props.rpc, target })
+  return h(LoginExchangePanel, { t: props.t, rpc: props.rpc, target })
 }
 
 function shownText(value: unknown): string | undefined {
@@ -236,6 +243,7 @@ function shownText(value: unknown): string | undefined {
 }
 
 export function ClaudeTurnError(props: {
+  t: Translate
   message?: string
   code?: string
   rpc: LoginRpc
@@ -251,6 +259,6 @@ export function ClaudeTurnError(props: {
     null,
     message.length > 0 ? h('p', null, message) : null,
     code !== undefined ? h('code', null, code) : null,
-    parsed ? h(LoginExchangePanel, { rpc: props.rpc, target: parsed }) : null,
+    parsed ? h(LoginExchangePanel, { t: props.t, rpc: props.rpc, target: parsed }) : null,
   )
 }

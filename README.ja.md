@@ -1,4 +1,6 @@
-# DSH Session Provider
+# DSH Claude Model Provider
+
+[English](README.md) · 日本語 · [简体中文](README.zh.md)
 
 DSHの履歴・ツール・権限を使いながら、改変しない公式Claude SDK/CLIで推論する非公式プラグインです。MITの既存実装を土台に、最新版DSHへの対応とアカウント管理を追加しました。
 
@@ -9,23 +11,29 @@ dsh plugin --profile web add @asuha/dsh-claude-model-provider@next --ignore-scri
 claude auth login
 ```
 
-npmの`next`タグは最後に公開した試験版を指します。このソースは `0.1.0-next.5` の公開準備版です。実際の公開状況は[リリース状況](RELEASE_STATUS.md)で確認できます。以前の固定バージョンのGitHub配布物からも導入できます。
+npmの`next`タグは最後に公開した試験版を指します。現在のバージョンは `0.1.0-next.7` です。公開の記録は[リリース状況](RELEASE_STATUS.md)で確認できます。以前の固定バージョンのGitHub配布物からも導入できます。
 
 ```sh
 dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.4/asuha-dsh-claude-model-provider-0.1.0-next.4.tgz --ignore-scripts
 ```
 
-DSHを再起動し、設定の「Claude サブスクリプション」で既存の公式ログインを接続してください。CLIで登録する場合はDSH停止中に `dsh plugin --profile web exec dsh-claude-model-provider accounts add primary --extra-usage-off` を実行します。
+DSHを再起動し、設定の「Claude Subscription」で既存の公式ログインを接続してください。CLIで登録する場合はDSH停止中に `dsh plugin --profile web exec dsh-claude-model-provider accounts add primary --extra-usage-off` を実行します。
 
-ログインが切れたターンには、そのアカウントの「公式ログインを開始」が出ます。設定の「Claude サブスクリプション」と `/claude-login アカウント名` も同じ操作です。開くのはページのリンクだけで、承認後のコードをその欄に貼ります。途中でやめるときは「キャンセル」、失敗したあとは「もう一度ログイン」です。READY のアカウントは、新しいログインが確認されるまで動き続けます。別の Claude アカウントで承認しても、保存済みの資格情報は置き換わりません。DSH の再起動は要りません。同じプロファイルの headless 側が止まっていれば、そちらも READY に戻します。headless が動いているときは、止めてから `dsh plugin --profile headless exec dsh-claude-model-provider accounts verify <alias>` を実行します。`accounts add --login` は、これまでどおり DSH を止めたときだけ使えます。
+ログインが切れたターンには、そのアカウントの「Start official login」が出ます。設定の「Claude Subscription」と `/claude-login アカウント名` も同じ操作です。開くのはページのリンクだけで、承認後のコードをその欄に貼ります。途中でやめるときは「Cancel」、失敗したあとは「Log in again」です。READY のアカウントは、新しいログインが確認されるまで動き続けます。別の Claude アカウントで承認しても、保存済みの資格情報は置き換わりません。DSH の再起動は要りません。同じプロファイルの headless 側が止まっていれば、そちらも READY に戻します。headless が動いているときは、止めてから `dsh plugin --profile headless exec dsh-claude-model-provider accounts verify <alias>` を実行します。`accounts add --login` は、これまでどおり DSH を止めたときだけ使えます。
 
 `0.1.0-next.4` では、公式のモデル名・バージョン・説明・並び順を表示し、重複した既定モデルの行を削除しました。`0.1.0-next.3` の推論強度がないモデルへの対応も維持しています。
 
-`--extra-usage-off`は追加使用量がOFFであることを本人が確認してから指定します。トークンを読み出したり、従量APIへ切り替えたりしません。DSHを再起動し、`Claude Subscription / Claude Opus 5.5`を選んでください。モデル名・バージョン・説明・並び順は公式モデル一覧に従います。更新後は設定の「接続を確認」で保存済みのモデル情報を更新できます。旧 `default` の会話は引き続き使えますが、選択一覧の重複行は表示しません。導入だけでは既存のモデル設定やSubscription Pluginを変更しません。
+`--extra-usage-off`は追加使用量がOFFであることを本人が確認してから指定します。トークンを読み出したり、従量APIへ切り替えたりしません。DSHを再起動し、`Claude Subscription / Claude Opus 5.5`を選んでください。モデル名・バージョン・説明・並び順は公式モデル一覧に従います。更新後は設定の「Verify connection」で保存済みのモデル情報を更新できます。旧 `default` の会話は引き続き使えますが、選択一覧の重複行は表示しません。導入だけでは既存のモデル設定やSubscription Pluginを変更しません。
+
+## 表示言語
+
+設定画面とログインカードは、英語と簡体字中国語に対応しています。表示は DSH の言語設定に従います。日本語に対応しているのは README だけです。DSH をそれ以外の言語で使う場合、画面は英語で表示されます。この README では、画面の項目名を英語の表示どおりに書いています。
+
+## 動作
 
 正常なセッションは同じアカウントに固定します。残量不明を0%や100%にはしません。履歴・system prompt・ツール集合が変わったらDSHの正本から再構築します。副作用の完了が不明なツールは勝手に再実行しません。
 
-ローカル診断は`doctor --offline`、疎通は`doctor --live --extra-usage-off --budget-generations 1`です。実2アカウントの認証分離、独立環境での自動修復・自動公開、長期canaryは未検証です。これらを実施済みとは扱わず、`next`の試験版として提供します。公式SDKで動いたことと、あらゆる第三者向け配布が許諾されることは別です。[初回設定](BOOTSTRAP_CHECKLIST.md)、[利用条件](COMPLIANCE.md)、[英語の詳細](README.md)を参照してください。
+ローカル診断は`doctor --offline`、疎通は`doctor --live --extra-usage-off --budget-generations 1`です。実2アカウントの認証分離、独立環境での自動修復・自動公開、長期canaryは未検証です。これらを実施済みとは扱わず、`next`の試験版として提供します。公式SDKで動いたことと、あらゆる第三者向け配布が許諾されることは別です。[初回設定](BOOTSTRAP_CHECKLIST.md)、[利用条件](COMPLIANCE.md)、[英語版の詳細](README.md)を参照してください。
 
 ## next.5 の応答停止への修正
 
@@ -57,6 +65,6 @@ DSHへClaudeの履歴容量を伝え、要約要求の `maxTokens` に対応し�
 
 ## next.2 の追加機能
 
-DSH の設定に「Claude サブスクリプション」が追加されます。公式ログインの接続、接続確認・解除、既定モデル、利用量、残量が不明な枠を確認できます。待機・キャンセル、出力前の利用枠エラーからの安全な切替、失敗した処理の利用量保存に対応しました。
+DSH の設定に「Claude Subscription」が追加されます。公式ログインの接続、接続確認・解除、既定モデル、利用量、残量が不明な枠を確認できます。待機・キャンセル、出力前の利用枠エラーからの安全な切替、失敗した処理の利用量保存に対応しました。
 
 短い実機試験で、履歴編集、指示・モデル変更、ツール拒否、キャンセル後の再開、プロセス再起動後の継続を確認しています。予測ルーターは観測専用です。実2アカウントの検証は未実施です。詳細は実装報告を参照してください。

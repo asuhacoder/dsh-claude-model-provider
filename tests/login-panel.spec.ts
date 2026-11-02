@@ -1,3 +1,4 @@
+import { t } from './client-locale.js'
 import { afterEach, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
@@ -59,6 +60,7 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   await act(async () => {
     plain = create(
       createElement(ClaudeTurnError, {
+        t,
         message: 'POOL_UNAVAILABLE',
         code: 'POOL_UNAVAILABLE',
         rpc,
@@ -74,6 +76,7 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   await act(async () => {
     unread = create(
       createElement(ClaudeTurnError, {
+        t,
         message: 'SUBSCRIPTION_LOGIN_REQUIRED',
         code: 'SUBSCRIPTION_LOGIN_REQUIRED',
         rpc,
@@ -88,6 +91,7 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   await act(async () => {
     hosted = create(
       createElement(ClaudeTurnError, {
+        t,
         rpc,
         node: {
           data: {
@@ -99,7 +103,9 @@ it('leaves a non-login failure unchanged and waits for a click on login required
     )
   })
   expect(
-    hosted.root.findAllByType('button').some((button) => button.children.includes('公式ログインを開始')),
+    hosted.root
+      .findAllByType('button')
+      .some((button) => button.children.includes('Start official login')),
   ).toBe(true)
   hosted.unmount()
 
@@ -107,6 +113,7 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   await act(async () => {
     tree = create(
       createElement(ClaudeTurnError, {
+        t,
         message: 'SUBSCRIPTION_LOGIN_REQUIRED: primary',
         code: 'SUBSCRIPTION_LOGIN_REQUIRED',
         rpc,
@@ -119,7 +126,7 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   expect(tree.root.findAllByType('input')[0]!.props.autoComplete).toBe('off')
   expect(rpc.call).not.toHaveBeenCalled()
   rpc.call.mockResolvedValueOnce({ ok: true, value: { exchange: view('needs_code') } })
-  await click(tree, '公式ログインを開始')
+  await click(tree, 'Start official login')
   expect(rpc.call).toHaveBeenCalledTimes(1)
   expect(rpc.call).toHaveBeenCalledWith(
     '/api',
@@ -131,15 +138,12 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   const cardRpc = { call: vi.fn(async () => ({ ok: true as const, value: {} })) }
   let card!: ReactTestRenderer
   await act(async () => {
-    card = create(
-      createElement(ClaudeLoginCard, {
-        rpc: cardRpc,
-        node: { args: ' primary' },
-      }),
-    )
+    card = create(createElement(ClaudeLoginCard, { t, rpc: cardRpc, node: { args: ' primary' } }))
   })
   expect(
-    card.root.findAllByType('button').some((button) => button.children.includes('公式ログインを開始')),
+    card.root
+      .findAllByType('button')
+      .some((button) => button.children.includes('Start official login')),
   ).toBe(true)
   expect(cardRpc.call).not.toHaveBeenCalled()
   card.unmount()
@@ -147,10 +151,7 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   let rejected!: ReactTestRenderer
   await act(async () => {
     rejected = create(
-      createElement(ClaudeLoginCard, {
-        rpc: cardRpc,
-        node: { args: ' sk-ant-fixture pasted' },
-      }),
+      createElement(ClaudeLoginCard, { t, rpc: cardRpc, node: { args: ' sk-ant-fixture pasted' } }),
     )
   })
   expect(JSON.stringify(rejected.toJSON())).toContain('INVALID_PAYLOAD')
@@ -176,23 +177,24 @@ it('opens the login page once, keeps the address out of storage and errors, and 
   await act(async () => {
     tree = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
     )
   })
   expect(rpc.call).not.toHaveBeenCalled()
-  await click(tree, '公式ログインを開始')
+  await click(tree, 'Start official login')
   expect(open).toHaveBeenCalledTimes(1)
   expect(open).toHaveBeenCalledWith(SAMPLE_URL, '_blank', 'noopener,noreferrer')
   const link = tree.root.findByType('a')
-  expect(link.children).toEqual(['Claudeのログインページを開く'])
+  expect(link.children).toEqual(['Open the Claude login page'])
   expect(link.props.href).toBe(SAMPLE_URL)
   expect(link.props.target).toBe('_blank')
   expect(link.props.rel).toBe('noopener noreferrer')
   expect(alerts(tree).join('')).not.toContain('fixture')
   expect(storage.setItem).not.toHaveBeenCalled()
-  await click(tree, 'キャンセル')
+  await click(tree, 'Cancel')
   expect(rpc.call).toHaveBeenCalledWith(
     '/api',
     'claude-sdk-local.login',
@@ -223,18 +225,19 @@ it('rejects a link pasted as a code and clears the field after a code is accepte
   await act(async () => {
     tree = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc,
         target: { kind: 'profile', profile: '/tmp/claude-primary' } as LoginTarget,
       }),
     )
   })
-  await click(tree, '公式ログインを開始')
+  await click(tree, 'Start official login')
   const input = () =>
     tree.root.findAllByType('input').find((node) => node.props.autoComplete === 'off')!
   await act(async () => {
     input().props.onChange({ target: { value: SAMPLE_URL } })
   })
-  await click(tree, 'コードを送信')
+  await click(tree, 'Submit code')
   expect(alerts(tree)).toEqual(['LOGIN_CODE_REJECTED'])
   expect(alerts(tree).join('')).not.toContain(SAMPLE_CODE)
   expect(alerts(tree).join('')).not.toContain('fixture')
@@ -242,7 +245,7 @@ it('rejects a link pasted as a code and clears the field after a code is accepte
   await act(async () => {
     input().props.onChange({ target: { value: SAMPLE_CODE } })
   })
-  await click(tree, 'コードを送信')
+  await click(tree, 'Submit code')
   expect(rpc.call).toHaveBeenLastCalledWith('/api', 'claude-sdk-local.login', {
     op: 'paste',
     attempt: exchange.attempt,
@@ -250,7 +253,7 @@ it('rejects a link pasted as a code and clears the field after a code is accepte
     profile: '/tmp/claude-primary',
   })
   expect(tree.root.findAllByType('input')).toHaveLength(0)
-  expect(JSON.stringify(tree.toJSON())).toContain('ログイン済み')
+  expect(JSON.stringify(tree.toJSON())).toContain('Logged in')
   expect(alerts(tree).join('')).not.toContain(SAMPLE_CODE)
   tree.unmount()
 })
@@ -263,15 +266,16 @@ it('shows a failure code without the paste field', async () => {
   await act(async () => {
     tree = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
     )
   })
-  await click(tree, '公式ログインを開始')
+  await click(tree, 'Start official login')
   expect(alerts(tree)).toEqual(['LOGIN_INCOMPLETE'])
   expect(
-    tree.root.findAllByType('button').some((button) => button.children.includes('もう一度ログイン')),
+    tree.root.findAllByType('button').some((button) => button.children.includes('Log in again')),
   ).toBe(true)
   expect(tree.root.findAllByType('input')).toHaveLength(0)
   expect(JSON.stringify(tree.toJSON())).not.toContain(SAMPLE_URL)
@@ -287,12 +291,13 @@ it('shows only the server code when open or paste is refused', async () => {
   await act(async () => {
     busy = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc: refused,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
     )
   })
-  await click(busy, '公式ログインを開始')
+  await click(busy, 'Start official login')
   expect(alerts(busy)).toEqual(['PROFILE_LOGIN_BUSY'])
   busy.unmount()
 
@@ -305,12 +310,13 @@ it('shows only the server code when open or paste is refused', async () => {
   await act(async () => {
     blown = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc: exploded,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
     )
   })
-  await click(blown, '公式ログインを開始')
+  await click(blown, 'Start official login')
   expect(alerts(blown)).toEqual(['LOGIN_CODE_REJECTED'])
   expect(JSON.stringify(blown.toJSON())).not.toContain('fixture')
   blown.unmount()
@@ -328,16 +334,17 @@ it('shows only the server code when open or paste is refused', async () => {
   await act(async () => {
     tree = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc: blocked,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
     )
   })
-  await click(tree, '公式ログインを開始')
+  await click(tree, 'Start official login')
   await act(async () => {
     tree.root.findAllByType('input')[0]!.props.onChange({ target: { value: SAMPLE_CODE } })
   })
-  await click(tree, 'コードを送信')
+  await click(tree, 'Submit code')
   expect(alerts(tree)).toEqual(['LOGIN_NOT_READY'])
   expect(alerts(tree).join('')).not.toContain(SAMPLE_CODE)
   expect(tree.root.findAllByType('input')[0]!.props.value).toBe(SAMPLE_CODE)
@@ -360,12 +367,13 @@ it('shows a refused read or paste as the code alone', async () => {
   await act(async () => {
     tree = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
     )
   })
-  await click(tree, '公式ログインを開始')
+  await click(tree, 'Start official login')
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1000)
   })
@@ -374,7 +382,7 @@ it('shows a refused read or paste as the code alone', async () => {
   await act(async () => {
     tree.root.findAllByType('input')[0]!.props.onChange({ target: { value: SAMPLE_CODE } })
   })
-  await click(tree, 'コードを送信')
+  await click(tree, 'Submit code')
   expect(alerts(tree)).toEqual(['LOGIN_NOT_READY'])
   expect(alerts(tree).join('')).not.toContain(SAMPLE_CODE)
   expect(tree.root.findAllByType('input')[0]!.props.value).toBe(SAMPLE_CODE)
@@ -397,15 +405,16 @@ it('polls while the login is opening and does not open a page before a code is r
   await act(async () => {
     tree = create(
       createElement(LoginExchangePanel, {
+        t,
         rpc,
         target: { kind: 'alias', alias: 'primary' } as LoginTarget,
       }),
     )
   })
-  await click(tree, '公式ログインを開始')
+  await click(tree, 'Start official login')
   expect(open).not.toHaveBeenCalled()
   expect(tree.root.findAllByType('input')[0]!.props.disabled).toBe(true)
-  await click(tree, 'コードを送信')
+  await click(tree, 'Submit code')
   expect(rpc.call.mock.calls.filter((call) => call[2].op === 'paste')).toHaveLength(0)
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1000)
@@ -453,11 +462,11 @@ it('sends the typed profile from the add form and the status id for a disabled r
   }
   let tree!: ReactTestRenderer
   await act(async () => {
-    tree = create(createElement(Section, { rpc } as never))
+    tree = create(createElement(Section, { t, rpc } as never))
   })
   expect(rpc.call).toHaveBeenCalledTimes(1)
   expect(rpc.call).toHaveBeenCalledWith('/api', 'claude-sdk-local.status', {})
-  await click(tree, '公式ログインを開始')
+  await click(tree, 'Start official login')
   expect(rpc.call).toHaveBeenLastCalledWith('/api', 'claude-sdk-local.login', {
     op: 'open',
     attempt: expect.any(String),
@@ -472,7 +481,7 @@ it('sends the typed profile from the add form and the status id for a disabled r
     inputs[1]!.props.onChange({ target: { value: '/tmp/profile' } })
     inputs[2]!.props.onChange({ target: { checked: true } })
   })
-  await click(tree, '公式ログインを開始')
+  await click(tree, 'Start official login')
   expect(rpc.call).toHaveBeenLastCalledWith('/api', 'claude-sdk-local.login', {
     op: 'open',
     attempt: expect.any(String),
@@ -482,10 +491,12 @@ it('sends the typed profile from the add form and the status id for a disabled r
   })
 
   const articles = tree.root.findAllByType('article')
-  expect(articles[0]!.findByType('h3').children).toContain('無効')
+  expect(articles[0]!.findByType('h3').children).toContain('Disabled')
   expect(articles[0]!.findAllByType('p')[0]!.children.join('')).toContain('DISABLED')
   expect(
-    articles[0]!.findAllByType('button').some((button) => button.children.includes('接続を確認')),
+    articles[0]!
+      .findAllByType('button')
+      .some((button) => button.children.includes('Verify connection')),
   ).toBe(false)
   const revived = articles[0]!
     .findAllByType('input')
@@ -493,7 +504,7 @@ it('sends the typed profile from the add form and the status id for a disabled r
   await act(async () => {
     revived.props.onChange({ target: { value: 'revived' } })
   })
-  await click(tree, '公式ログインを開始', articles[0]!)
+  await click(tree, 'Start official login', articles[0]!)
   expect(rpc.call).toHaveBeenLastCalledWith('/api', 'claude-sdk-local.login', {
     op: 'open',
     attempt: expect.any(String),
@@ -502,14 +513,14 @@ it('sends the typed profile from the add form and the status id for a disabled r
     alias: 'revived',
   })
 
-  await click(tree, '公式ログインを開始', articles[1]!)
+  await click(tree, 'Start official login', articles[1]!)
   expect(rpc.call).toHaveBeenLastCalledWith('/api', 'claude-sdk-local.login', {
     op: 'open',
     attempt: expect.any(String),
     extraUsageOff: false,
     alias: 'primary',
   })
-  await click(tree, '接続を確認', articles[1]!)
+  await click(tree, 'Verify connection', articles[1]!)
   expect(rpc.call).toHaveBeenLastCalledWith('/api', 'claude-sdk-local.verify', { alias: 'primary' })
   expect(articles[1]!.findAllByType('p')[0]!.children.join('')).toContain('AUTH_REQUIRED')
   tree.unmount()

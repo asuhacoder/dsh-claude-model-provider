@@ -1,0 +1,88 @@
+export const NS = 'claude-subscription'
+
+export const en = {
+  title: 'Claude Subscription',
+  description:
+    'Uses the official Claude login. Turn off extra usage in Claude. No inference requests are made to refresh usage limits.',
+  disabled: 'Disabled',
+  defaultAccount: '{aliases} • Default',
+  accountStatus: '{state} · In flight {inFlight} · Extra usage {billingSafety}',
+  extraUsageOff: 'Confirmed OFF',
+  unverified: 'Unverified',
+  models: 'Models / reasoning effort: {models}',
+  modelEffort: '{model} ({effort})',
+  unspecified: 'Not specified',
+  usageWindow: '{key}: Remaining {remaining} · Resets {resetsAt} · Observed {observedAt}',
+  unknown: 'Unknown',
+  unknownUsageWindow: 'Usage remaining / reset: Unknown',
+  lastRouteReason: 'Last routing reason: {reason}',
+  notUsed: 'Not used yet',
+  displayName: 'Display name ',
+  verifyConnection: 'Verify connection',
+  setDefault: 'Set as default',
+  removeConnection: 'Disconnect',
+  operationFailed: 'Could not complete the operation',
+  waiting: 'Waiting {count}',
+  refreshStatus: 'Refresh status',
+  processing: ' Processing…',
+  addAccount: 'Add account',
+  officialProfile: ' Official profile (leave blank for the default) ',
+  confirmExtraUsageOff: ' I confirm that extra usage is OFF in Claude',
+  connectExistingLogin: 'Connect existing official login',
+  defaultConversationModel: 'Model for existing conversations with "default" selected ',
+  usageSummary:
+    'Completed responses {responses} · Tool waits {toolBoundaries} · Failed / interrupted {failed} · Input {inputTokens} · Output {outputTokens} tokens',
+  retryLogin: 'Log in again',
+  startLogin: 'Start official login',
+  cancel: 'Cancel',
+  openLoginPage: 'Open the Claude login page',
+  code: 'Code ',
+  submitCode: 'Submit code',
+  loggedIn: 'Logged in',
+}
+
+export type MessageKey = keyof typeof en
+
+export const zh: Record<MessageKey, string> = {
+  title: 'Claude 订阅',
+  description: '使用 Claude 官方登录。请在 Claude 中关闭额外用量。不会通过推理请求刷新用量。',
+  disabled: '已停用',
+  defaultAccount: '{aliases} • 默认',
+  accountStatus: '{state} · 推理中 {inFlight} · 额外用量 {billingSafety}',
+  extraUsageOff: '已确认关闭',
+  unverified: '未确认',
+  models: '模型 / 推理强度：{models}',
+  modelEffort: '{model} ({effort})',
+  unspecified: '未指定',
+  usageWindow: '{key}：剩余 {remaining} · 重置 {resetsAt} · 观测 {observedAt}',
+  unknown: '未知',
+  unknownUsageWindow: '剩余用量 / 重置时间：未知',
+  lastRouteReason: '最近路由原因：{reason}',
+  notUsed: '尚未使用',
+  displayName: '显示名称 ',
+  verifyConnection: '验证连接',
+  setDefault: '设为默认',
+  removeConnection: '断开连接',
+  operationFailed: '无法完成操作',
+  waiting: '等待中 {count}',
+  refreshStatus: '刷新状态',
+  processing: ' 处理中…',
+  addAccount: '添加账户',
+  officialProfile: ' 官方配置文件（留空使用默认配置） ',
+  confirmExtraUsageOff: ' 我已确认 Claude 的额外用量已关闭',
+  connectExistingLogin: '连接现有官方登录',
+  defaultConversationModel: '现有对话选择“default”时使用的模型 ',
+  usageSummary:
+    '已完成响应 {responses} · 等待工具 {toolBoundaries} · 失败 / 中断 {failed} · 输入 {inputTokens} · 输出 {outputTokens} tokens',
+  retryLogin: '重新登录',
+  startLogin: '开始官方登录',
+  cancel: '取消',
+  openLoginPage: '打开 Claude 登录页面',
+  code: '授权码 ',
+  submitCode: '提交授权码',
+  loggedIn: '已登录',
+}
+
+export const dictionaries = { en, zh }
+
+export type Translate = (key: MessageKey, params?: Record<string, string | number>) => string
