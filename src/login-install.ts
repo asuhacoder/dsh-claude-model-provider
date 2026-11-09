@@ -17,22 +17,54 @@ export function credentialServiceName(directory: string | undefined): string {
   return `Claude Code-credentials-${hash}`
 }
 
-export function installVerifiedCredentials(stagingDir: string, profileRef: string): boolean {
-  const source = join(stagingDir, CREDENTIAL_FILE)
-  if (!existsSync(source)) return false
-  const destinationDir = profileRef === 'default' ? join(homedir(), '.claude') : profileRef
-  mkdirSync(destinationDir, { recursive: true, mode: 0o700 })
+type KeychainCopy = (stagingDir: string, profileRef: string) => Promise<boolean>
+
+function profileDirectory(profileRef: string): string {
+  return profileRef === 'default' ? join(homedir(), '.claude') : profileRef
+}
+
+function replaceCredentials(destinationDir: string, read: () => Buffer): void {
   const temporary = join(destinationDir, `.${CREDENTIAL_FILE}.${process.pid}.tmp`)
-  const destination = join(destinationDir, CREDENTIAL_FILE)
   try {
-    writeFileSync(temporary, readFileSync(source), { mode: 0o600 })
+    mkdirSync(destinationDir, { recursive: true, mode: 0o700 })
+    writeFileSync(temporary, read(), { mode: 0o600 })
     chmodSync(temporary, 0o600)
-    renameSync(temporary, destination)
+    renameSync(temporary, join(destinationDir, CREDENTIAL_FILE))
   } catch (error) {
     rmSync(temporary, { force: true })
     throw new RouteBlocked('LOGIN_NOT_COMMITTED', undefined, { cause: error })
   }
+}
+
+export function installVerifiedCredentials(stagingDir: string, profileRef: string): boolean {
+  const source = join(stagingDir, CREDENTIAL_FILE)
+  if (!existsSync(source)) return false
+  replaceCredentials(profileDirectory(profileRef), () => readFileSync(source))
   return true
+}
+
+// Claude Code reads the Keychain item before the file, so on macOS the Keychain copy is the commit
+// and the file is restored when it fails; elsewhere the file is the only store.
+export async function commitVerifiedLogin(
+  stagingDir: string,
+  profileRef: string,
+  copyKeychain: KeychainCopy | null = process.platform === 'darwin' ? installDarwinKeychain : null,
+): Promise<void> {
+  const destinationDir = profileDirectory(profileRef)
+  const destination = join(destinationDir, CREDENTIAL_FILE)
+  let previous: Buffer | undefined
+  try {
+    previous = existsSync(destination) ? readFileSync(destination) : undefined
+  } catch (error) {
+    throw new RouteBlocked('LOGIN_NOT_COMMITTED', undefined, { cause: error })
+  }
+  const fileInstalled = installVerifiedCredentials(stagingDir, profileRef)
+  if (copyKeychain === null ? fileInstalled : await copyKeychain(stagingDir, profileRef)) return
+  if (fileInstalled) {
+    if (previous === undefined) rmSync(destination, { force: true })
+    else replaceCredentials(destinationDir, () => previous)
+  }
+  throw new RouteBlocked('LOGIN_NOT_COMMITTED')
 }
 
 function darwinUser(): string {
@@ -62,7 +94,7 @@ export async function installDarwinKeychain(
 ): Promise<boolean> {
   if (process.platform !== 'darwin') return false
   const user = darwinUser()
-  if (user.length === 0) return false
+  if (user.length === 0 || /["\\\r\n]/.test(user)) return false
   const destination = profileRef === 'default' ? undefined : profileRef
   const from = credentialServiceName(stagingDir)
   const to = credentialServiceName(destination)
@@ -78,17 +110,25 @@ export async function installDarwinKeychain(
     return false
   }
   if (secret.length === 0) return false
+  const hex = Buffer.from(secret, 'utf8').toString('hex')
   try {
-    await execute(
-      'security',
-      ['add-generic-password', '-U', '-a', user, '-s', to, '-w', secret],
-      { timeout: 5_000, maxBuffer: 65536 },
-    )
+    await securityStdin(`add-generic-password -U -a "${user}" -s "${to}" -X ${hex}\n`)
   } catch {
     return false
   }
   discardStagingKeychain(stagingDir)
   return true
+}
+
+// `security -i` reads the command from stdin, so the secret never reaches argv.
+function securityStdin(command: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = execFile('security', ['-i'], { timeout: 5_000, maxBuffer: 65536 }, (error) =>
+      error ? reject(error) : resolve(),
+    )
+    child.stdin?.on('error', () => undefined)
+    child.stdin?.end(command)
+  })
 }
 
 export function siblingStateDirectory(directory: string): string | undefined {

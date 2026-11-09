@@ -33,7 +33,11 @@ function setup() {
   const s = new StateStore(':memory:')
   const verify = vi.fn(async (_s, _c, alias: string) => account(alias))
   const spawnLogin = vi.fn(() => exitPty())
-  const c = new AccountController(() => s, 'claude', undefined, { verify, spawnLogin })
+  const c = new AccountController(() => s, 'claude', undefined, {
+    verify,
+    spawnLogin,
+    commit: async () => undefined,
+  })
   return { s, c, verify, spawnLogin }
 }
 it('manages verified aliases, defaults, removal, unknown quota and usage without disclosing profiles', async () => {

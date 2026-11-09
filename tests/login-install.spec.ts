@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -13,6 +13,7 @@ vi.mock('node:child_process', async (original) => ({
   execFile: fake.execFile,
 }))
 import {
+  commitVerifiedLogin,
   credentialServiceName,
   discardStagingKeychain,
   installDarwinKeychain,
@@ -26,6 +27,7 @@ import { StateStore } from '../src/storage/store.js'
 type Reply = Error | string
 const platform = process.platform
 let dirs: string[] = []
+let stdin: string[] = []
 
 function setPlatform(value: NodeJS.Platform): void {
   Object.defineProperty(process, 'platform', { value, configurable: true })
@@ -36,6 +38,7 @@ function answer(...replies: Reply[]): void {
     fake.execFile.mockImplementationOnce((_command, _args, _options, callback) => {
       if (reply instanceof Error) callback(reply)
       else callback(null, { stdout: reply, stderr: '' })
+      return { stdin: { on() {}, end: (data: string) => stdin.push(data) } }
     })
   }
 }
@@ -50,6 +53,7 @@ beforeEach(() => {
   fake.execFile.mockReset()
   fake.userInfo.mockReset()
   fake.homedir.mockReset()
+  stdin = []
   vi.stubEnv('USER', 'tester')
 })
 
@@ -134,21 +138,34 @@ describe('installDarwinKeychain', () => {
     expect(fake.execFile).not.toHaveBeenCalled()
   })
 
-  it('moves the staged secret to the profile service and deletes the staged entry', async () => {
+  it('moves the staged secret to the profile service over stdin and deletes the staged entry', async () => {
     setPlatform('darwin')
-    answer('secret\n', '', '')
+    answer('dummy-value\n', '', '')
     await expect(installDarwinKeychain('/staging', 'default')).resolves.toBe(true)
     const calls = fake.execFile.mock.calls.map((call) => call[1] as string[])
     expect(calls[0]).toEqual(['find-generic-password', '-a', 'tester', '-s', credentialServiceName('/staging'), '-w'])
-    expect(calls[1]).toEqual(['add-generic-password', '-U', '-a', 'tester', '-s', 'Claude Code-credentials', '-w', 'secret'])
+    expect(calls[1]).toEqual(['-i'])
+    const hex = Buffer.from('dummy-value').toString('hex')
+    expect(stdin).toEqual([`add-generic-password -U -a "tester" -s "Claude Code-credentials" -X ${hex}\n`])
     expect(calls[2]).toEqual(['delete-generic-password', '-a', 'tester', '-s', credentialServiceName('/staging')])
+    for (const args of calls) {
+      expect(args.join(' ')).not.toContain('dummy-value')
+      expect(args.join(' ')).not.toContain(hex)
+    }
   })
 
   it('writes a named profile to its hashed service', async () => {
     setPlatform('darwin')
-    answer('secret', '', '')
+    answer('dummy-value', '', '')
     await expect(installDarwinKeychain('/staging', '/profile')).resolves.toBe(true)
-    expect((fake.execFile.mock.calls[1]?.[1] as string[])[5]).toBe(credentialServiceName('/profile'))
+    expect(stdin[0]).toContain(`-s "${credentialServiceName('/profile')}"`)
+  })
+
+  it('refuses a user name that would break the stdin command', async () => {
+    setPlatform('darwin')
+    vi.stubEnv('USER', 'a"b')
+    await expect(installDarwinKeychain('/staging', '/profile')).resolves.toBe(false)
+    expect(fake.execFile).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -160,6 +177,67 @@ describe('installDarwinKeychain', () => {
     answer(...replies)
     await expect(installDarwinKeychain('/staging', '/profile')).resolves.toBe(false)
     expect(fake.execFile.mock.calls.map((call) => (call[1] as string[])[0])).not.toContain('delete-generic-password')
+  })
+})
+
+describe('commitVerifiedLogin', () => {
+  function login(previous?: string): { staging: string; profile: string; credential: string } {
+    const staging = temp()
+    const profile = join(temp(), 'profile')
+    const credential = join(profile, '.credentials.json')
+    if (previous !== undefined) {
+      mkdirSync(profile, { recursive: true })
+      writeFileSync(credential, previous)
+    }
+    writeFileSync(join(staging, '.credentials.json'), 'fresh')
+    return { staging, profile, credential }
+  }
+  const copied = async () => true
+  const notCopied = async () => false
+
+  it('requires the staged file when there is no Keychain to copy', async () => {
+    const { staging, profile, credential } = login('old')
+    await expect(commitVerifiedLogin(staging, profile, null)).resolves.toBeUndefined()
+    expect(readFileSync(credential, 'utf8')).toBe('fresh')
+    await expect(commitVerifiedLogin(temp(), profile, null)).rejects.toMatchObject({
+      code: 'LOGIN_NOT_COMMITTED',
+    })
+  })
+
+  it('commits a Keychain-only login without touching the profile file', async () => {
+    const { profile, credential } = login('old')
+    await expect(commitVerifiedLogin(temp(), profile, copied)).resolves.toBeUndefined()
+    expect(readFileSync(credential, 'utf8')).toBe('old')
+  })
+
+  it('restores the previous file when the Keychain copy fails', async () => {
+    const { staging, profile, credential } = login('old')
+    await expect(commitVerifiedLogin(staging, profile, notCopied)).rejects.toMatchObject({
+      code: 'LOGIN_NOT_COMMITTED',
+    })
+    expect(readFileSync(credential, 'utf8')).toBe('old')
+    if (platform !== 'win32') expect(statSync(credential).mode & 0o777).toBe(0o600)
+  })
+
+  it('removes a file that did not exist before when the Keychain copy fails', async () => {
+    const { staging, profile, credential } = login()
+    await expect(commitVerifiedLogin(staging, profile, notCopied)).rejects.toMatchObject({
+      code: 'LOGIN_NOT_COMMITTED',
+    })
+    expect(existsSync(credential)).toBe(false)
+  })
+
+  it('copies the Keychain on macOS by default and rolls back when it fails', async () => {
+    setPlatform('darwin')
+    answer(new Error('not found'))
+    const { staging, profile, credential } = login('old')
+    await expect(commitVerifiedLogin(staging, profile)).rejects.toMatchObject({
+      code: 'LOGIN_NOT_COMMITTED',
+    })
+    expect(fake.execFile.mock.calls[0]?.[1]).toEqual([
+      'find-generic-password', '-a', 'tester', '-s', credentialServiceName(staging), '-w',
+    ])
+    expect(readFileSync(credential, 'utf8')).toBe('old')
   })
 })
 

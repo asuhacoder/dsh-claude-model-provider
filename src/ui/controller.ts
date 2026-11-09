@@ -14,12 +14,7 @@ import {
   toLoginView,
 } from '../login-exchange.js'
 import type { ExchangeState, LoginEffect, LoginEvent } from '../login-exchange.js'
-import {
-  discardStagingKeychain,
-  installDarwinKeychain,
-  installVerifiedCredentials,
-  mirrorProfileReady,
-} from '../login-install.js'
+import { commitVerifiedLogin, discardStagingKeychain, mirrorProfileReady } from '../login-install.js'
 import { failureCode, parseLoginPayload, parseProfileRef } from '../login-view.js'
 import type { Alias, LoginIntent, LoginView, ProfileRef } from '../login-view.js'
 import { UsageHistory } from '../metrics/history.js'
@@ -77,6 +72,7 @@ export class AccountController {
       spawnLogin?: (command: string, profileRef: ProfileRef) => LoginPty
       pending?: () => readonly { phase: string; identity?: string }[]
       retireIdle?: (profileRef: string) => void
+      commit?: (stagingDir: string, profileRef: string) => Promise<void>
     } = {},
   ) {}
 
@@ -508,9 +504,7 @@ export class AccountController {
       const committed = { ...account, profileRef: record.profileRef }
       if (previous?.isDefault) committed.isDefault = true
       try {
-        const fileInstalled = installVerifiedCredentials(record.stagingDir, record.profileRef)
-        if (!fileInstalled || process.platform === 'darwin')
-          await installDarwinKeychain(record.stagingDir, record.profileRef)
+        await (this.deps.commit ?? commitVerifiedLogin)(record.stagingDir, record.profileRef)
       } catch (error) {
         this.#apply(record, { type: 'verify_failed', failureCode: failureCode(error) })
         return

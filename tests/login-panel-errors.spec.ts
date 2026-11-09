@@ -2,7 +2,7 @@ import { t } from './client-locale.js'
 import { afterEach, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
-import { ClaudeLoginCard, ClaudeTurnError, LoginExchangePanel } from '../src/client/login-panel.js'
+import { ClaudeLoginCard, ClaudeLoginTail, LoginExchangePanel } from '../src/client/login-panel.js'
 import type { LoginRpc } from '../src/client/login-panel.js'
 import { parseLoginLabel, type LoginView } from '../src/login-view.js'
 import { RouteBlocked } from '../src/routing/types.js'
@@ -76,43 +76,37 @@ it('keeps the current view when cancel returns no exchange', async () => {
   tree.unmount()
 })
 
-it('renders nothing for an empty turn error', async () => {
+it.each([
+  ['no turn', undefined],
+  ['an open turn', {}],
+  ['a turn that ended without an error', { end: { data: { reason: { kind: 'completed' } } } }],
+  [
+    'a login-required failure without a message',
+    {
+      end: { data: { reason: { kind: 'error', error: { code: 'SUBSCRIPTION_LOGIN_REQUIRED' } } } },
+    },
+  ],
+  [
+    'a login-required message under another code',
+    {
+      end: {
+        data: {
+          reason: {
+            kind: 'error',
+            error: { message: 'SUBSCRIPTION_LOGIN_REQUIRED: primary', code: 'POOL_UNAVAILABLE' },
+          },
+        },
+      },
+    },
+  ],
+])('adds nothing to the turn tail for %s', async (_case, turn) => {
   let tree!: ReactTestRenderer
   await act(async () => {
-    tree = create(createElement(ClaudeTurnError, { t, rpc: { call: vi.fn() } }))
+    tree = create(
+      createElement(ClaudeLoginTail, { t, rpc: { call: vi.fn() }, ...(turn ? { turn } : {}) }),
+    )
   })
   expect(tree.toJSON()).toBeNull()
-  tree.unmount()
-})
-
-it('prefers the node message and code over the props', async () => {
-  let tree!: ReactTestRenderer
-  await act(async () => {
-    tree = create(
-      createElement(ClaudeTurnError, {
-        t,
-        message: 'stale',
-        code: 'STALE',
-        rpc: { call: vi.fn() },
-        node: { data: { message: 'POOL_UNAVAILABLE now', code: 'POOL_UNAVAILABLE' } },
-      }),
-    )
-  })
-  const text = JSON.stringify(tree.toJSON())
-  expect(text).toContain('POOL_UNAVAILABLE now')
-  expect(text).not.toContain('STALE')
-  tree.unmount()
-})
-
-it('shows only the code when the message is empty', async () => {
-  let tree!: ReactTestRenderer
-  await act(async () => {
-    tree = create(
-      createElement(ClaudeTurnError, { t, code: 'POOL_UNAVAILABLE', rpc: { call: vi.fn() } }),
-    )
-  })
-  expect(tree.root.findAllByType('p')).toHaveLength(0)
-  expect(tree.root.findByType('code').children).toEqual(['POOL_UNAVAILABLE'])
   tree.unmount()
 })
 

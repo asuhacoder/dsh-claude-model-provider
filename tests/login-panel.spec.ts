@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
 import { Section } from '../src/client/index.js'
-import { ClaudeLoginCard, ClaudeTurnError, LoginExchangePanel } from '../src/client/login-panel.js'
+import { ClaudeLoginCard, ClaudeLoginTail, LoginExchangePanel } from '../src/client/login-panel.js'
 import type { LoginRpc } from '../src/client/login-panel.js'
 import type { LoginTarget, LoginView } from '../src/login-view.js'
 import { RouteBlocked } from '../src/routing/types.js'
@@ -54,51 +54,48 @@ async function click(tree: ReactTestRenderer, label: string, scope: ReactTestIns
   })
 }
 
-it('leaves a non-login failure unchanged and waits for a click on login required', async () => {
+function endedWith(message: string, code: string) {
+  return { end: { data: { reason: { kind: 'error', error: { message, code } } } } }
+}
+
+it('adds nothing under a non-login failure and waits for a click on login required', async () => {
   const rpc = { call: vi.fn() }
   let plain!: ReactTestRenderer
   await act(async () => {
     plain = create(
-      createElement(ClaudeTurnError, {
+      createElement(ClaudeLoginTail, {
         t,
-        message: 'POOL_UNAVAILABLE',
-        code: 'POOL_UNAVAILABLE',
         rpc,
+        turn: endedWith('POOL_UNAVAILABLE', 'POOL_UNAVAILABLE'),
       }),
     )
   })
-  expect(JSON.stringify(plain.toJSON())).toContain('POOL_UNAVAILABLE')
-  expect(plain.root.findAllByType('button')).toHaveLength(0)
-  expect(plain.root.findAllByType('input')).toHaveLength(0)
+  expect(plain.toJSON()).toBeNull()
   plain.unmount()
 
   let unread!: ReactTestRenderer
   await act(async () => {
     unread = create(
-      createElement(ClaudeTurnError, {
+      createElement(ClaudeLoginTail, {
         t,
-        message: 'SUBSCRIPTION_LOGIN_REQUIRED',
-        code: 'SUBSCRIPTION_LOGIN_REQUIRED',
         rpc,
+        turn: endedWith('SUBSCRIPTION_LOGIN_REQUIRED', 'SUBSCRIPTION_LOGIN_REQUIRED'),
       }),
     )
   })
-  expect(JSON.stringify(unread.toJSON())).toContain('SUBSCRIPTION_LOGIN_REQUIRED')
-  expect(unread.root.findAllByType('button')).toHaveLength(0)
+  expect(unread.toJSON()).toBeNull()
   unread.unmount()
 
   let hosted!: ReactTestRenderer
   await act(async () => {
     hosted = create(
-      createElement(ClaudeTurnError, {
+      createElement(ClaudeLoginTail, {
         t,
         rpc,
-        node: {
-          data: {
-            message: 'SUBSCRIPTION_LOGIN_REQUIRED: primary · /claude-login primary',
-            code: 'SUBSCRIPTION_LOGIN_REQUIRED',
-          },
-        },
+        turn: endedWith(
+          'SUBSCRIPTION_LOGIN_REQUIRED: primary · /claude-login primary',
+          'SUBSCRIPTION_LOGIN_REQUIRED',
+        ),
       }),
     )
   })
@@ -112,15 +109,13 @@ it('leaves a non-login failure unchanged and waits for a click on login required
   let tree!: ReactTestRenderer
   await act(async () => {
     tree = create(
-      createElement(ClaudeTurnError, {
+      createElement(ClaudeLoginTail, {
         t,
-        message: 'SUBSCRIPTION_LOGIN_REQUIRED: primary',
-        code: 'SUBSCRIPTION_LOGIN_REQUIRED',
         rpc,
+        turn: endedWith('SUBSCRIPTION_LOGIN_REQUIRED: primary', 'SUBSCRIPTION_LOGIN_REQUIRED'),
       }),
     )
   })
-  expect(JSON.stringify(tree.toJSON())).toContain('SUBSCRIPTION_LOGIN_REQUIRED: primary')
   expect(JSON.stringify(tree.toJSON())).not.toContain('応答できませんでした')
   expect(tree.root.findAllByType('input')).toHaveLength(1)
   expect(tree.root.findAllByType('input')[0]!.props.autoComplete).toBe('off')
