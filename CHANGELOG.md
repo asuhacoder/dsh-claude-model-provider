@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+A failed turn keeps the DSH failure row with its heading, red indicator, and localized message. The plugin no longer registers the `turn-error` row. It adds the login panel under the turn only when the failure is `SUBSCRIPTION_LOGIN_REQUIRED` and names an account.
+
+A verified login is committed only when its credentials reach the profile. On macOS, the Keychain item must be copied, because Claude Code reads it before the file. When that copy fails, the login reports `LOGIN_NOT_COMMITTED`, and the profile file goes back to its previous content. The account row and the other pool stay as they were. On other systems, a login that wrote no credentials file reports the same code instead of ready.
+
+The Keychain copy sends the `security` command on stdin with `security -i` and passes the value as hex with `-X`. The value no longer appears in the process arguments.
+
 ## 0.1.0-next.8 — 2026-11-02
 
 A tool call that passes an object to an untyped parameter, such as `input` on `cordis_inspect_query`, no longer stops the turn with `CLAUDE_PROTOCOL_ERROR` (partial and completed content did not reconcile). Claude Code 2.1.287 streams that object as a JSON string, then parses it back before it completes the message and calls the MCP tool. DSH now executes the parsed object Claude Code completed, so the tool receives an object, not a string. Only top-level values whose completed form is exactly the parse of the streamed string are accepted, and only when the completed block arrives before the stream stops, which is the order Claude Code uses. Any other difference still fails.

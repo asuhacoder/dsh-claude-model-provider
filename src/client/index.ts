@@ -5,7 +5,7 @@ import { listedAccountModels, modelPresentation } from '../model-presentation.js
 import type { Alias, LoginView, ProfileRef } from '../login-view.js'
 import { ACCOUNT_ALIAS } from '../routing/types.js'
 import type { AccountController } from '../ui/controller.js'
-import { ClaudeLoginCard, ClaudeTurnError, LoginExchangePanel } from './login-panel.js'
+import { ClaudeLoginCard, ClaudeLoginTail, LoginExchangePanel } from './login-panel.js'
 import { dictionaries, NS, type Translate } from './messages.js'
 type Status = ReturnType<AccountController['status']>
 type Screen = Status & { exchange?: LoginView }
@@ -291,15 +291,15 @@ export function apply(ctx: Context) {
       ClaudeLoginCard,
     ),
   )
-  slots.inject('conversation.chat.node', () =>
+  slots.inject('conversation.chat.turnTail', () =>
     slots.register(
       {
-        name: 'conversation.chat.node',
-        key: 'turn-error',
+        name: 'conversation.chat.turnTail',
+        id: 'claude-login',
         locale: NS,
         inject: () => ({ rpc: connection.rpc }),
       },
-      ClaudeTurnError,
+      ClaudeLoginTail,
     ),
   )
 }

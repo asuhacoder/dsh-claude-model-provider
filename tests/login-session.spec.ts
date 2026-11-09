@@ -13,6 +13,7 @@ import type { Account, AccountState, Binding, Reservation } from '../src/routing
 import { SubscriptionProvider } from '../src/sessions/provider.js'
 import { StateStore } from '../src/storage/store.js'
 import { AccountController } from '../src/ui/controller.js'
+import { commitVerifiedLogin } from '../src/login-install.js'
 import type { LoginPty, LoginPtyExit } from '../src/ui/login-pty.js'
 import { runProviderCli } from '../src/provider-cli.js'
 
@@ -20,6 +21,8 @@ const SAMPLE_CODE = 'test-code-value'
 const SAMPLE_URL = 'https://claude.com/oauth/authorize?state=fixture'
 const ATTEMPT = '00000000-0000-4000-8000-000000000001'
 const ATTEMPT_2 = '00000000-0000-4000-8000-000000000002'
+const commit = (stagingDir: string, profileRef: string) =>
+  commitVerifiedLogin(stagingDir, profileRef, async () => true)
 
 class FakePty implements LoginPty {
   readonly writes: string[] = []
@@ -86,7 +89,7 @@ it('does not spawn twice and writes the authorization code once', async () => {
   pty.urlOnData = true
   const spawnLogin = vi.fn(() => pty)
   const verify = vi.fn(async () => row('READY', 'default', 'primary'))
-  const c = new AccountController(() => s, 'claude', undefined, { verify, spawnLogin })
+  const c = new AccountController(() => s, 'claude', undefined, { verify, commit, spawnLogin })
   try {
     const first = await c.login(open('primary'))
     const second = await c.login(open('primary', {}, ATTEMPT_2))
@@ -125,6 +128,7 @@ it('keeps the sample code and url out of failures and stored rows', async () => 
   })
   const c = new AccountController(() => s, 'claude', undefined, {
     verify,
+    commit,
     spawnLogin: () => pty,
   })
   try {
@@ -169,6 +173,7 @@ it('ends ready for the same org and keeps the previous row when the org changes'
     const verify = vi.fn(async () => row('READY', '/tmp/claude-primary', 'primary'))
     const c = new AccountController(() => s, 'claude', undefined, {
       verify,
+      commit,
       spawnLogin: () => pty,
     })
     try {
@@ -193,7 +198,11 @@ it('ends ready for the same org and keeps the previous row when the org changes'
   const pty = new FakePty()
   pty.exitOnRegister = true
   const verify = vi.fn(async () => row('READY', '/tmp/claude-primary', 'primary', 'B'))
-  const c = new AccountController(() => s, 'claude', undefined, { verify, spawnLogin: () => pty })
+  const c = new AccountController(() => s, 'claude', undefined, {
+    verify,
+    commit,
+    spawnLogin: () => pty,
+  })
   try {
     const changed = await c.login(
       parseLoginPayload({ op: 'open', attempt: ATTEMPT, id: 'A', alias: 'primary' }),
@@ -231,6 +240,7 @@ it('does not replace saved credentials when the login is a different account', a
   )
   const c = new AccountController(() => s, 'claude', undefined, {
     verify,
+    commit,
     spawnLogin: (_command, profileRef) => {
       spawned.push(profileRef)
       return pty
@@ -269,7 +279,11 @@ it('installs verified credentials onto the account profile', async () => {
       return row('READY', profile, 'primary')
     },
   )
-  const c = new AccountController(() => s, 'claude', undefined, { verify, spawnLogin: () => pty })
+  const c = new AccountController(() => s, 'claude', undefined, {
+    verify,
+    commit,
+    spawnLogin: () => pty,
+  })
   try {
     const done = await c.login(open('primary', { profile }))
     expect(done.exchange.phase).toBe('ready')
@@ -298,6 +312,7 @@ it('marks the same profile ready in the other pool unless that pool is locked', 
   const verify = vi.fn(async () => row('READY', profile, 'primary'))
   const blocked = new AccountController(() => web, 'claude', undefined, {
     verify,
+    commit,
     spawnLogin: () => pty,
   })
   try {
@@ -313,6 +328,7 @@ it('marks the same profile ready in the other pool unless that pool is locked', 
   web.set('accounts', 'A', row('AUTH_REQUIRED', profile, 'primary'))
   const openPool = new AccountController(() => web, 'claude', undefined, {
     verify,
+    commit,
     spawnLogin: () => again,
   })
   try {
@@ -414,7 +430,11 @@ it('verifies when the child exits 0 before a paste', async () => {
   const pty = new FakePty()
   pty.exitOnRegister = true
   const verify = vi.fn(async () => row('READY', 'default', 'primary'))
-  const c = new AccountController(() => s, 'claude', undefined, { verify, spawnLogin: () => pty })
+  const c = new AccountController(() => s, 'claude', undefined, {
+    verify,
+    commit,
+    spawnLogin: () => pty,
+  })
   try {
     const done = await c.login(open('primary'))
     expect(done.exchange.phase).toBe('ready')
@@ -627,6 +647,7 @@ it('prints the authorize url once on the cli and leaves it out of the status jso
   const verify = vi.fn(async () => row('READY', '/tmp/claude-primary', 'primary'))
   const c = new AccountController(() => s, 'claude', undefined, {
     verify,
+    commit,
     spawnLogin: () => {
       pty.write = (bytes) => {
         pty.writes.push(bytes)
@@ -673,7 +694,11 @@ it('verifies a cli login that exits before asking for a code', async () => {
   const verify = vi.fn(async () => row('READY', 'default', 'primary'))
   const readLine = vi.fn(async () => SAMPLE_CODE)
   const writeUrl = vi.fn()
-  const c = new AccountController(() => s, 'claude', undefined, { verify, spawnLogin: () => pty })
+  const c = new AccountController(() => s, 'claude', undefined, {
+    verify,
+    commit,
+    spawnLogin: () => pty,
+  })
   try {
     expect(
       await runProviderCli(['accounts', 'add', 'primary', '--login'], {

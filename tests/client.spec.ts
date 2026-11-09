@@ -118,7 +118,13 @@ it('renders local account management, honest unknowns and user-driven controls',
   expect(register.mock.calls[0]?.[0].inject()).toEqual({ rpc })
   expect(register.mock.calls[1]?.[0].key).toBe('claude-login')
   expect(register.mock.calls[1]?.[0].inject()).toEqual({ rpc })
-  expect(register.mock.calls[2]?.[0].key).toBe('turn-error')
+  expect(register.mock.calls.some(([options]) => options.name === 'conversation.chat.node')).toBe(
+    false,
+  )
+  expect(register.mock.calls[2]?.[0]).toMatchObject({
+    name: 'conversation.chat.turnTail',
+    id: 'claude-login',
+  })
   expect(register.mock.calls[2]?.[0].inject()).toEqual({ rpc })
 })
 

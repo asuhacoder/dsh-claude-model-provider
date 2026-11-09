@@ -238,27 +238,14 @@ export function ClaudeLoginCard(props: {
   return h(LoginExchangePanel, { t: props.t, rpc: props.rpc, target })
 }
 
-function shownText(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined
+interface EndedTurn {
+  end?: { data?: { reason?: { kind?: unknown; error?: { message?: unknown; code?: unknown } } } }
 }
 
-export function ClaudeTurnError(props: {
-  t: Translate
-  message?: string
-  code?: string
-  rpc: LoginRpc
-  node?: { data?: { message?: unknown; code?: unknown } }
-}) {
-  const message = shownText(props.node?.data?.message) ?? props.message ?? ''
-  const code = shownText(props.node?.data?.code) ?? props.code
-  const parsed =
-    code === 'SUBSCRIPTION_LOGIN_REQUIRED' ? parseLoginRequiredMessage(message) : undefined
-  if (message.length === 0 && code === undefined && parsed === undefined) return null
-  return h(
-    'div',
-    null,
-    message.length > 0 ? h('p', null, message) : null,
-    code !== undefined ? h('code', null, code) : null,
-    parsed ? h(LoginExchangePanel, { t: props.t, rpc: props.rpc, target: parsed }) : null,
-  )
+export function ClaudeLoginTail(props: { t: Translate; rpc: LoginRpc; turn?: EndedTurn }) {
+  const reason = props.turn?.end?.data?.reason
+  if (reason?.kind !== 'error' || reason.error?.code !== 'SUBSCRIPTION_LOGIN_REQUIRED') return null
+  const message = reason.error.message
+  const target = typeof message === 'string' ? parseLoginRequiredMessage(message) : undefined
+  return target ? h(LoginExchangePanel, { t: props.t, rpc: props.rpc, target }) : null
 }
