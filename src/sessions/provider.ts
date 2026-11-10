@@ -14,7 +14,8 @@ import { profileLoginHeld } from '../login-exchange.js'
 import { StickyRouter, blockedUntil, type RouteRequest } from '../routing/router.js'
 import { RouteBlocked, type Account, type Binding, type Reservation } from '../routing/types.js'
 import { ToolLedger } from './ledger.js'
-import { assertAccount } from '../auth/official.js'
+import { assertAccount, readOfficialCatalog } from '../auth/official.js'
+import { ModelListRefresher } from '../model-refresh.js'
 import { canonicalToolJson } from '../json.js'
 import { messageFingerprint } from '../replay.js'
 import { CapacitySignal, KeyedQueue, ProviderCircuit, abortable } from '../routing/control.js'
@@ -58,6 +59,7 @@ export interface ProviderDependencies {
     observe: (event: SDKMessage) => void,
   ) => ManagedBridge
   now?: () => number
+  readModelCatalog?: typeof readOfficialCatalog
   requestTimeoutMs?: number
   queueTimeoutMs?: number
   maxAttempts?: number
@@ -172,6 +174,7 @@ export class SubscriptionProvider {
   }
   readonly now: () => number
   readonly #diagnostics: ClaudeDiagnostics
+  readonly #modelLists: ModelListRefresher
   constructor(
     readonly subprocess: SubprocessRuntime,
     readonly config: ResolvedConfig,
@@ -180,6 +183,19 @@ export class SubscriptionProvider {
   ) {
     this.now = dependencies.now ?? Date.now
     this.#diagnostics = new ClaudeDiagnostics(config.debug, dependencies.logger)
+    this.#modelLists = new ModelListRefresher(
+      () => this.store,
+      (profileRef) =>
+        (dependencies.readModelCatalog ?? readOfficialCatalog)(
+          this.store,
+          config.claudeCommand,
+          profileRef,
+        ),
+      this.now,
+    )
+  }
+  refreshStaleModels(): Promise<void> {
+    return this.#modelLists.refreshIfStale()
   }
   get store(): StateStore {
     if (this.#closed) throw new RouteBlocked('PROVIDER_CLOSED')

@@ -226,7 +226,7 @@ export class ClaudeCodeAdapter extends LlmAdapter {
   constructor(
     readonly config: ResolvedConfig,
     readonly bridges: Pick<BridgeManager, 'stream'> &
-      Partial<Pick<SubscriptionProvider, 'accounts' | 'defaultModel'>>,
+      Partial<Pick<SubscriptionProvider, 'accounts' | 'defaultModel' | 'refreshStaleModels'>>,
     readonly resolveImageAccess?: ImageAttachmentAccessResolver,
   ) {
     super()
@@ -238,6 +238,7 @@ export class ClaudeCodeAdapter extends LlmAdapter {
   }
 
   override listModels(_provider: string): Promise<readonly LlmModelInfo[]> {
+    void this.bridges.refreshStaleModels?.()
     return Promise.resolve(
       this.bridges.accounts
         ? accountModelCatalog(
