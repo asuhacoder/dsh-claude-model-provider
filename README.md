@@ -31,7 +31,7 @@ pnpm release:dry-run
 dsh plugin --profile web add ./dist/asuha-dsh-claude-model-provider-0.1.0-next.8.tgz --ignore-scripts
 ```
 
-The plugin only adds `claude-sdk-local`; it does not change the selected model or replace the Subscription Plugin. Restart DSH and select **Claude Subscription / Claude Opus 5.5**. Model names, versions, descriptions and ordering come from the official Claude model list. The legacy `default` ID still works in existing conversations but is no longer an extra picker entry. After upgrading, use **Verify connection** in Claude settings to refresh the saved model names.
+The plugin only adds `claude-sdk-local`; it does not change the selected model or replace the Subscription Plugin. Restart DSH and select **Claude Subscription / Claude Opus 5.5**. Model names, versions, descriptions and ordering come from the official Claude model list. The legacy `default` ID still works in existing conversations but is no longer an extra picker entry. The saved list refreshes in the background when it is more than 6 hours old, so new official models appear without pressing **Verify connection**; if a refresh fails, the last good list stays. The list comes from the installed Claude Code, so a model it does not offer yet will not appear until Claude Code offers it.
 
 Before generation, register your existing official login in DSH Settings → Claude Subscription. Alternatively, while DSH is stopped, use the installed CLI (no token copying):
 

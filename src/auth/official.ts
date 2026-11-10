@@ -205,6 +205,33 @@ export async function officialModels(command: string, profileRef: string): Promi
     input.close()
   }
 }
+export type OfficialCatalog = Pick<Account, 'identity' | 'models'> &
+  Required<Pick<Account, 'modelMetadata'>>
+/** The official model list for the subscription a profile is logged into, bracketed by identity checks. */
+export async function readOfficialCatalog(
+  store: StateStore,
+  command: string,
+  profileRef: string,
+): Promise<OfficialCatalog> {
+  const status = await officialStatus(command, profileRef)
+  const models = (await officialModels(command, profileRef)).filter((m) => m.value !== 'default')
+  const after = await officialStatus(command, profileRef)
+  if (status.orgId !== after.orgId) throw new RouteBlocked('IDENTITY_CHANGED')
+  return {
+    identity: store.hash('subscription-org:' + status.orgId),
+    models: Object.fromEntries(models.map((m) => [m.value, m.supportedEffortLevels ?? []])),
+    modelMetadata: Object.fromEntries(
+      models.map((m) => [
+        m.value,
+        {
+          displayName: m.displayName,
+          description: m.description,
+          ...(m.resolvedModel === undefined ? {} : { resolvedModel: m.resolvedModel }),
+        },
+      ]),
+    ),
+  }
+}
 export async function verifyAccount(
   store: StateStore,
   command: string,
@@ -213,34 +240,14 @@ export async function verifyAccount(
   extraUsageOff: boolean,
 ): Promise<Account> {
   if (!/^[A-Za-z0-9_-]{1,48}$/.test(alias)) throw new RouteBlocked('INVALID_ALIAS')
-  const status = await officialStatus(command, profileRef)
-  const models = await officialModels(command, profileRef)
-  const after = await officialStatus(command, profileRef)
-  if (status.orgId !== after.orgId) throw new RouteBlocked('IDENTITY_CHANGED')
+  const catalog = await readOfficialCatalog(store, command, profileRef)
   return {
-    identity: store.hash('subscription-org:' + status.orgId),
+    ...catalog,
     aliases: [alias],
     profileRef,
     state: 'READY',
     verifiedAt: Date.now(),
     ...(extraUsageOff ? { extraUsageOffConfirmedAt: Date.now() } : {}),
-    models: Object.fromEntries(
-      models
-        .filter((m) => m.value !== 'default')
-        .map((m) => [m.value, m.supportedEffortLevels ?? []]),
-    ),
-    modelMetadata: Object.fromEntries(
-      models
-        .filter((m) => m.value !== 'default')
-        .map((m) => [
-          m.value,
-          {
-            displayName: m.displayName,
-            description: m.description,
-            ...(m.resolvedModel === undefined ? {} : { resolvedModel: m.resolvedModel }),
-          },
-        ]),
-    ),
     windows: [],
     parallelLimit: 4,
   }
