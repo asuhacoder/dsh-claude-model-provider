@@ -141,6 +141,18 @@ export function resolvedModelInfo(
   }
 }
 
+/** Claude Code can list a model only as an alias row whose resolvedModel is the real id. */
+export function listedModelId(
+  accounts: readonly import('./routing/types.js').Account[],
+  model: string,
+): string {
+  if (accounts.some((a) => a.models[model] !== undefined)) return model
+  for (const a of accounts)
+    for (const id of Object.keys(a.models))
+      if (a.modelMetadata?.[id]?.resolvedModel === model) return id
+  return model
+}
+
 /** Runtime catalog from official control responses, with each account's effort capabilities. */
 export function accountModelCatalog(
   accounts: readonly import('./routing/types.js').Account[],
@@ -159,7 +171,7 @@ export function accountModelInfo(
   defaultModel: string,
 ): LlmResolvedModelInfo {
   const result = resolvedModelInfo(provider, model, defaultModel),
-    id = resolveClaudeModel(model, defaultModel)
+    id = listedModelId(accounts, resolveClaudeModel(model, defaultModel))
   const matching = accounts.filter(
     (a) => a.state !== 'DISABLED' && a.state !== 'SUSPENDED' && a.models[id] !== undefined,
   )

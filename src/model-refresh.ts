@@ -6,7 +6,7 @@ import type { StateStore } from './storage/store.js'
 export const MODEL_LIST_TTL_MS = 6 * 60 * 60 * 1_000
 export const MODEL_LIST_RETRY_MS = 15 * 60 * 1_000
 
-const REFRESHABLE = new Set<Account['state']>(['READY', 'DRAINING', 'COOLDOWN'])
+const REFRESHABLE = new Set<Account['state']>(['READY', 'DRAINING', 'COOLDOWN', 'SUSPENDED'])
 
 /** Observed capacity outlives a list refresh; the official list owns everything else. */
 function mergeMetadata(
@@ -28,7 +28,8 @@ function mergeMetadata(
   )
 }
 
-/** Keeps saved model lists current in the background; a failed read keeps the last good list. */
+/** Keeps saved model lists current in the background; a failed read keeps the last good list.
+ * A good read also returns a suspended account to READY, as Verify would. */
 export class ModelListRefresher {
   #running: Promise<void> | undefined
   readonly #failedAt = new Map<string, number>()
@@ -75,6 +76,7 @@ export class ModelListRefresher {
           if (!current) return
           store.set('accounts', account.identity, {
             ...current,
+            ...(current.state === 'SUSPENDED' ? { state: 'READY' as const } : {}),
             models: catalog.models,
             modelMetadata: mergeMetadata(catalog.modelMetadata, current.modelMetadata),
             modelsRefreshedAt: this.now(),

@@ -119,6 +119,32 @@ describe('background model list refresh', () => {
     }
   })
 
+  it('returns a suspended account to READY once the official read succeeds again', async () => {
+    const read = vi
+      .fn<(profileRef: string) => Promise<OfficialCatalog>>()
+      .mockRejectedValueOnce(new Error('SUBSCRIPTION_LOGIN_REQUIRED'))
+      .mockResolvedValue(withFable52())
+    const { store, refresher, account, advance } = fixture(read)
+    try {
+      store.set('accounts', 'org-a', { ...savedAccount(), state: 'SUSPENDED' })
+      await refresher.refreshIfStale()
+      expect(account().state).toBe('SUSPENDED')
+      advance(MODEL_LIST_RETRY_MS)
+      await refresher.refreshIfStale()
+      expect(account().state).toBe('READY')
+      expect(
+        new StickyRouter(store).route({
+          session: 's',
+          requestId: 'r',
+          model: 'opus',
+          now: MODEL_LIST_TTL_MS + MODEL_LIST_RETRY_MS,
+        }),
+      ).toMatchObject({ identity: 'org-a' })
+    } finally {
+      store.close()
+    }
+  })
+
   it('leaves a recently refreshed list alone and shares one read between concurrent callers', async () => {
     const read = vi.fn(async () => withFable52())
     const { store, refresher, advance } = fixture(read)
