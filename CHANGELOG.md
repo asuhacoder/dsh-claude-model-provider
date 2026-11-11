@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+An account blocked by a usage limit becomes usable again when Claude lifts the limit early, for example after a plan upgrade. Before, the stored reset time held every request until it passed, so no request could reach Claude to learn that the limit was gone. Now one real request goes through every 5 minutes as a probe. If Claude reports the window allowed, or the turn completes, the block is cleared. If Claude rejects it again, the block stays and takes the new reset time. `providerRetryAfterMs` now points at the next probe instead of the stored reset.
+
 A failed turn keeps the DSH failure row with its heading, red indicator, and localized message. The plugin no longer registers the `turn-error` row. It adds the login panel under the turn only when the failure is `SUBSCRIPTION_LOGIN_REQUIRED` and names an account.
 
 A verified login is committed only when its credentials reach the profile. On macOS, the Keychain item must be copied, because Claude Code reads it before the file. When that copy fails, the login reports `LOGIN_NOT_COMMITTED`, and the profile file goes back to its previous content. The account row and the other pool stay as they were. On other systems, a login that wrote no credentials file reports the same code instead of ready.
