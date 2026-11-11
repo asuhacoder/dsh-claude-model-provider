@@ -476,6 +476,7 @@ export class SubscriptionProvider {
           holder = undefined
         }
         const state: AttemptObservation = { sdkRetries: 0 }
+        const attemptStartedAt = this.now()
         observed = state
         if (!holder) {
           const bound = { ...binding },
@@ -604,8 +605,10 @@ export class SubscriptionProvider {
           if (thrown !== undefined) throw thrown
         }
         if (!terminal) throw new RouteBlocked('MISSING_TERMINAL')
-        if (terminal.reason.kind === 'stop' || terminal.reason.kind === 'tool-calls')
+        if (terminal.reason.kind === 'stop' || terminal.reason.kind === 'tool-calls') {
           circuit.success()
+          router.served(binding.identity, model, attemptStartedAt, this.now())
+        }
         binding.historyRevision = messageFingerprint(options.messages)
         binding.systemDigest = hash(options.system ?? '')
         binding.toolDigest = hash(options.tools ?? [])

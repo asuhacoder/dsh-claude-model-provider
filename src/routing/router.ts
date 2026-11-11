@@ -24,11 +24,20 @@ export function matchesScope(scope: string, model: string): boolean {
     (['opus', 'sonnet', 'haiku'].includes(scope) && model.startsWith('claude-' + scope + '-'))
   )
 }
+// Claude can lift a limit before its stored reset, and only a real request can show that.
+export const HARD_BLOCK_PROBE_INTERVAL_MS = 5 * 60_000
+function activeBlocks(account: Account, model: string, now: number): QuotaWindow[] {
+  return account.windows.filter(
+    (w) => matchesScope(w.scope, model) && (w.hardBlockedUntil ?? 0) > now,
+  )
+}
 export function blockedUntil(account: Account, model: string, now: number): number | undefined {
-  const values = account.windows
-    .filter((w) => matchesScope(w.scope, model) && (w.hardBlockedUntil ?? 0) > now)
-    .map((w) => w.hardBlockedUntil!)
-  return values.length ? Math.max(...values) : undefined
+  const blocks = activeBlocks(account, model, now)
+  if (!blocks.length) return undefined
+  const probeAt =
+    Math.max(...blocks.map((w) => w.probedAt ?? w.observedAt)) + HARD_BLOCK_PROBE_INTERVAL_MS
+  if (probeAt <= now) return undefined
+  return Math.min(probeAt, Math.max(...blocks.map((w) => w.hardBlockedUntil!)))
 }
 export function availableWork(
   account: Account,
@@ -176,6 +185,9 @@ export class StickyRouter {
       const account = this.store.get<Account>('accounts', binding.identity)!
       if (profileLoginHeld(this.store, account.profileRef))
         throw subscriptionLoginRequired(preferredAccountLabel(account.aliases, account.profileRef))
+      const probes = activeBlocks(account, req.model, req.now)
+      for (const w of probes) w.probedAt = req.now
+      if (probes.length) this.store.set('accounts', account.identity, account)
       this.store.set('bindings', req.session, binding)
       this.store.set('reservations', req.requestId, {
         requestId: req.requestId,
@@ -199,6 +211,18 @@ export class StickyRouter {
     a.windows = a.windows.filter((w) => !(w.key === window.key && w.scope === window.scope))
     a.windows.push(window)
     this.store.set('accounts', identity, a)
+  }
+  /** A turn the account completed for this model outranks every block stored before it began. */
+  served(identity: string, model: string, since: number, now: number): void {
+    const a = this.store.get<Account>('accounts', identity)
+    if (!a) return
+    const stale = activeBlocks(a, model, now).filter((w) => w.observedAt < since)
+    for (const w of stale) {
+      delete w.hardBlockedUntil
+      delete w.probedAt
+      w.observedAt = now
+    }
+    if (stale.length) this.store.set('accounts', identity, a)
   }
   migrate(req: RouteRequest, reason: 'quota' | 'unavailable', safeBoundary: boolean): Binding {
     if (!safeBoundary) throw new RouteBlocked('UNSAFE_MIGRATION')

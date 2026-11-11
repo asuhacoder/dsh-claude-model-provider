@@ -9,6 +9,7 @@ export interface QuotaWindow {
   utilization?: number
   remainingWork?: number
   hardBlockedUntil?: number
+  probedAt?: number
   source: 'sdk' | 'fixture' | 'estimate'
 }
 export interface ModelPresentation {
