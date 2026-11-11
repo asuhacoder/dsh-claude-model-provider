@@ -62,6 +62,10 @@ export function availableWork(
     ),
   )
 }
+export function serves(account: Account, model: string, effort: string | undefined): boolean {
+  const efforts = account.models[model]
+  return efforts !== undefined && (effort === undefined || efforts.includes(effort))
+}
 function tie(session: string, id: string): string {
   return createHash('sha256')
     .update(session + '\0' + id)
@@ -80,8 +84,7 @@ export function choose(
       !excluded.has(a.identity) &&
       !profileHeld(a.profileRef) &&
       ['READY', 'DRAINING', 'COOLDOWN'].includes(a.state) &&
-      a.models[req.model] !== undefined &&
-      (req.effort === undefined || a.models[req.model]!.includes(req.effort)) &&
+      serves(a, req.model, req.effort) &&
       blockedUntil(a, req.model, req.now) === undefined &&
       reservations.filter((r) => r.identity === a.identity).length < a.parallelLimit,
   )
@@ -134,13 +137,10 @@ export class StickyRouter {
         const account = this.store.get<Account>('accounts', previous.identity)
         if (!account || !['READY', 'DRAINING', 'COOLDOWN'].includes(account.state))
           throw new RouteBlocked('BOUND_ACCOUNT_UNAVAILABLE')
+        if (!serves(account, req.model, req.effort))
+          throw new RouteBlocked('MODEL_CAPABILITY_UNAVAILABLE')
         const until = blockedUntil(account, req.model, req.now)
         if (until !== undefined) throw new RouteBlocked('BOUND_ACCOUNT_COOLDOWN', until)
-        if (
-          account.models[req.model] === undefined ||
-          (req.effort !== undefined && !account.models[req.model]!.includes(req.effort))
-        )
-          throw new RouteBlocked('MODEL_CAPABILITY_UNAVAILABLE')
         if (profileLoginHeld(this.store, account.profileRef))
           throw subscriptionLoginRequired(
             preferredAccountLabel(account.aliases, account.profileRef),
@@ -224,7 +224,11 @@ export class StickyRouter {
     }
     if (stale.length) this.store.set('accounts', identity, a)
   }
-  migrate(req: RouteRequest, reason: 'quota' | 'unavailable', safeBoundary: boolean): Binding {
+  migrate(
+    req: RouteRequest,
+    reason: 'quota' | 'unavailable' | 'capability',
+    safeBoundary: boolean,
+  ): Binding {
     if (!safeBoundary) throw new RouteBlocked('UNSAFE_MIGRATION')
     return this.store.transaction(() => {
       const old = this.store.get<Binding>('bindings', req.session)
@@ -246,6 +250,27 @@ export class StickyRouter {
           if (previousAccount !== undefined && previousAccount.state !== 'DISABLED')
             throw new RouteBlocked('BOUND_ACCOUNT_UNAVAILABLE')
           bindingReason = 'bound-account-replaced'
+          break
+        case 'capability':
+          if (
+            !previousAccount ||
+            !['READY', 'DRAINING', 'COOLDOWN'].includes(previousAccount.state)
+          )
+            throw new RouteBlocked('BOUND_ACCOUNT_UNAVAILABLE')
+          if (serves(previousAccount, req.model, req.effort))
+            throw new RouteBlocked('CAPABILITY_MIGRATION_UNCONFIRMED')
+          if (
+            !this.store
+              .list<Account>('accounts')
+              .some(
+                (a) =>
+                  a.identity !== old.identity &&
+                  ['READY', 'DRAINING', 'COOLDOWN'].includes(a.state) &&
+                  serves(a, req.model, req.effort),
+              )
+          )
+            throw new RouteBlocked('MODEL_CAPABILITY_UNAVAILABLE')
+          bindingReason = 'bound-account-lost-capability'
           break
         default: {
           const unexpected: never = reason
