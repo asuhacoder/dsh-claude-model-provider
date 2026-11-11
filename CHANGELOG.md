@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+A session pinned to an account that no longer offers its model or effort continues on another account that offers it, for example after the pinned account lost `opus` because of a payment problem. Before, every turn of that session failed with `MODEL_CAPABILITY_UNAVAILABLE`, because waiting cannot bring the model back and the session never moved off its pin. Now the session moves to an account that offers the model in a new generation, and the history is sent again as a replay. If that account is busy or blocked by a usage limit, the turn waits, as a new session does. If no other account offers the model, the turn still fails with `MODEL_CAPABILITY_UNAVAILABLE`, also when the pinned account is blocked, which reported `BOUND_ACCOUNT_COOLDOWN` before. A session with an unfinished tool call stays on its pin.
+
 An account blocked by a usage limit becomes usable again when Claude lifts the limit early, for example after a plan upgrade. Before, the stored reset time held every request until it passed, so no request could reach Claude to learn that the limit was gone. Now one real request goes through every 5 minutes as a probe. If Claude reports the window allowed, or the turn completes, the block is cleared. If Claude rejects it again, the block stays and takes the new reset time. `providerRetryAfterMs` now points at the next probe instead of the stored reset.
 
 A failed turn keeps the DSH failure row with its heading, red indicator, and localized message. The plugin no longer registers the `turn-error` row. It adds the login panel under the turn only when the failure is `SUBSCRIPTION_LOGIN_REQUIRED` and names an account.
