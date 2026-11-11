@@ -1,6 +1,10 @@
-# Release status — 2026-11-02
+# Release status — 2026-11-11
 
-## Current candidate: 0.1.0-next.8
+## Current candidate: 0.1.0-next.9
+
+A `v0.1.0-next.9` tag on `main` publishes the CI-verified tarball to npm `next` with provenance and creates the GitHub prerelease. `latest` is unchanged. It contains the move of a session whose pinned account lost its model, the probe that clears a usage-limit block lifted early, the background refresh of the saved official model list, and the failure-row and login-commit fixes described in CHANGELOG.md. No real-account run of this exact artifact is claimed.
+
+## Historical candidate: 0.1.0-next.8
 
 A `v0.1.0-next.8` tag on `main` publishes the CI-verified tarball to npm `next` with provenance and creates the GitHub prerelease. `latest` is unchanged. It contains the untyped tool-argument repair and the English and Simplified Chinese settings and login screens described in CHANGELOG.md. No real-account run of this exact artifact is claimed.
 
