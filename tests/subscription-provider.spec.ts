@@ -54,6 +54,15 @@ const account = (id: string): Account => ({
   windows: [],
   parallelLimit: 2,
 })
+const blockForAnHour = (router: StickyRouter, identity: string) =>
+  router.observe(identity, {
+    key: 'five',
+    scope: '*',
+    epoch: '1',
+    observedAt: Date.now(),
+    hardBlockedUntil: Date.now() + 3_600_000,
+    source: 'fixture',
+  })
 const request = (): GenerateOptions => ({
   provider: 'claude-sdk-local',
   model: 'opus',
@@ -316,6 +325,92 @@ describe('subscription provider request boundary', () => {
       await p.dispose()
     }
   })
+  it('continues a resumed session on another account when its pinned account loses the model', async () => {
+    const p = provider(),
+      r = new StickyRouter(p.store)
+    r.register(account('A'))
+    r.register(account('B'))
+    try {
+      await collect(p)
+      const first = p.store.list<Binding>('bindings')[0]!
+      const bound = p.store.get<Account>('accounts', first.identity)!
+      bound.models = { sonnet: ['low'] }
+      p.store.set('accounts', bound.identity, bound)
+      expect(await collect(p)).toMatchObject([{ reason: { kind: 'stop' } }])
+      const second = p.store.list<Binding>('bindings')[0]!
+      expect(second.identity).not.toBe(first.identity)
+      expect(second.generation).toBe(first.generation + 1)
+      expect(second.sdkSessionId).toBeUndefined()
+      expect(fake.authenticate.mock.calls.at(-1)![2]).toMatchObject({ identity: second.identity })
+      expect(fake.streams).toHaveBeenCalledTimes(2)
+      expect(p.store.list('reservations')).toEqual([])
+    } finally {
+      await p.dispose()
+    }
+  })
+  it.each([false, true])(
+    'waits for a busy account that serves the model instead of failing the pinned session (pinned also quota-blocked: %s)',
+    async (blocked) => {
+      const p = provider(),
+        r = new StickyRouter(p.store)
+      r.register(account('A'))
+      r.register(account('B'))
+      try {
+        await collect(p)
+        const first = p.store.list<Binding>('bindings')[0]!
+        const other = first.identity === 'A' ? 'B' : 'A'
+        const bound = p.store.get<Account>('accounts', first.identity)!
+        bound.models = { sonnet: ['low'] }
+        p.store.set('accounts', bound.identity, bound)
+        if (blocked) blockForAnHour(r, bound.identity)
+        for (const requestId of ['busy-1', 'busy-2'])
+          p.store.set('reservations', requestId, {
+            requestId,
+            session: 'other-session',
+            identity: other,
+            createdAt: 0,
+            predictedWork: 1,
+            epochs: {},
+          })
+        setTimeout(() => {
+          p.store.delete('reservations', 'busy-1')
+          p.store.delete('reservations', 'busy-2')
+        }, 50)
+        expect(await collect(p)).toMatchObject([{ reason: { kind: 'stop' } }])
+        expect(p.store.list<Binding>('bindings')[0]!.identity).toBe(other)
+      } finally {
+        await p.dispose()
+      }
+    },
+  )
+  it.each([false, true])(
+    'reports the missing model when no account can continue the pinned session (pinned also quota-blocked: %s)',
+    async (blocked) => {
+      const p = provider(),
+        r = new StickyRouter(p.store)
+      r.register(account('A'))
+      r.register({ ...account('B'), models: { sonnet: ['low'] } })
+      try {
+        await collect(p)
+        const first = p.store.list<Binding>('bindings')[0]!
+        expect(first.identity).toBe('A')
+        const bound = p.store.get<Account>('accounts', 'A')!
+        bound.models = { sonnet: ['low'] }
+        p.store.set('accounts', 'A', bound)
+        if (blocked) blockForAnHour(r, 'A')
+        const started = Date.now()
+        expect(await collect(p)).toMatchObject([
+          { reason: { failure: { code: 'MODEL_CAPABILITY_UNAVAILABLE' } } },
+        ])
+        expect(Date.now() - started).toBeLessThan(500)
+        expect(p.store.list<Binding>('bindings')[0]).toEqual(first)
+        expect(fake.streams).toHaveBeenCalledOnce()
+        expect(p.store.list('reservations')).toEqual([])
+      } finally {
+        await p.dispose()
+      }
+    },
+  )
   it('does not move a disabled pin while a tool call is unfinished', async () => {
     const p = provider(),
       r = new StickyRouter(p.store)
