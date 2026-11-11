@@ -18,6 +18,7 @@ import { commitVerifiedLogin, discardStagingKeychain, mirrorProfileReady } from 
 import { failureCode, parseLoginPayload, parseProfileRef } from '../login-view.js'
 import type { Alias, LoginIntent, LoginView, ProfileRef } from '../login-view.js'
 import { UsageHistory } from '../metrics/history.js'
+import { listedModelId } from '../models.js'
 import { KeyedQueue } from '../routing/control.js'
 import { StickyRouter } from '../routing/router.js'
 import { RouteBlocked, type Account, type Binding, type Reservation } from '../routing/types.js'
@@ -114,14 +115,11 @@ export class AccountController {
     const p = payload as Record<string, unknown>,
       s = this.state()
     if (action === 'setModel') {
-      if (
-        typeof p.model !== 'string' ||
-        !s
-          .list<Account>('accounts')
-          .some((a) => a.state !== 'DISABLED' && a.models[p.model as string])
-      )
+      const accounts = s.list<Account>('accounts')
+      const model = typeof p.model === 'string' ? listedModelId(accounts, p.model) : undefined
+      if (model === undefined || !accounts.some((a) => a.state !== 'DISABLED' && a.models[model]))
         throw new RouteBlocked('MODEL_CAPABILITY_UNAVAILABLE')
-      s.set('preferences', 'default-model', p.model)
+      s.set('preferences', 'default-model', model)
       return this.status()
     }
     if (typeof p.alias !== 'string' || !/^[A-Za-z0-9_-]{1,48}$/.test(p.alias))

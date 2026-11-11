@@ -34,6 +34,7 @@ import {
   modelCatalog,
   accountModelCatalog,
   accountModelInfo,
+  listedModelId,
   PROVIDER_ID,
   PROVIDER_NAME,
   resolvedModelInfo,
@@ -263,10 +264,13 @@ export class ClaudeCodeAdapter extends LlmAdapter {
   }
 
   override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
-    const model = resolveClaudeModel(
+    const requested = resolveClaudeModel(
       options.model,
       this.bridges.defaultModel?.() ?? this.config.defaultModel,
     )
+    const model = this.bridges.accounts
+      ? listedModelId(this.bridges.accounts(), requested)
+      : requested
     let finished = false
     try {
       const request = prepareDshRequest(options)
