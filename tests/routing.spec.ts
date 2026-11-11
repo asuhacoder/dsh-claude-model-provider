@@ -186,6 +186,58 @@ describe('subscription routing acceptance', () => {
     expect(() => unfinished.r.migrate(req('s'), 'unavailable', false)).toThrow('UNSAFE_MIGRATION')
     unfinished.s.close()
   })
+  it('moves a pin that lost its model or effort only to an account that serves it', () => {
+    const open = () => {
+      const s = new StateStore(':memory:')
+      const r = new StickyRouter(s)
+      r.register(account('A'))
+      r.register(account('B'))
+      const high = { ...req('s'), effort: 'high' }
+      const first = r.route(high)
+      r.release('s')
+      const other = first.identity === 'A' ? 'B' : 'A'
+      return { s, r, first, other, high }
+    }
+    const kept = open()
+    expect(() => kept.r.migrate(kept.high, 'capability', true)).toThrow(
+      'CAPABILITY_MIGRATION_UNCONFIRMED',
+    )
+    expect(kept.r.route(kept.high).identity).toBe(kept.first.identity)
+    kept.s.close()
+    const lost = open()
+    const bound = lost.s.get<Account>('accounts', lost.first.identity)!
+    bound.models = { opus: ['low'] }
+    lost.s.set('accounts', bound.identity, bound)
+    expect(() => lost.r.route(lost.high)).toThrow('MODEL_CAPABILITY_UNAVAILABLE')
+    const moved = lost.r.migrate(lost.high, 'capability', true)
+    expect(moved.identity).toBe(lost.other)
+    expect(moved.generation).toBe(lost.first.generation + 1)
+    expect(lost.r.route(lost.high).identity).toBe(lost.other)
+    lost.s.close()
+    const nowhere = open()
+    for (const id of ['A', 'B']) {
+      const a = nowhere.s.get<Account>('accounts', id)!
+      a.models = { opus: ['low'] }
+      nowhere.s.set('accounts', id, a)
+    }
+    expect(() => nowhere.r.migrate(nowhere.high, 'capability', true)).toThrow(
+      'MODEL_CAPABILITY_UNAVAILABLE',
+    )
+    expect(nowhere.s.get<Binding>('bindings', 's')!.identity).toBe(nowhere.first.identity)
+    nowhere.s.close()
+    const unfinished = open()
+    const pinned = unfinished.s.get<Account>('accounts', unfinished.first.identity)!
+    pinned.models = { sonnet: ['low'] }
+    unfinished.s.set('accounts', pinned.identity, pinned)
+    const binding = unfinished.s.get<Binding>('bindings', 's')!
+    binding.pendingTools = ['call-1']
+    unfinished.s.set('bindings', 's', binding)
+    expect(() => unfinished.r.migrate(unfinished.high, 'capability', true)).toThrow(
+      'OUTCOME_UNKNOWN',
+    )
+    expect(unfinished.s.get<Binding>('bindings', 's')!.identity).toBe(unfinished.first.identity)
+    unfinished.s.close()
+  })
   it('A-031 records distinct IDs separately, refuses duplicate effects and reconciles authoritative receipts', () => {
     const s = new StateStore(':memory:')
     const l = new ToolLedger(s)

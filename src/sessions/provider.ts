@@ -11,7 +11,7 @@ import type { ResolvedConfig } from '../index.js'
 import type { AttachmentReader } from '../content.js'
 import { StateStore } from '../storage/store.js'
 import { profileLoginHeld } from '../login-exchange.js'
-import { StickyRouter, blockedUntil, type RouteRequest } from '../routing/router.js'
+import { StickyRouter, blockedUntil, serves, type RouteRequest } from '../routing/router.js'
 import { RouteBlocked, type Account, type Binding, type Reservation } from '../routing/types.js'
 import { ToolLedger } from './ledger.js'
 import { assertAccount, readOfficialCatalog } from '../auth/official.js'
@@ -44,6 +44,11 @@ export function prepareDshRequest(options: GenerateOptions): GenerateOptions {
   }
   if (messages.some((m) => m.role === 'system')) throw new RouteBlocked('NONLEADING_SYSTEM_MESSAGE')
   return { ...options, system: prompts.join('\n\n'), messages }
+}
+const MIGRATION_REASONS: Partial<Record<string, Parameters<StickyRouter['migrate']>[1]>> = {
+  BOUND_ACCOUNT_COOLDOWN: 'quota',
+  BOUND_ACCOUNT_UNAVAILABLE: 'unavailable',
+  MODEL_CAPABILITY_UNAVAILABLE: 'capability',
 }
 const hash = (x: unknown) => createHash('sha256').update(canonicalToolJson(x)).digest('hex')
 export interface ManagedBridge {
@@ -256,19 +261,19 @@ export class SubscriptionProvider {
       })
       try {
         return router.route(req)
-      } catch (error) {
-        if (!(error instanceof RouteBlocked)) throw error
-        if (error.code === 'BOUND_ACCOUNT_COOLDOWN' || error.code === 'BOUND_ACCOUNT_UNAVAILABLE') {
+      } catch (routed) {
+        if (!(routed instanceof RouteBlocked)) throw routed
+        let error = routed
+        const reason = MIGRATION_REASONS[error.code]
+        if (reason !== undefined) {
           try {
-            router.migrate(
-              req,
-              error.code === 'BOUND_ACCOUNT_COOLDOWN' ? 'quota' : 'unavailable',
-              true,
-            )
+            router.migrate(req, reason, true)
             continue
           } catch (migration) {
             if (!(migration instanceof RouteBlocked) || migration.code !== 'POOL_UNAVAILABLE')
               throw migration
+            // The pinned account will never regain the model, so only the pool's wait applies.
+            if (reason === 'capability') error = migration
           }
         }
         const canWait =
@@ -278,8 +283,7 @@ export class SubscriptionProvider {
               (a) =>
                 ['READY', 'DRAINING', 'COOLDOWN'].includes(a.state) &&
                 !profileLoginHeld(this.store, a.profileRef) &&
-                a.models[req.model] !== undefined &&
-                (req.effort === undefined || a.models[req.model]!.includes(req.effort)) &&
+                serves(a, req.model, req.effort) &&
                 blockedUntil(a, req.model, req.now) === undefined,
             ))
         const resetWait =
