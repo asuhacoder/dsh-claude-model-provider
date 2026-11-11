@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+A real Claude model id, such as `claude-fable-5-2`, works when Claude Code lists that model only under an alias. Claude Code 2.1.322 lists Fable 5.2 only as `fable`, and the same applies to `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-5-5`. Before, such an id failed with `CLAUDE_INVALID_MODEL`, because only listed names were accepted. Now an id that no account lists is matched against the `resolvedModel` that Claude Code reports for each listed row, and the request uses that row. Model info, routing and the default model setting all use this match. An id that no row lists or resolves to still fails with `CLAUDE_INVALID_MODEL`.
+
+A suspended account becomes ready again by itself when the suspension is lifted. Before, the background model list refresh skipped suspended accounts, so the account stayed suspended until a manual **Verify connection**. Now the refresh also reads suspended accounts whose list is more than 6 hours old. If the read succeeds for the same subscription, the account returns to ready, as after **Verify connection**. If the account is still suspended, the next request on it marks it suspended again. If the read fails, the account stays suspended and is retried after 15 minutes.
+
 ## 0.1.0-next.9 — 2026-11-11
 
 A session pinned to an account that no longer offers its model or effort continues on another account that offers it, for example after the pinned account lost `opus` because of a payment problem. Before, every turn of that session failed with `MODEL_CAPABILITY_UNAVAILABLE`, because waiting cannot bring the model back and the session never moved off its pin. Now the session moves to an account that offers the model in a new generation, and the history is sent again as a replay. If that account is busy or blocked by a usage limit, the turn waits, as a new session does. If no other account offers the model, the turn still fails with `MODEL_CAPABILITY_UNAVAILABLE`, also when the pinned account is blocked, which reported `BOUND_ACCOUNT_COOLDOWN` before. A session with an unfinished tool call stays on its pin.
