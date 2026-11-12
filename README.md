@@ -2,7 +2,7 @@
 
 Unofficial Claude subscription provider for DeepSeek Harness. A derivative of snowan/dsh-claude-plugin (MIT). DSH keeps history, tool execution and permission decisions; the unmodified official Claude Agent SDK/CLI supplies inference.
 
-**Experimental.** Development checks use DSH **0.2.2-rc.1**, SDK **0.3.286**, official host CLI **2.1.283**, and Node **24.14.0**. The recorded local text and DSH-owned tool round trip, including a warm query, was run on DSH **0.2.0-rc.2** on macOS arm64. See [implementation evidence](IMPLEMENTATION_REPORT.md) and [capabilities](CAPABILITY_REPORT.json) for exact boundaries. Real multi-account authentication and production release automation are not verified. SDK runtime parity is 2.1.286; the separately installed host CLI is deliberately not upgraded.
+**Experimental.** Development checks use DSH **0.2.2-rc.2**, SDK **0.3.286**, official host CLI **2.1.283**, and Node **24.14.0**. The recorded local text and DSH-owned tool round trip, including a warm query, was run on DSH **0.2.0-rc.2** on macOS arm64. See [implementation evidence](IMPLEMENTATION_REPORT.md) and [capabilities](CAPABILITY_REPORT.json) for exact boundaries. Real multi-account authentication and production release automation are not verified. SDK runtime parity is 2.1.286; the separately installed host CLI is deliberately not upgraded.
 
 English · [日本語](README.ja.md) · [简体中文](README.zh.md) · [License](LICENSE) · [Attribution](THIRD_PARTY_NOTICES.md) · [Usage/distribution terms](COMPLIANCE.md)
 

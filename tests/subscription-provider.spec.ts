@@ -93,7 +93,7 @@ describe('subscription provider request boundary', () => {
         throw new Error('expected quota error')
       const failure = terminal.reason.failure
       expect(failure.code).toBe('BOUND_ACCOUNT_COOLDOWN')
-      expect(() => new LlmError(failure.message, failure.code, failure)).not.toThrow()
+      expect(() => LlmError.fromFailure(failure)).not.toThrow()
       expect(failure).not.toHaveProperty('providerRetryAfterMs')
     } finally {
       await p.dispose()
@@ -111,7 +111,7 @@ describe('subscription provider request boundary', () => {
         throw new Error('expected quota error')
       const failure = terminal.reason.failure
       expect(failure.providerRetryAfterMs).toBeGreaterThan(0)
-      expect(() => new LlmError(failure.message, failure.code, failure)).not.toThrow()
+      expect(() => LlmError.fromFailure(failure)).not.toThrow()
     } finally {
       await p.dispose()
     }

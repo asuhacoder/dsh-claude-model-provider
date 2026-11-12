@@ -34,7 +34,9 @@ export type ClaudeErrorCode = (typeof CLAUDE_ERROR_CODES)[keyof typeof CLAUDE_ER
 /** A stable DSH-facing failure emitted by this adapter. */
 export class ClaudePluginError extends LlmError {
   constructor(code: ClaudeErrorCode, message: string, cause?: unknown, offloadImages?: number) {
-    super(`dsh-claude-plugin: ${message}`, code, {
+    // DSH types `new LlmError` to built-in codes and routes adapter codes through
+    // LlmError.fromFailure, which casts the same way; a subclass cannot use that factory.
+    super(`dsh-claude-plugin: ${message}`, code as ConstructorParameters<typeof LlmError>[1], {
       ...(cause === undefined ? {} : { cause }),
       ...(offloadImages === undefined ? {} : { offloadImages }),
     })

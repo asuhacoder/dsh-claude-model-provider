@@ -365,6 +365,7 @@ describe('dsh-claude-plugin doctor', () => {
       '0.2.2-alpha.2',
       '0.2.2-alpha.3',
       '0.2.2-rc.1',
+      '0.2.2-rc.2',
       '0.2.5-rc.1',
       '0.2.9-rc.1',
       '0.2.9',
