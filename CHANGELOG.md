@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+A `writer.lock` left by a process that crashed or was killed no longer blocks every Claude turn. Before, any new writer failed with `STATE_IN_USE` until someone ran `doctor --recover` or deleted the file. Now, when the lock already exists, the writer runs the same checks as `doctor --recover`. The PID in the lock must be a positive integer, the system must report it as gone (`ESRCH`), and the lock must still name the same owner when it is read again. Only then is the lock removed and taken. A live PID, a PID owned by another user, an unreadable or invalid lock, or a lock that changed owner still fails with `STATE_IN_USE`.
+
+A process that exits normally releases its `writer.lock`, also when it never closed the provider. Before, the lock was released only when the state store was closed, so a host that exited with code 0 left a lock that named its dead PID. A process stopped by a signal still leaves its lock, and the next writer now takes it as above. Closing a store whose lock file is already gone no longer throws.
+
+`doctor --recover` reports `NO_STALE_LOCK` and exits 0 when there is no lock to remove, for example on a second run. Before, it failed with `COMMAND_FAILED`. A lock whose PID is owned by another user now reports `STATE_IN_USE` instead of `COMMAND_FAILED`, and the lock stays.
+
+A turn no longer fails with `CLAUDE_PROTOCOL_ERROR` when Claude Code loses the API stream mid-response and sends the request again inside the same turn. Before, the blocks of the cut-off response were still counted, so the recovered turn failed reconciliation or reused a block index. Now a response that ended without a stop reason is set aside when the next one starts. Its streamed text stays in the DSH stream but leaves reconciliation, and block indices count the whole turn. If the cut-off response had streamed part of a tool call, the turn still fails with `CLAUDE_PROTOCOL_ERROR`, because DSH already holds that call and cannot withdraw it.
+
+A model fallback ends the turn as `CLAUDE_MODEL_REFUSAL` even when the fallback block has no trigger. Claude Code rebuilds the block without its trigger, so the translator threw a `TypeError` instead. The refusal category is taken from the trigger only when the trigger is a refusal.
+
 ## 0.1.0-next.10 — 2026-11-13
 
 A real Claude model id, such as `claude-fable-5-2`, works when Claude Code lists that model only under an alias. Claude Code 2.1.322 lists Fable 5.2 only as `fable`, and the same applies to `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-5-5`. Before, such an id failed with `CLAUDE_INVALID_MODEL`, because only listed names were accepted. Now an id that no account lists is matched against the `resolvedModel` that Claude Code reports for each listed row, and the request uses that row. Model info, routing and the default model setting all use this match. An id that no row lists or resolves to still fails with `CLAUDE_INVALID_MODEL`.

@@ -6,6 +6,7 @@ import {
   readFileSync,
   writeFileSync,
   unlinkSync,
+  rmSync,
   chmodSync,
 } from 'node:fs'
 import { join } from 'node:path'
@@ -41,6 +42,11 @@ function indexKeys(
   }
 }
 
+const openWriters = new Set<StateStore>()
+process.on('exit', () => {
+  for (const store of openWriters) store.close()
+})
+
 export class StateStore {
   readonly db: DatabaseSync
   readonly owner = randomUUID()
@@ -67,16 +73,31 @@ export class StateStore {
     if (directory !== ':memory:') {
       mkdirSync(directory, { recursive: true, mode: 0o700 })
       chmodSync(directory, 0o700)
-      this.lock = join(directory, 'writer.lock')
-      try {
-        const fd = openSync(this.lock, 'wx', 0o600)
+      const lock = (this.lock = join(directory, 'writer.lock'))
+      const acquire = () => {
+        const fd = openSync(lock, 'wx', 0o600)
         writeFileSync(fd, JSON.stringify({ pid: process.pid, owner: this.owner }))
         closeSync(fd)
-      } catch (error) {
-        throw new Error(
+      }
+      const inUse = (cause: unknown) =>
+        new Error(
           'STATE_IN_USE: close the other writer; doctor recovery requires a confirmed dead PID',
-          { cause: error },
+          { cause },
         )
+      try {
+        acquire()
+      } catch (error) {
+        if (!hasCode(error, 'EEXIST')) throw inUse(error)
+        try {
+          recoverStateLock(directory)
+        } catch {
+          throw inUse(error)
+        }
+        try {
+          acquire()
+        } catch (retry) {
+          throw inUse(retry)
+        }
       }
     }
     let opened: DatabaseSync | undefined
@@ -105,6 +126,7 @@ export class StateStore {
       })
       this.indexed = true
       if (directory !== ':memory:') chmodSync(join(directory, 'state.sqlite'), 0o600)
+      if (this.lock) openWriters.add(this)
     } catch (error) {
       opened?.close()
       if (this.lock) unlinkSync(this.lock)
@@ -243,33 +265,51 @@ export class StateStore {
   close(): void {
     if (this.#closed) return
     this.#closed = true
+    openWriters.delete(this)
     this.db.close()
-    if (this.lock) {
-      const row = JSON.parse(readFileSync(this.lock, 'utf8'))
-      if (row.owner === this.owner) unlinkSync(this.lock)
-    }
+    if (this.lock && readLock(this.lock)?.owner === this.owner) rmSync(this.lock, { force: true })
   }
 }
 
-/** Explicit recovery: a live or inaccessible PID is never considered dead. */
-export function recoverStateLock(directory: string): { status: string } {
-  const lock = join(directory, 'writer.lock')
-  let old: { pid: number; owner: string }
+function hasCode(error: unknown, code: string): boolean {
+  return error instanceof Error && 'code' in error && error.code === code
+}
+
+function readLock(lock: string): { pid: number; owner: string } | undefined {
+  let row: unknown
   try {
-    old = JSON.parse(readFileSync(lock, 'utf8'))
+    row = JSON.parse(readFileSync(lock, 'utf8'))
   } catch (error) {
+    if (hasCode(error, 'ENOENT')) return undefined
     throw new Error('RECOVERY_LOCK_UNREADABLE', { cause: error })
   }
-  if (!Number.isInteger(old.pid) || old.pid <= 0 || typeof old.owner !== 'string')
+  if (typeof row !== 'object' || row === null) throw new Error('RECOVERY_LOCK_INVALID')
+  const { pid, owner } = row as Record<string, unknown>
+  if (typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0 || typeof owner !== 'string')
     throw new Error('RECOVERY_LOCK_INVALID')
+  return { pid, owner }
+}
+
+function isDead(pid: number): boolean {
   try {
-    process.kill(old.pid, 0)
-    throw new Error('STATE_IN_USE')
+    process.kill(pid, 0)
+    return false
   } catch (error) {
-    if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) throw error
+    return hasCode(error, 'ESRCH')
   }
-  const current = JSON.parse(readFileSync(lock, 'utf8'))
+}
+
+/** A live or inaccessible PID is never considered dead. */
+export function recoverStateLock(directory: string): {
+  status: 'STALE_LOCK_RECOVERED' | 'NO_STALE_LOCK'
+} {
+  const lock = join(directory, 'writer.lock')
+  const old = readLock(lock)
+  if (old === undefined) return { status: 'NO_STALE_LOCK' }
+  if (!isDead(old.pid)) throw new Error('STATE_IN_USE')
+  const current = readLock(lock)
+  if (current === undefined) return { status: 'NO_STALE_LOCK' }
   if (current.owner !== old.owner) throw new Error('RECOVERY_OWNER_CHANGED')
-  unlinkSync(lock)
+  rmSync(lock, { force: true })
   return { status: 'STALE_LOCK_RECOVERED' }
 }
