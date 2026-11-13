@@ -4,7 +4,7 @@
 
 面向 DeepSeek Harness 的非官方 Claude 订阅提供方插件，基于 snowan/dsh-claude-plugin（MIT）改写。历史记录、工具执行和权限决定仍由 DSH 负责；推理由未经修改的官方 Claude Agent SDK/CLI 完成。
 
-**实验版本。** 开发时的检查对象为 DSH **0.2.2-rc.2**、SDK **0.3.286**、官方主机 CLI **2.1.283** 和 Node **24.14.0**。已记录的本地文本应答与 DSH 工具往返（含 warm query）是在 macOS arm64 上的 DSH **0.2.0-rc.2** 中完成的。确切范围见[实现报告](IMPLEMENTATION_REPORT.md)和[能力清单](CAPABILITY_REPORT.json)。多个真实账号的认证以及正式发布自动化尚未验证。SDK 运行时对应 2.1.286；单独安装的主机 CLI 有意未升级。
+**实验版本。** 开发时的检查对象为 DSH **0.2.2-rc.3**、SDK **0.3.286**、官方主机 CLI **2.1.283** 和 Node **24.14.0**。已记录的本地文本应答与 DSH 工具往返（含 warm query）是在 macOS arm64 上的 DSH **0.2.0-rc.2** 中完成的。确切范围见[实现报告](IMPLEMENTATION_REPORT.md)和[能力清单](CAPABILITY_REPORT.json)。多个真实账号的认证以及正式发布自动化尚未验证。SDK 运行时对应 2.1.286；单独安装的主机 CLI 有意未升级。
 
 [许可证](LICENSE) · [署名](THIRD_PARTY_NOTICES.md) · [使用与分发条款](COMPLIANCE.md)
 

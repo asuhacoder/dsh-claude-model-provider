@@ -1,16 +1,16 @@
 {
   "schema": 1,
-  "verifiedDate": "2026-11-12",
+  "verifiedDate": "2026-11-13",
   "packages": {
     "@deepseek-ai/dsh": {
-      "version": "0.2.2-rc.2",
+      "version": "0.2.2-rc.3",
       "distTags": {
         "alpha": "0.2.2-alpha.3",
-        "next": "0.2.2-rc.2",
-        "latest": "0.2.2-rc.1"
+        "latest": "0.2.2-rc.1",
+        "next": "0.2.2-rc.3"
       },
-      "integrity": "sha512-J727r2C471x2cYXGjqZ0D9T1ZyaYQDFH/Ynx8iq+85oslM4nky5YTBnbAuTtxMhW7nhY8wuAEfjjFCQ+K6Swgw==",
-      "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh/-/dsh-0.2.2-rc.2.tgz",
+      "integrity": "sha512-S+4oUYVKWuc1SCMMp1mpUa2llxVy0o9gIgp7TDg/Ea7PuvXVkAfnykqSH1/oDXVB+y5VzEm0QIJulo1LIB3qRg==",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh/-/dsh-0.2.2-rc.3.tgz",
       "engines": {
         "node": ">=24.9.0"
       },
@@ -21,14 +21,14 @@
       }
     },
     "@deepseek-ai/dsh-llm": {
-      "version": "0.2.2-rc.2",
+      "version": "0.2.2-rc.3",
       "distTags": {
         "latest": "0.0.1-rc.1",
         "alpha": "0.2.2-alpha.3",
-        "next": "0.2.2-rc.2"
+        "next": "0.2.2-rc.3"
       },
-      "integrity": "sha512-JPUhqQP4Z/XGX0t7fNvzPUoCSzBRar1ZLbpbZ/evCCvoBVFKtONbKLUyIyS2GOw6Z8bnCEbCIs2Da25SZ6aiVQ==",
-      "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh-llm/-/dsh-llm-0.2.2-rc.2.tgz",
+      "integrity": "sha512-WdpGURXwBmFchHE7k8o+PUtncjPjU4NNkpnv4lBWT02ZrA+2sIF0WwcU3L/g40QmT6C9yRtFEUe+2GhpzUcTWQ==",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh-llm/-/dsh-llm-0.2.2-rc.3.tgz",
       "engines": null,
       "repository": {
         "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
@@ -37,14 +37,14 @@
       }
     },
     "@deepseek-ai/dsh-attachment": {
-      "version": "0.2.2-rc.2",
+      "version": "0.2.2-rc.3",
       "distTags": {
         "latest": "0.0.1-rc.1",
         "alpha": "0.2.2-alpha.3",
-        "next": "0.2.2-rc.2"
+        "next": "0.2.2-rc.3"
       },
-      "integrity": "sha512-RJhEhhOUVG2+iw1XT5B3o3xjB3xiNuBFLacY9pAfxkpnu34SgQ0D4Ejynpb3XQJwZgxWYmizwGTv1HszDnWk8w==",
-      "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh-attachment/-/dsh-attachment-0.2.2-rc.2.tgz",
+      "integrity": "sha512-lTWxyJXEDN7QXQ2voe3EAyxnqLaiM7a/m2VoBBEK5aFSxNNjC6Dkl/TkPQHc5/56DFHICvqWp8im9MZiHwh3qg==",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh-attachment/-/dsh-attachment-0.2.2-rc.3.tgz",
       "engines": null,
       "repository": {
         "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
@@ -53,14 +53,14 @@
       }
     },
     "@deepseek-ai/dsh-subprocess": {
-      "version": "0.2.2-rc.2",
+      "version": "0.2.2-rc.3",
       "distTags": {
         "latest": "0.0.1-rc.1",
         "alpha": "0.2.2-alpha.3",
-        "next": "0.2.2-rc.2"
+        "next": "0.2.2-rc.3"
       },
-      "integrity": "sha512-DOruaElBxbdcIbtbo/1YUHJ58BrsMNZMZe5KahyxTbh28pBgknw6znPhRyeJExrsujegsTyFgdM8GNfsNG279w==",
-      "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh-subprocess/-/dsh-subprocess-0.2.2-rc.2.tgz",
+      "integrity": "sha512-B8T44mlbjlQInQdS69uI8F+5q5z7tZCuhFhGrlx61JD+Slr+4BbXYlpeX1DZRmu+myq/L+QcpN/8YPFftn+URA==",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh-subprocess/-/dsh-subprocess-0.2.2-rc.3.tgz",
       "engines": null,
       "repository": {
         "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
@@ -69,14 +69,14 @@
       }
     },
     "@deepseek-ai/dsh-subprocess-local": {
-      "version": "0.2.2-rc.2",
+      "version": "0.2.2-rc.3",
       "distTags": {
         "latest": "0.0.1-rc.1",
         "alpha": "0.2.2-alpha.3",
-        "next": "0.2.2-rc.2"
+        "next": "0.2.2-rc.3"
       },
-      "integrity": "sha512-EKiGs3ga7sMgut3mSOXmxDLA227pIGwpUb6VXRkL0jseGzIiz68EfqZZscS/uljXehLtHiXCaWA7+BM5AgIfzQ==",
-      "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh-subprocess-local/-/dsh-subprocess-local-0.2.2-rc.2.tgz",
+      "integrity": "sha512-yaayyzGRtJJVIG+KrLDAy1qTf5Bw3BnAuXV0f+qrOVOSWMBqBSrwSUmffBhpONztdbgdeMYgBOQ0oy+NwH73KQ==",
+      "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh-subprocess-local/-/dsh-subprocess-local-0.2.2-rc.3.tgz",
       "engines": null,
       "repository": {
         "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
