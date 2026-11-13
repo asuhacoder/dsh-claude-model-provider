@@ -50,6 +50,8 @@ const MIGRATION_REASONS: Partial<Record<string, Parameters<StickyRouter['migrate
   BOUND_ACCOUNT_UNAVAILABLE: 'unavailable',
   MODEL_CAPABILITY_UNAVAILABLE: 'capability',
 }
+// Stored on the account so separate headless processes share one recheck per interval.
+export const AUTH_RECHECK_INTERVAL_MS = 60_000
 const hash = (x: unknown) => createHash('sha256').update(canonicalToolJson(x)).digest('hex')
 export interface ManagedBridge {
   stream(options: GenerateOptions, model: string): AsyncIterable<StreamChunk>
@@ -246,6 +248,41 @@ export class SubscriptionProvider {
       void this.#release(session)
     }
   }
+  async #checkLogin(account: Account, signal: AbortSignal): Promise<void> {
+    const store = this.store
+    const releaseAuth = await this.#auth.acquire(account.identity, signal)
+    this.#authPending++
+    const authPromise = Promise.resolve()
+      .then(() =>
+        (this.dependencies.authenticate ?? assertAccount)(store, this.config.claudeCommand, account),
+      )
+      .finally(() => {
+        releaseAuth()
+        this.#authPending--
+        this.#closeIfIdle()
+      })
+    await abortable(authPromise, signal)
+  }
+  async #recheckLogin(identity: string, signal: AbortSignal): Promise<boolean> {
+    try {
+      const store = this.store,
+        account = store.get<Account>('accounts', identity),
+        now = this.now()
+      if (!account?.extraUsageOffConfirmedAt || profileLoginHeld(store, account.profileRef))
+        return false
+      if (
+        account.authRecheckedAt !== undefined &&
+        now - account.authRecheckedAt < AUTH_RECHECK_INTERVAL_MS
+      )
+        return false
+      account.authRecheckedAt = now
+      store.set('accounts', identity, account)
+      await this.#checkLogin(account, signal)
+      return true
+    } catch {
+      return false
+    }
+  }
   async #route(
     router: StickyRouter,
     req: RouteRequest,
@@ -263,6 +300,25 @@ export class SubscriptionProvider {
         return router.route(req)
       } catch (routed) {
         if (!(routed instanceof RouteBlocked)) throw routed
+        const pinned = (
+          routed.code === 'BOUND_ACCOUNT_UNAVAILABLE' && bound
+            ? [router.store.get<Account>('accounts', bound.identity)]
+            : routed.code === 'POOL_UNAVAILABLE'
+              ? this.accounts().filter((a) => serves(a, req.model, req.effort))
+              : []
+        ).filter((a): a is Account => a?.state === 'AUTH_REQUIRED')
+        let restored = false
+        for (const account of pinned) {
+          if (!(await this.#recheckLogin(account.identity, signal))) continue
+          restored = true
+          router.store.transaction(() => {
+            const latest = router.store.get<Account>('accounts', account.identity)
+            if (latest?.state !== 'AUTH_REQUIRED') return
+            latest.state = 'READY'
+            router.store.set('accounts', latest.identity, latest)
+          })
+        }
+        if (restored) continue
         let error = routed
         const reason = MIGRATION_REASONS[error.code]
         if (reason !== undefined) {
@@ -449,22 +505,7 @@ export class SubscriptionProvider {
           phase: 'checking-official-login',
           identity: account.identity,
         })
-        const releaseAuth = await this.#auth.acquire(account.identity, signal)
-        this.#authPending++
-        const authPromise = Promise.resolve()
-          .then(() =>
-            (this.dependencies.authenticate ?? assertAccount)(
-              store,
-              this.config.claudeCommand,
-              account,
-            ),
-          )
-          .finally(() => {
-            releaseAuth()
-            this.#authPending--
-            this.#closeIfIdle()
-          })
-        await abortable(authPromise, signal)
+        await this.#checkLogin(account, signal)
         const current = store.get<Account>('accounts', account.identity)
         if (!current?.extraUsageOffConfirmedAt)
           throw new RouteBlocked('EXTRA_USAGE_OFF_UNCONFIRMED')
@@ -563,7 +604,8 @@ export class SubscriptionProvider {
         sdkRetries += state.sdkRetries
         if (thrown !== undefined || terminal?.reason.kind === 'error') {
           if (
-            state.failure === 'auth' ||
+            (state.failure === 'auth' &&
+              !(await this.#recheckLogin(account.identity, signal))) ||
             state.failure === 'suspended' ||
             state.failure === 'billing'
           ) {

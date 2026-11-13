@@ -26,6 +26,7 @@ export interface Account {
   state: AccountState
   verifiedAt: number
   extraUsageOffConfirmedAt?: number
+  authRecheckedAt?: number
   modelsRefreshedAt?: number
   models: Record<string, string[]>
   modelMetadata?: Record<string, ModelPresentation>
