@@ -324,6 +324,23 @@ describe('pending DSH tool correlation', () => {
     expect(absent.failures).toHaveLength(1)
   })
 
+  it('accepts a handler that registers 8 seconds late under host load', async () => {
+    vi.useFakeTimers()
+    const { failures, pending } = fixture()
+    const boundary = pending.assertBoundary([call('loaded', 'read_image')], 1)
+    await vi.advanceTimersByTimeAsync(8_000)
+    const parked = pending.register({
+      id: 'loaded',
+      name: 'read_image',
+      arguments: {},
+      generation: 1,
+    })
+    await boundary
+    await pending.resolveBatch([result('loaded')])
+    await expect(parked).resolves.toMatchObject({ content: [{ text: 'loaded' }] })
+    expect(failures).toHaveLength(0)
+  })
+
   it('rejects aborted waits, already-aborted handlers, and invalid registrations', async () => {
     const waiting = fixture()
     const boundaryController = new AbortController()
