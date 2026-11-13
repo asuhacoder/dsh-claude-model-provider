@@ -1,6 +1,10 @@
-# Release status — 2026-11-11
+# Release status — 2026-11-13
 
-## Current candidate: 0.1.0-next.9
+## Current candidate: 0.1.0-next.10
+
+A `v0.1.0-next.10` tag on `main` publishes the CI-verified tarball to npm `next` with provenance and creates the GitHub prerelease. `latest` is unchanged. It contains the match of real model ids behind aliases, the return of a suspended account to ready through the background model list refresh, and the build against DSH 0.2.2-rc.2 described in CHANGELOG.md. No real-account run of this exact artifact is claimed.
+
+## Historical candidate: 0.1.0-next.9
 
 A `v0.1.0-next.9` tag on `main` publishes the CI-verified tarball to npm `next` with provenance and creates the GitHub prerelease. `latest` is unchanged. It contains the move of a session whose pinned account lost its model, the probe that clears a usage-limit block lifted early, the background refresh of the saved official model list, and the failure-row and login-commit fixes described in CHANGELOG.md. No real-account run of this exact artifact is claimed.
 
