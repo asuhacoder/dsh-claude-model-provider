@@ -1,10 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-next.10 — 2026-11-13
 
 A real Claude model id, such as `claude-fable-5-2`, works when Claude Code lists that model only under an alias. Claude Code 2.1.322 lists Fable 5.2 only as `fable`, and the same applies to `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-5-5`. Before, such an id failed with `CLAUDE_INVALID_MODEL`, because only listed names were accepted. Now an id that no account lists is matched against the `resolvedModel` that Claude Code reports for each listed row, and the request uses that row. Model info, routing and the default model setting all use this match. An id that no row lists or resolves to still fails with `CLAUDE_INVALID_MODEL`.
 
 A suspended account becomes ready again by itself when the suspension is lifted. Before, the background model list refresh skipped suspended accounts, so the account stayed suspended until a manual **Verify connection**. Now the refresh also reads suspended accounts whose list is more than 6 hours old. If the read succeeds for the same subscription, the account returns to ready, as after **Verify connection**. If the account is still suspended, the next request on it marks it suspended again. If the read fails, the account stays suspended and is retried after 15 minutes.
+
+The plugin builds against DSH 0.2.2-rc.2. That release types the `LlmError` constructor to DSH's built-in failure codes, so the plugin's error class now casts its own code at that one call, as `LlmError.fromFailure` does. Behavior is unchanged, and the plugin's failure codes stay the same. Development checks now use DSH 0.2.2-rc.2. The peer and engines ranges are unchanged and still stop below `0.3.0-0`.
 
 ## 0.1.0-next.9 — 2026-11-11
 

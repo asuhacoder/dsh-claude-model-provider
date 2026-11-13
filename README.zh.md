@@ -14,7 +14,7 @@
 dsh plugin --profile web add @asuha/dsh-claude-model-provider@next --ignore-scripts
 ```
 
-npm 的 `next` 标签指向最近发布的实验版本。当前版本为 `0.1.0-next.9`，发布记录见[发布状态](RELEASE_STATUS.md)。也可以安装之前固定版本的 GitHub 发布包：
+npm 的 `next` 标签指向最近发布的实验版本。当前版本为 `0.1.0-next.10`，发布记录见[发布状态](RELEASE_STATUS.md)。也可以安装之前固定版本的 GitHub 发布包：
 
 ```sh
 dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-provider/releases/download/v0.1.0-next.4/asuha-dsh-claude-model-provider-0.1.0-next.4.tgz --ignore-scripts
@@ -30,10 +30,10 @@ dsh plugin --profile web add https://github.com/asuhacoder/dsh-claude-model-prov
 pnpm install --frozen-lockfile --ignore-scripts
 pnpm build
 pnpm release:dry-run
-dsh plugin --profile web add ./dist/asuha-dsh-claude-model-provider-0.1.0-next.9.tgz --ignore-scripts
+dsh plugin --profile web add ./dist/asuha-dsh-claude-model-provider-0.1.0-next.10.tgz --ignore-scripts
 ```
 
-插件只添加 `claude-sdk-local`，不会更改已选模型，也不会替换 Subscription Plugin。重启 DSH 后选择 **Claude Subscription / Claude Opus 5.5**。模型名称、版本、说明和顺序来自官方 Claude 模型列表。旧的 `default` ID 在已有对话中仍可使用，但不再作为额外条目出现在选择器中。升级后，可在 Claude 设置中使用 **验证连接** 刷新已保存的模型名称。
+插件只添加 `claude-sdk-local`，不会更改已选模型，也不会替换 Subscription Plugin。重启 DSH 后选择 **Claude Subscription / Claude Opus 5.5**。模型名称、版本、说明和顺序来自官方 Claude 模型列表。旧的 `default` ID 在已有对话中仍可使用，但不再作为额外条目出现在选择器中。已保存的模型列表超过 6 小时后会在后台刷新，因此无需点击 **验证连接** 即可显示新的官方模型；刷新失败时继续使用上一次成功获取的列表。列表来自已安装的 Claude Code，因此 Claude Code 尚未提供的模型在其提供之前不会显示。即使 Claude Code 只以 `fable` 这样的别名列出某个模型，也可以使用 `claude-fable-5-2` 这样的实际模型 ID。已暂停的账号在暂停解除后，会通过同一刷新恢复为就绪状态。
 
 生成前，请在 DSH 设置 → Claude 订阅 中登记已有的官方登录。也可以在 DSH 停止时使用已安装的 CLI（不会复制令牌）：
 
