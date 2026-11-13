@@ -8,7 +8,7 @@ import { canonicalToolJson, matchesEmittedToolArguments } from './json.js'
 
 export { canonicalToolJson } from './json.js'
 
-export const MCP_HANDLER_REGISTRATION_TIMEOUT_MS = 5_000
+export const MCP_HANDLER_REGISTRATION_TIMEOUT_MS = 30_000
 
 export interface PendingToolRegistration {
   readonly id: string
