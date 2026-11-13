@@ -84,6 +84,13 @@ function resultFailure(error: SDKAssistantMessageError | undefined, result: SDKR
   }
 }
 
+/** One API response inside the SDK turn, as positions into the translator's block lists. */
+interface ResponseSpan {
+  readonly closedFrom: number
+  readonly completedFrom: number
+  stopReason: string | null
+}
+
 interface Refusal {
   readonly category?: string | null | undefined
   readonly explanation?: string | null | undefined
@@ -133,6 +140,12 @@ function firstBlockDifference(
   return undefined
 }
 
+function abandonedToolCall() {
+  return protocolError(
+    'Claude Code resent a response after streaming part of a tool call that DSH cannot withdraw',
+  )
+}
+
 function finish(reason: FinishReason): StreamChunk {
   return { type: 'finish', reason }
 }
@@ -153,6 +166,9 @@ export class ClaudeOutputTranslator {
   readonly #open = new Map<number, OpenBlock>()
   readonly #closed: ContentBlock[] = []
   readonly #completed: ContentBlock[] = []
+  /** Streamed blocks of a response Claude Code abandoned; DSH has them, Claude never completes them. */
+  readonly #abandoned = new Set<ContentBlock>()
+  #response: ResponseSpan | undefined
   readonly #unavailableTools = new Map<string, { name: string; denied: boolean }>()
   readonly #ignoredBlocks = new Set<number>()
   readonly #outputIndices = new Map<number, number>()
@@ -219,21 +235,29 @@ export class ClaudeOutputTranslator {
     }
     const event = message.event
     switch (event.type) {
-      case 'message_start':
+      case 'message_start': {
+        const chunks = this.#abandonUnfinishedResponse()
+        this.#response = {
+          closedFrom: this.#closed.length,
+          completedFrom: this.#completed.length,
+          stopReason: null,
+        }
         this.usage.observeCall(event.message.usage, true)
-        if (!this.stopAtOutputLimit) return []
+        if (!this.stopAtOutputLimit) return chunks
         this.#partialUsage = {
           inputTokens: event.message.usage.input_tokens,
           outputTokens: event.message.usage.output_tokens,
           cacheReadTokens: event.message.usage.cache_read_input_tokens ?? 0,
           cacheWriteTokens: event.message.usage.cache_creation_input_tokens ?? 0,
         }
-        return []
+        return chunks
+      }
       case 'message_stop':
         return []
       case 'message_delta':
         this.usage.observeCall(event.usage, false)
         this.#messageStopReason = event.delta.stop_reason
+        if (this.#response !== undefined) this.#response.stopReason = event.delta.stop_reason
         this.#partialUsage = { ...this.#partialUsage, outputTokens: event.usage.output_tokens }
         if (this.stopAtOutputLimit && event.delta.stop_reason === 'max_tokens') {
           if (this.#open.size > 0)
@@ -294,7 +318,8 @@ export class ClaudeOutputTranslator {
           )
         }
         this.#open.set(event.index, block)
-        const index = this.recoverUnavailableTools ? this.#nextOutputIndex++ : event.index
+        // A resent response numbers its blocks from 0 again, so DSH indices count the whole turn.
+        const index = this.#nextOutputIndex++
         this.#outputIndices.set(event.index, index)
         const chunks: StreamChunk[] = [{ type: 'block-start', index, blockType: block.type }]
         if (block.type === 'tool-call') {
@@ -404,6 +429,34 @@ export class ClaudeOutputTranslator {
       name: block.name,
       arguments: adopted ? completed.arguments : rawArguments,
     }
+  }
+
+  /**
+   * Claude Code closes a response it cut off mid-stream, ends it without a stop reason, and sends
+   * it again. The blocks it never completed stay in DSH's stream but leave reconciliation.
+   */
+  #abandonUnfinishedResponse(): StreamChunk[] {
+    const response = this.#response
+    if (response === undefined || response.stopReason !== null) return []
+    const chunks: StreamChunk[] = []
+    for (const [eventIndex, block] of this.#open) {
+      if (block.type === 'tool-call') throw abandonedToolCall()
+      const content = this.#materialize(block)
+      this.#closed.push(content)
+      chunks.push({
+        type: 'block-end',
+        index: this.#outputIndices.get(eventIndex)!,
+        block: content,
+      })
+      this.#outputIndices.delete(eventIndex)
+    }
+    this.#open.clear()
+    const completed = this.#completed.length - response.completedFrom
+    for (const block of this.#closed.slice(response.closedFrom + completed)) {
+      if (block.type === 'tool-call') throw abandonedToolCall()
+      this.#abandoned.add(block)
+    }
+    return chunks
   }
 
   #assistant(message: Extract<SDKMessage, { type: 'assistant' }>): StreamChunk[] {
@@ -516,15 +569,16 @@ export class ClaudeOutputTranslator {
       throw toolProtocolError(
         `Claude emitted non-DSH tool ${JSON.stringify(unconfirmed.name)} without a confirmed SDK unavailable-tool rejection`,
       )
-    if (this.#closed.length > 0 && this.#completed.length === 0) {
+    const streamed = this.#closed.filter((block) => !this.#abandoned.has(block))
+    if (streamed.length > 0 && this.#completed.length === 0) {
       throw protocolError('Claude omitted completed assistant reconciliation messages')
     }
-    if (this.#completed.length > 0 && !sameBlocks(this.#closed, this.#completed)) {
+    if (this.#completed.length > 0 && !sameBlocks(streamed, this.#completed)) {
       const error = protocolError('Claude partial and completed assistant content did not reconcile')
       noteFailureDetail(error, {
-        partialBlocks: this.#closed.length,
+        partialBlocks: streamed.length,
         completedBlocks: this.#completed.length,
-        firstDifference: firstBlockDifference(this.#closed, this.#completed) ?? 'unspecified',
+        firstDifference: firstBlockDifference(streamed, this.#completed) ?? 'unspecified',
       })
       throw error
     }
