@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { transformSync } from 'esbuild'
 import { StateStore } from '../src/storage/store.js'
 import { runProviderCli } from '../src/provider-cli.js'
@@ -86,7 +87,7 @@ describe('writer.lock on clean process exit', () => {
           '--no-warnings',
           '--input-type=module',
           '-e',
-          `const { StateStore } = await import(${JSON.stringify(module)})
+          `const { StateStore } = await import(${JSON.stringify(pathToFileURL(module).href)})
            new StateStore(${JSON.stringify(join(dir, 'state'))}).set('fixture', 'x', 1)
            ${exit}`,
         ],
