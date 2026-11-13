@@ -12,6 +12,8 @@ A turn no longer fails with `CLAUDE_PROTOCOL_ERROR` when Claude Code loses the A
 
 A model fallback ends the turn as `CLAUDE_MODEL_REFUSAL` even when the fallback block has no trigger. Claude Code rebuilds the block without its trigger, so the translator threw a `TypeError` instead. The refusal category is taken from the trigger only when the trigger is a refusal.
 
+A tool call no longer fails when the machine is busy and Claude's MCP handler registers late. Before, the plugin waited 5 seconds for the handler at the tool boundary and then failed with `CLAUDE_TOOL_PROTOCOL_ERROR` (`Claude MCP handlers did not register before the tool boundary`). Under heavy load the handler arrived after about 8 seconds, so `read_image` failed even though it would have worked. Now the wait is 30 seconds. Nothing is retried. Cancelling the request still ends the wait at once, and a handler that never registers still fails with the same error.
+
 ## 0.1.0-next.10 — 2026-11-13
 
 A real Claude model id, such as `claude-fable-5-2`, works when Claude Code lists that model only under an alias. Claude Code 2.1.322 lists Fable 5.2 only as `fable`, and the same applies to `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-5-5`. Before, such an id failed with `CLAUDE_INVALID_MODEL`, because only listed names were accepted. Now an id that no account lists is matched against the `resolvedModel` that Claude Code reports for each listed row, and the request uses that row. Model info, routing and the default model setting all use this match. An id that no row lists or resolves to still fails with `CLAUDE_INVALID_MODEL`.
