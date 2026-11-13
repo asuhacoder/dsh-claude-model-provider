@@ -96,6 +96,14 @@ interface Refusal {
   readonly explanation?: string | null | undefined
 }
 
+// A fallback block marks a hop where a model declined, so it is always a refusal. Claude Code
+// rebuilds the block as {type, from, to} and drops `trigger`, despite what the SDK type says.
+function fallbackRefusal({ trigger }: { readonly trigger?: unknown }): Refusal {
+  if (typeof trigger !== 'object' || trigger === null) return {}
+  const { type, category } = trigger as { readonly type?: unknown; readonly category?: unknown }
+  return type === 'refusal' && typeof category === 'string' ? { category } : {}
+}
+
 function refusalFailure({ category, explanation }: Refusal) {
   return claudeError(
     CLAUDE_ERROR_CODES.modelRefusal,
@@ -311,7 +319,7 @@ export class ClaudeOutputTranslator {
             startedWithArguments: initial.length > 0,
           }
         } else if (content.type === 'fallback') {
-          return this.#refuse({ category: content.trigger.category })
+          return this.#refuse(fallbackRefusal(content))
         } else {
           throw protocolError(
             `Claude emitted unsupported ${JSON.stringify(content.type)} content while only DSH MCP tools were enabled`,
@@ -480,7 +488,7 @@ export class ClaudeOutputTranslator {
           arguments: completedToolArguments(block.input),
         })
       } else if (block.type === 'fallback') {
-        return this.#refuse({ category: block.trigger.category })
+        return this.#refuse(fallbackRefusal(block))
       } else if (message.error === undefined) {
         throw protocolError(
           `Claude completed unsupported ${JSON.stringify(block.type)} content while only DSH MCP tools were enabled`,

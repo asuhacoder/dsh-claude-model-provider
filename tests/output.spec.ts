@@ -1281,6 +1281,29 @@ describe('Claude model refusal', () => {
     expect(translator.complete).toBe(true)
   })
 
+  describe.each([
+    [
+      'without a trigger, as Claude Code rebuilds it',
+      { from: fallbackBlock.from, to: fallbackBlock.to },
+    ],
+    ['with a null trigger', { from: fallbackBlock.from, to: fallbackBlock.to, trigger: null }],
+  ])('a fallback block %s', (_name, shape) => {
+    const block = { type: 'fallback', ...shape }
+    it.each([
+      ['streamed', [envelope({ type: 'content_block_start', index: 0, content_block: block })]],
+      ['completed', [assistant([block])]],
+    ])('ends the turn as an uncategorized refusal when %s', (_how, messages) => {
+      const translator = new ClaudeOutputTranslator(new UsageTracker())
+      const finished = acceptAll(translator, messages).at(-1)
+      expect(finished).toMatchObject({
+        type: 'finish',
+        reason: { kind: 'error', failure: { code: 'CLAUDE_MODEL_REFUSAL' } },
+      })
+      expect(JSON.stringify(finished)).not.toContain('refusal category')
+      expect(translator.complete).toBe(true)
+    })
+  })
+
   it('keeps other unknown content types as protocol errors', () => {
     const mystery = { type: 'mystery' }
     for (const messages of [
