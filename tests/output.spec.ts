@@ -1059,6 +1059,173 @@ describe('Claude output translation', () => {
   })
 })
 
+// Shapes recorded live from Claude Code 2.1.x with its stream cut mid-response: Claude Code
+// closes the open block itself, ends that response without a stop reason, and sends it again.
+describe('Claude Code resending a response it cut off mid-stream', () => {
+  const messageStart = envelope({
+    type: 'message_start',
+    message: { usage: { input_tokens: 1, output_tokens: 1 } },
+  })
+  const apiRetry = sdk({
+    type: 'system',
+    subtype: 'api_retry',
+    attempt: 1,
+    max_retries: 10,
+    retry_delay_ms: 500,
+    error_status: null,
+    error: 'unknown',
+    uuid: crypto.randomUUID(),
+    session_id: session,
+  })
+  const thinking = { type: 'thinking', thinking: '', signature: '' }
+  const grepUse = {
+    type: 'tool_use',
+    id: 'toolu_grep_retried',
+    name: 'mcp__dsh__grep',
+    input: {},
+  }
+
+  function cutReasoning(): SDKMessage[] {
+    return [
+      messageStart,
+      envelope({ type: 'content_block_start', index: 0, content_block: thinking }),
+      envelope({ type: 'content_block_stop', index: 0 }),
+      envelope({ type: 'message_stop' }),
+      apiRetry,
+    ]
+  }
+
+  function resentToolCall(completedInput: Record<string, unknown>): SDKMessage[] {
+    return [
+      messageStart,
+      envelope({ type: 'content_block_start', index: 0, content_block: thinking }),
+      assistant([thinking]),
+      envelope({ type: 'content_block_stop', index: 0 }),
+      envelope({ type: 'content_block_start', index: 1, content_block: grepUse }),
+      envelope({
+        type: 'content_block_delta',
+        index: 1,
+        delta: { type: 'input_json_delta', partial_json: '{"pattern": "dir_path\\\\s*=\\\\' },
+      }),
+      envelope({
+        type: 'content_block_delta',
+        index: 1,
+        delta: { type: 'input_json_delta', partial_json: 's*fields", "path": "/repo"}' },
+      }),
+      assistant([{ ...grepUse, input: completedInput }]),
+      envelope({ type: 'content_block_stop', index: 1 }),
+    ]
+  }
+
+  it('reconciles the resent tool call against the completed message', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    const chunks = acceptAll(translator, [
+      ...cutReasoning(),
+      ...resentToolCall({ pattern: 'dir_path\\s*=\\s*fields', path: '/repo' }),
+    ])
+
+    expect(chunks.filter((chunk) => chunk.type === 'block-start')).toEqual([
+      { type: 'block-start', index: 0, blockType: 'reasoning' },
+      { type: 'block-start', index: 1, blockType: 'reasoning' },
+      { type: 'block-start', index: 2, blockType: 'tool-call' },
+    ])
+    expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'tool-calls' } })
+    expect(translator.toolCalls).toEqual([
+      {
+        type: 'tool-call',
+        id: 'toolu_grep_retried',
+        name: 'grep',
+        arguments: '{"pattern": "dir_path\\\\s*=\\\\s*fields", "path": "/repo"}',
+      },
+    ])
+    expect(translator.outputBlocks.map((block) => block.type)).toEqual([
+      'reasoning',
+      'reasoning',
+      'tool-call',
+    ])
+  })
+
+  it('still rejects a resent tool call whose completed input differs', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    let thrown: unknown
+    try {
+      acceptAll(translator, [
+        ...cutReasoning(),
+        ...resentToolCall({ pattern: 'dir_path', path: '/repo' }),
+      ])
+    } catch (error) {
+      thrown = error
+    }
+    expect(thrown).toBeInstanceOf(ClaudePluginError)
+    expect(describeFailureDetail(thrown)).toEqual({
+      partialBlocks: 2,
+      completedBlocks: 2,
+      firstDifference: 'index:1:arguments',
+    })
+  })
+
+  it('finishes a resent text answer and keeps the cut-off prefix DSH already streamed', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    const text = (value: string) => ({ type: 'text', text: value, citations: null })
+    const chunks = acceptAll(translator, [
+      messageStart,
+      envelope({ type: 'content_block_start', index: 0, content_block: text('The ans') }),
+      envelope({ type: 'content_block_stop', index: 0 }),
+      envelope({
+        type: 'message_delta',
+        delta: { stop_reason: null },
+        usage: { output_tokens: 2 },
+      }),
+      envelope({ type: 'message_stop' }),
+      apiRetry,
+      messageStart,
+      envelope({ type: 'content_block_start', index: 0, content_block: text('The answer') }),
+      assistant([text('The answer')]),
+      envelope({ type: 'content_block_stop', index: 0 }),
+      envelope({
+        type: 'message_delta',
+        delta: { stop_reason: 'end_turn' },
+        usage: { output_tokens: 3 },
+      }),
+      envelope({ type: 'message_stop' }),
+      result(),
+    ])
+
+    expect(chunks.filter((chunk) => chunk.type === 'block-end')).toEqual([
+      { type: 'block-end', index: 0, block: { type: 'text', text: 'The ans' } },
+      { type: 'block-end', index: 1, block: { type: 'text', text: 'The answer' } },
+    ])
+    expect(chunks.at(-1)).toEqual({ type: 'finish', reason: { kind: 'stop' } })
+  })
+
+  it('fails closed when the cut-off response had already streamed a tool call to DSH', () => {
+    const closedByClaudeCode = [
+      envelope({ type: 'content_block_start', index: 0, content_block: grepUse }),
+      envelope({ type: 'content_block_stop', index: 0 }),
+      envelope({ type: 'message_stop' }),
+    ]
+    const stillOpen = [
+      envelope({ type: 'content_block_start', index: 0, content_block: grepUse }),
+      envelope({
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'input_json_delta', partial_json: '{"pattern":' },
+      }),
+    ]
+    for (const cut of [closedByClaudeCode, stillOpen]) {
+      const translator = new ClaudeOutputTranslator(new UsageTracker())
+      acceptAll(translator, [messageStart, ...cut, apiRetry])
+      let thrown: unknown
+      try {
+        translator.accept(messageStart)
+      } catch (error) {
+        thrown = error
+      }
+      expect(thrown).toMatchObject({ code: 'CLAUDE_PROTOCOL_ERROR' })
+    }
+  })
+})
+
 describe('Claude model refusal', () => {
   const explanation = 'This request looks like it targets systems you do not own.'
   const fallbackBlock = {
