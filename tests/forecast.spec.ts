@@ -103,7 +103,7 @@ it('keeps shadow predictions inactive and falls back for unknown capacity, data 
   const req = { session: 's', requestId: 'r', model: 'opus', effort: 'low', now },
     h = Array.from({ length: 12 }, (_, i) => ({ at: now - i * 100, work: 1, durationMs: 10 })),
     pool = [a('A'), a('B')]
-  expect(shadowForecast(pool, req, [], h)).toMatchObject({
+  expect(shadowForecast(pool, req, [], h, () => 0)).toMatchObject({
     mode: 'shadow',
     reason: 'holdout-required-before-activation',
   })
