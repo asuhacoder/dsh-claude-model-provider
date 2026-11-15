@@ -309,59 +309,71 @@ describe('settled ledger and usage retention', () => {
   })
 })
 
+function ledgerOnDisk(rows: number) {
+  const dir = mkdtempSync(join(tmpdir(), 'ledger-scale-'))
+  const store = new StateStore(dir)
+  store.transaction(() => {
+    for (let i = 0; i < rows; i++) {
+      const session = i < 2 ? 'hot' : `s${i % 40}`
+      const callId = i < 2 ? `pending-${i}` : `c${i}`
+      const turn = 'turn'
+      const key = JSON.stringify([session, turn, callId])
+      store.set('ledger', key, {
+        key,
+        session,
+        turn,
+        callId,
+        argsDigest: 'ab'.repeat(32),
+        state: 'PROPOSED' as const,
+        pad: 'x'.repeat(280),
+      })
+    }
+  })
+  return { dir, store, ledger: new ToolLedger(store) }
+}
+
+function timedRequest({ store, ledger }: ReturnType<typeof ledgerOnDisk>, n: number) {
+  return store.transaction(() => {
+    const start = performance.now()
+    const open = ledger.unresolved('hot')
+    ledger.unresolved('hot')
+    ledger.unresolved('hot')
+    ledger.propose('hot', 'turn', `fresh-${n}`, { n })
+    ledger.settle('hot', `fresh-${n}`, false)
+    ledger.unresolved('hot')
+    return { open, ms: performance.now() - start }
+  })
+}
+
 describe('ledger request cost', () => {
   it(
-    'looks up one request without parsing the rest of a large ledger',
+    'looks up one request without parsing or scanning the rest of a large ledger',
     () => {
-      const dir = mkdtempSync(join(tmpdir(), 'ledger-scale-'))
-      const store = new StateStore(dir)
+      const large = ledgerOnDisk(100_000)
+      const small = ledgerOnDisk(1_000)
       try {
-        store.transaction(() => {
-          for (let i = 0; i < 100_000; i++) {
-            const session = i < 2 ? 'hot' : `s${i % 40}`
-            const callId = i < 2 ? `pending-${i}` : `c${i}`
-            const turn = 'turn'
-            const key = JSON.stringify([session, turn, callId])
-            store.set('ledger', key, {
-              key,
-              session,
-              turn,
-              callId,
-              argsDigest: 'ab'.repeat(32),
-              state: 'PROPOSED' as const,
-              pad: 'x'.repeat(280),
-            })
-          }
-        })
-        const ledger = new ToolLedger(store)
         const original = JSON.parse
         let parses = 0
         JSON.parse = ((text: string, reviver?: (key: string, value: unknown) => unknown) => {
           parses++
           return original(text, reviver)
         }) as typeof JSON.parse
-        const samples: number[] = []
+        const largeMs: number[] = []
+        const smallMs: number[] = []
         try {
-          for (let n = 0; n < 5; n++) {
+          for (let n = 0; n < 7; n++) {
+            smallMs.push(timedRequest(small, n).ms)
             const before = parses
-            const start = performance.now()
-            const open = ledger.unresolved('hot')
-            ledger.unresolved('hot')
-            ledger.unresolved('hot')
-            ledger.propose('hot', 'turn', `fresh-${n}`, { n })
-            ledger.settle('hot', `fresh-${n}`, false)
-            ledger.unresolved('hot')
-            samples.push(performance.now() - start)
-            const parsed = parses - before
-            expect(parsed).toBeLessThan(40)
+            const { open, ms } = timedRequest(large, n)
+            largeMs.push(ms)
+            expect(parses - before).toBeLessThan(40)
             expect(open.map((entry) => entry.callId).sort()).toEqual(['pending-0', 'pending-1'])
           }
         } finally {
           JSON.parse = original
         }
-        samples.sort((left, right) => left - right)
-        const median = samples[2] ?? 0
-        expect(median).toBeLessThan(50)
+        expect(Math.min(...largeMs)).toBeLessThan(10 * Math.min(...smallMs))
+        const { store, ledger } = large
         expect(ledger.unresolved('hot').map((entry) => entry.callId).sort()).toEqual([
           'pending-0',
           'pending-1',
@@ -372,10 +384,12 @@ describe('ledger request cost', () => {
         expect(() => ledger.propose('hot', 'turn', 'fresh-0', { n: 0 })).toThrow(
           'TOOL_ALREADY_PROPOSED',
         )
-        expect(store.count('ledger')).toBe(100_005)
+        expect(store.count('ledger')).toBe(100_007)
       } finally {
-        store.close()
-        rmSync(dir, { recursive: true, force: true })
+        for (const { store, dir } of [large, small]) {
+          store.close()
+          rmSync(dir, { recursive: true, force: true })
+        }
       }
     },
     120_000,
