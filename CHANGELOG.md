@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+A headless turn no longer fails with `POOL_UNAVAILABLE` only because a saved model list is out of date. Before, saved lists were re-read only when DSH listed models for its picker, which headless runs never do. A headless pool could keep a list without Opus for days after the subscription gained it, so a turn for Opus failed while the account that had Opus was at its weekly limit. Now, when no account can take the turn and an account that lacks the model has a list older than six hours, the plugin re-reads the stale lists once and routes the turn again. A turn that no account serves even after the re-read still fails with `POOL_UNAVAILABLE`. A pool that is only busy waits as before, without a re-read.
+
 A `writer.lock` left by a process that crashed or was killed no longer blocks every Claude turn. Before, any new writer failed with `STATE_IN_USE` until someone ran `doctor --recover` or deleted the file. Now, when the lock already exists, the writer runs the same checks as `doctor --recover`. The PID in the lock must be a positive integer, the system must report it as gone (`ESRCH`), and the lock must still name the same owner when it is read again. Only then is the lock removed and taken. A live PID, a PID owned by another user, an unreadable or invalid lock, or a lock that changed owner still fails with `STATE_IN_USE`.
 
 A process that exits normally releases its `writer.lock`, also when it never closed the provider. Before, the lock was released only when the state store was closed, so a host that exited with code 0 left a lock that named its dead PID. A process stopped by a signal still leaves its lock, and the next writer now takes it as above. Closing a store whose lock file is already gone no longer throws.

@@ -289,6 +289,7 @@ export class SubscriptionProvider {
     deadline: number,
     signal: AbortSignal,
   ): Promise<Binding> {
+    let listsReread = false
     while (true) {
       req.now = this.now()
       const bound = router.store.get<Binding>('bindings', req.session)
@@ -331,6 +332,20 @@ export class SubscriptionProvider {
             // The pinned account will never regain the model, so only the pool's wait applies.
             if (reason === 'capability') error = migration
           }
+        }
+        if (
+          error.code === 'POOL_UNAVAILABLE' &&
+          !listsReread &&
+          this.accounts().some(
+            (a) =>
+              !serves(a, req.model, req.effort) &&
+              this.#modelLists.isStale(router.store, a, req.now),
+          )
+        ) {
+          // The model picker is the only other refresh trigger, and headless runs never open it.
+          listsReread = true
+          await abortable(this.#modelLists.refreshIfStale(), signal)
+          continue
         }
         const canWait =
           error.code === 'ACCOUNT_QUEUE' ||
