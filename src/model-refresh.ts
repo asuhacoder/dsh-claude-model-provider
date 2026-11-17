@@ -49,6 +49,15 @@ export class ModelListRefresher {
     return this.#running
   }
 
+  isStale(store: StateStore, a: Account, now = this.now()): boolean {
+    return (
+      REFRESHABLE.has(a.state) &&
+      (a.modelsRefreshedAt ?? a.verifiedAt) + this.ttlMs <= now &&
+      (this.#failedAt.get(a.identity) ?? -Infinity) + this.retryMs <= now &&
+      !profileLoginHeld(store, a.profileRef)
+    )
+  }
+
   async #refresh(): Promise<void> {
     let store: StateStore
     try {
@@ -57,15 +66,7 @@ export class ModelListRefresher {
       return
     }
     const now = this.now()
-    const stale = store
-      .list<Account>('accounts')
-      .filter(
-        (a) =>
-          REFRESHABLE.has(a.state) &&
-          (a.modelsRefreshedAt ?? a.verifiedAt) + this.ttlMs <= now &&
-          (this.#failedAt.get(a.identity) ?? -Infinity) + this.retryMs <= now &&
-          !profileLoginHeld(store, a.profileRef),
-      )
+    const stale = store.list<Account>('accounts').filter((a) => this.isStale(store, a, now))
     for (const account of stale) {
       try {
         const catalog = await this.read(account.profileRef)
