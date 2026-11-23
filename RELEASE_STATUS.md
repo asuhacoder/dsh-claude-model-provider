@@ -1,6 +1,10 @@
-# Release status — 2026-11-13
+# Release status — 2026-11-23
 
-## Current candidate: 0.1.0-next.10
+## Current candidate: 0.1.0-next.11
+
+A `v0.1.0-next.11` tag on `main` publishes the CI-verified tarball to npm `next` with provenance and creates the GitHub prerelease. `latest` is unchanged. It contains the reconciliation of a response Claude Code resends, the fallback refusal without a trigger, the reclaim and release of a dead writer's `writer.lock`, the 30-second wait for MCP handler registration, the official login recheck before an account is held at login-required, the re-read of stale model lists before a headless turn fails `POOL_UNAVAILABLE`, and the development checks on DSH 0.2.2-rc.5 described in CHANGELOG.md. No real-account run of this exact artifact is claimed.
+
+## Historical candidate: 0.1.0-next.10
 
 A `v0.1.0-next.10` tag on `main` publishes the CI-verified tarball to npm `next` with provenance and creates the GitHub prerelease. `latest` is unchanged. It contains the match of real model ids behind aliases, the return of a suspended account to ready through the background model list refresh, and the build against DSH 0.2.2-rc.2 described in CHANGELOG.md. No real-account run of this exact artifact is claimed.
 
