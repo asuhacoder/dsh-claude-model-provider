@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-next.11 — 2026-11-23
 
 A headless turn no longer fails with `POOL_UNAVAILABLE` only because a saved model list is out of date. Before, saved lists were re-read only when DSH listed models for its picker, which headless runs never do. A headless pool could keep a list without Opus for days after the subscription gained it, so a turn for Opus failed while the account that had Opus was at its weekly limit. Now, when no account can take the turn and an account that lacks the model has a list older than six hours, the plugin re-reads the stale lists once and routes the turn again. A turn that no account serves even after the re-read still fails with `POOL_UNAVAILABLE`. A pool that is only busy waits as before, without a re-read.
 
@@ -17,6 +17,10 @@ A model fallback ends the turn as `CLAUDE_MODEL_REFUSAL` even when the fallback 
 A tool call no longer fails when the machine is busy and Claude's MCP handler registers late. Before, the plugin waited 5 seconds for the handler at the tool boundary and then failed with `CLAUDE_TOOL_PROTOCOL_ERROR` (`Claude MCP handlers did not register before the tool boundary`). Under heavy load the handler arrived after about 8 seconds, so `read_image` failed even though it would have worked. Now the wait is 30 seconds. Nothing is retried. Cancelling the request still ends the wait at once, and a handler that never registers still fails with the same error.
 
 One brief authentication failure from Claude no longer leaves an account in login-required until someone runs **Verify connection**. This applies to both the web and the headless pools. Before, a single `CLAUDE_AUTHENTICATION_FAILED` marked the account as needing login. After that, every turn failed with `BOUND_ACCOUNT_UNAVAILABLE`, and every new session failed with `POOL_UNAVAILABLE`, even though Claude Code was still logged in. Now the plugin runs the official login check before it marks the account, and again before a turn fails on an account that needs login. If the check passes after a failed turn, that turn still ends with its error, but the account stays ready. If it passes before a turn would fail, the account becomes ready and that same turn continues. The check runs at most once a minute per account, also across separate processes. An account that really is logged out still fails as before, and an account blocked for extra usage is never checked again this way.
+
+Development checks now use DSH 0.2.2-rc.5, through 0.2.2-rc.3 and 0.2.2-rc.4. No plugin source changed for these releases. The peer and engines ranges are unchanged and still stop below `0.3.0-0`.
+
+The lockfile moves Vite, which only the test runner uses, from 8.3.1 to 8.3.8, past GHSA-p4f5-76q4-ffq7. Vite is not a dependency of the published package.
 
 ## 0.1.0-next.10 — 2026-11-13
 

@@ -8,7 +8,7 @@ const changelog = `# Changelog
 
 Pending work.
 
-## 0.1.0-next.10 — 2026-11-13
+## 0.1.0-next.11 — 2026-11-23
 
 Publish from a version tag.
 
@@ -21,8 +21,8 @@ Older entry.
 
 function input(overrides = {}) {
   return {
-    ref: 'refs/tags/v0.1.0-next.10',
-    version: '0.1.0-next.10',
+    ref: 'refs/tags/v0.1.0-next.11',
+    version: '0.1.0-next.11',
     changelog,
     publishedVersions: ['0.1.0-next.5', '0.1.0-next.6'],
     ...overrides,
@@ -31,14 +31,14 @@ function input(overrides = {}) {
 
 test('accepts a prerelease tag that matches package.json and returns its notes', () => {
   assert.deepEqual(assessReleaseTag(input()), {
-    version: '0.1.0-next.10',
+    version: '0.1.0-next.11',
     distTag: 'next',
     notes: 'Publish from a version tag.\n\nSecond paragraph.',
   })
 })
 
 test('rejects a tag that differs from package.json', () => {
-  assert.throws(() => assessReleaseTag(input({ ref: 'refs/tags/v0.1.0-next.11' })), { code: 'TAG_VERSION_MISMATCH' })
+  assert.throws(() => assessReleaseTag(input({ ref: 'refs/tags/v0.1.0-next.12' })), { code: 'TAG_VERSION_MISMATCH' })
   assert.throws(() => assessReleaseTag(input({ ref: 'refs/heads/main' })), { code: 'TAG_VERSION_MISMATCH' })
 })
 
@@ -60,13 +60,13 @@ test('requires a non-empty changelog section for the exact version', () => {
   assert.throws(() => assessReleaseTag(input({ changelog: '## Unreleased\n\nPending.\n' })), {
     code: 'CHANGELOG_ENTRY_MISSING',
   })
-  assert.throws(() => assessReleaseTag(input({ changelog: '## 0.1.0-next.10\n\n## 0.1.0-next.6\n\nOld.\n' })), {
+  assert.throws(() => assessReleaseTag(input({ changelog: '## 0.1.0-next.11\n\n## 0.1.0-next.6\n\nOld.\n' })), {
     code: 'CHANGELOG_ENTRY_MISSING',
   })
 })
 
 test('does not match a version that only shares a prefix', () => {
-  assert.equal(changelogSection('## 0.1.0-next.100\n\nOther.\n', '0.1.0-next.10'), undefined)
+  assert.equal(changelogSection('## 0.1.0-next.110\n\nOther.\n', '0.1.0-next.11'), undefined)
 })
 
 test('rejects a version that is not semver', () => {
