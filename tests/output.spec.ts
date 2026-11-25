@@ -1316,3 +1316,95 @@ describe('Claude model refusal', () => {
     }
   })
 })
+
+describe('Claude Code falling back to a non-streaming request', () => {
+  const thinking = { type: 'thinking', thinking: 'plan', signature: 'sig' }
+  const grepUse = {
+    type: 'tool_use',
+    id: 'toolu_grep_nonstreamed',
+    name: 'mcp__dsh__grep',
+    input: { pattern: 'reconcile', path: '/repo' },
+  }
+
+  function nonStreamed(content: unknown[]): SDKMessage {
+    return sdk({
+      type: 'assistant',
+      message: {
+        id: 'msg_nonstreamed',
+        role: 'assistant',
+        model: 'opus',
+        content,
+        usage: { input_tokens: 40, output_tokens: 7, cache_read_input_tokens: 30 },
+      },
+      parent_tool_use_id: null,
+      uuid: crypto.randomUUID(),
+      session_id: session,
+    })
+  }
+
+  function expectAdoptedToolCall(
+    chunks: ReturnType<typeof acceptAll>,
+    usage = { inputTokens: 40, outputTokens: 7, cacheReadTokens: 30 },
+  ) {
+    expect(chunks.filter((chunk) => chunk.type !== 'usage')).toEqual([
+      { type: 'block-start', index: 0, blockType: 'reasoning' },
+      { type: 'reasoning-delta', index: 0, text: 'plan' },
+      { type: 'block-end', index: 0, block: { type: 'reasoning', text: 'plan' } },
+      { type: 'block-start', index: 1, blockType: 'tool-call' },
+      {
+        type: 'tool-call-delta',
+        index: 1,
+        id: 'toolu_grep_nonstreamed',
+        name: 'grep',
+        argumentsDelta: '{"path":"/repo","pattern":"reconcile"}',
+      },
+      {
+        type: 'block-end',
+        index: 1,
+        block: {
+          type: 'tool-call',
+          id: 'toolu_grep_nonstreamed',
+          name: 'grep',
+          arguments: '{"path":"/repo","pattern":"reconcile"}',
+        },
+      },
+      { type: 'finish', reason: { kind: 'tool-calls' } },
+    ])
+    expect(chunks.find((chunk) => chunk.type === 'usage')).toMatchObject({ usage })
+  }
+
+  it('adopts the completed response when the stream ended before message_start', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    expectAdoptedToolCall(acceptAll(translator, [nonStreamed([thinking]), nonStreamed([grepUse])]))
+  })
+
+  it('adopts the completed response when the stream ended after an empty message_start', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    expectAdoptedToolCall(
+      acceptAll(translator, [
+        envelope({
+          type: 'message_start',
+          message: { id: 'msg_cut_off', usage: { input_tokens: 40, output_tokens: 1 } },
+        }),
+        nonStreamed([thinking]),
+        nonStreamed([grepUse]),
+      ]),
+      // Both requests reached the API, so the cut-off one stays counted.
+      { inputTokens: 80, outputTokens: 8, cacheReadTokens: 30 },
+    )
+  })
+
+  it('finishes a non-streamed text answer at the result', () => {
+    const translator = new ClaudeOutputTranslator(new UsageTracker())
+    const chunks = acceptAll(translator, [
+      nonStreamed([{ type: 'text', text: 'Done.', citations: null }]),
+      result(),
+    ])
+    expect(chunks.filter((chunk) => chunk.type !== 'usage')).toEqual([
+      { type: 'block-start', index: 0, blockType: 'text' },
+      { type: 'text-delta', index: 0, text: 'Done.' },
+      { type: 'block-end', index: 0, block: { type: 'text', text: 'Done.' } },
+      { type: 'finish', reason: { kind: 'stop' } },
+    ])
+  })
+})

@@ -89,6 +89,9 @@ interface ResponseSpan {
   readonly closedFrom: number
   readonly completedFrom: number
   stopReason: string | null
+  readonly id: string | undefined
+  /** False when Claude Code fell back to a non-streaming request and only completed it. */
+  readonly streamed: boolean
 }
 
 interface Refusal {
@@ -181,6 +184,7 @@ export class ClaudeOutputTranslator {
   readonly #ignoredBlocks = new Set<number>()
   readonly #outputIndices = new Map<number, number>()
   #nextOutputIndex = 0
+  #sawStreamEvent = false
   #assistantError: SDKAssistantMessageError | undefined
   #messageStopReason: string | null | undefined
   #sessionId: string | undefined
@@ -241,6 +245,7 @@ export class ClaudeOutputTranslator {
     if (message.parent_tool_use_id !== null) {
       throw protocolError('Claude emitted subagent output while native tools were disabled')
     }
+    this.#sawStreamEvent = true
     const event = message.event
     switch (event.type) {
       case 'message_start': {
@@ -249,6 +254,8 @@ export class ClaudeOutputTranslator {
           closedFrom: this.#closed.length,
           completedFrom: this.#completed.length,
           stopReason: null,
+          id: event.message.id,
+          streamed: true,
         }
         this.usage.observeCall(event.message.usage, true)
         if (!this.stopAtOutputLimit) return chunks
@@ -475,27 +482,79 @@ export class ClaudeOutputTranslator {
     }
     this.#lastAssistantUuid = message.uuid
     this.#assistantError ??= message.error
+    const chunks = this.#nonStreamed(message)
+    const complete = (block: ContentBlock) => {
+      this.#completed.push(block)
+      if (chunks !== undefined) chunks.push(...this.#emitCompleted(block))
+    }
     for (const block of message.message.content) {
-      if (block.type === 'text') this.#completed.push({ type: 'text', text: block.text })
+      if (block.type === 'text') complete({ type: 'text', text: block.text })
       else if (block.type === 'thinking') {
-        this.#completed.push({ type: 'reasoning', text: block.thinking })
+        complete({ type: 'reasoning', text: block.thinking })
       } else if (block.type === 'tool_use') {
         if (this.#unavailableTool(block.id, block.name)) continue
-        this.#completed.push({
+        complete({
           type: 'tool-call',
           id: asCallId(block.id),
           name: dshToolName(block.name),
           arguments: completedToolArguments(block.input),
         })
       } else if (block.type === 'fallback') {
-        return this.#refuse(fallbackRefusal(block))
+        return [...(chunks ?? []), ...this.#refuse(fallbackRefusal(block))]
       } else if (message.error === undefined) {
         throw protocolError(
           `Claude completed unsupported ${JSON.stringify(block.type)} content while only DSH MCP tools were enabled`,
         )
       }
     }
-    return this.#finishTools()
+    return [...(chunks ?? []), ...this.#finishTools()]
+  }
+
+  /**
+   * When a stream ends before any content block completes, Claude Code repeats the request
+   * without streaming and reports only the completed message. Its content is authoritative, so
+   * DSH streams it from there. Returns undefined for a message whose response was streamed.
+   */
+  #nonStreamed(message: Extract<SDKMessage, { type: 'assistant' }>): StreamChunk[] | undefined {
+    const response = this.#response
+    const { id } = message.message
+    if (
+      response === undefined
+        ? this.#sawStreamEvent
+        : response.id === undefined || response.id === id
+    )
+      return response?.streamed === false ? [] : undefined
+    const chunks = this.#abandonUnfinishedResponse()
+    this.#response = {
+      closedFrom: this.#closed.length,
+      completedFrom: this.#completed.length,
+      stopReason: message.message.stop_reason,
+      id,
+      streamed: false,
+    }
+    this.usage.observeCall(message.message.usage, true)
+    return chunks
+  }
+
+  #emitCompleted(block: ContentBlock): StreamChunk[] {
+    const index = this.#nextOutputIndex++
+    this.#closed.push(block)
+    const chunks: StreamChunk[] = [{ type: 'block-start', index, blockType: block.type }]
+    if (block.type === 'tool-call') {
+      chunks.push({
+        type: 'tool-call-delta',
+        index,
+        id: block.id,
+        name: block.name,
+        argumentsDelta: block.arguments,
+      })
+    } else if (block.type === 'text' && block.text.length > 0) {
+      chunks.push({ type: 'text-delta', index, text: block.text })
+    } else if (block.type === 'reasoning' && block.text.length > 0) {
+      chunks.push({ type: 'reasoning-delta', index, text: block.text })
+    }
+    chunks.push({ type: 'block-end', index, block })
+    return chunks
   }
 
   #unavailableTool(id: string, name: string): boolean {
